@@ -87,7 +87,7 @@ function Login() {
         <div className="col-md-6 d-none d-md-flex flex-column justify-content-center align-items-center bg-primary text-white p-5">
           <div className="text-center mb-5">
             <h1 className="display-4 fw-bold mb-4">Bienvenue !</h1>
-            <p className="lead mb-4">Système de Gestion Scolaire</p>
+            {/* <p className="lead mb-4">Système de Gestion Scolaire</p> */}
 
             {/* Logo ou image */}
             <div className="mb-4">
@@ -165,13 +165,13 @@ function Login() {
 
               {/* Informations sur les comptes de démo */}
               <div className="mt-3 p-3 bg-light rounded">
-                <small className="text-muted">
+                {/* <small className="text-muted">
                   <strong>Comptes de test :</strong><br />
                   • Admin: <strong>admin</strong> / 123456<br />
                   • Scolarité: <strong>scolarite</strong> / 123456<br />
                   • Bourse: <strong>bourse</strong> / 123456<br />
                   • Finance: <strong>finance</strong> / 123456
-                </small>
+                </small> */}
               </div>
             </form>
           </div>
