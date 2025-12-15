@@ -1,0 +1,102 @@
+/* Styles pour l'icône */
+.icon {
+  margin-right: 8px; /* Espace à droite de l'icône */
+  width: 25px; /* Largeur de l'icône */
+  height: 25px; /* Hauteur de l'icône */
+  fill: currentColor; /* Utilisation de la couleur actuelle */
+}
+
+/* Styles supplémentaires pour la sidebar */
+.sidebar .nav:not(.sub-menu) > .nav-item {
+  border-bottom: 1px solid #f3f3f3; /* Bord inférieur pour les éléments de navigation */
+  margin-top: 0; /* Pas de marge supérieure */
+}
+
+.sidebar .nav .nav-item {
+  transition-duration: 0.25s; /* Durée de la transition */
+}
+
+/* Styles pour les listes */
+ul li,
+ol li,
+dl li {
+  line-height: 1.8; /* Hauteur de ligne pour les éléments de liste */
+}
+
+/* Style général pour les liens */
+a {
+  color: rgb(29, 27, 27); /* Couleur générale des liens */
+  text-decoration: none; /* Supprime le soulignement des liens */
+}
+
+.router-link {
+  text-decoration: none;
+  transition: background-color 0.3s ease, color 0.3s ease; /* Ajout de la transition de couleur */
+  color: rgb(255, 255, 255); /* Couleur de texte par défaut */
+  display: inline-flex;
+  align-items: center; /* Centrage des éléments */
+  padding: 10px;
+  width: 130% !important; /* Largeur définie à 125% */
+  margin-left: 0; /* Marge gauche à 0 */
+  font-size: small; /* Taille de la police */
+  cursor: pointer; /* Définit le curseur sur "pointer" au survol */
+}
+
+.router-link:hover {
+  background-color: rgb(255, 255, 255);
+  color: black; /* Changer la couleur du texte en noir au survol */
+}
+
+
+.active-link {
+  background-color: rgba(255, 255, 255, 0.3); /* Exemple pour l'arrière-plan du lien actif */
+  color: black; /* Couleur du texte noir pour le lien actif */
+}
+
+.border-raduis{
+  border-radius: 10px;
+}
+
+.items-centers{
+  justify-content: center;
+  align-items: center;
+  margin-left: 45px;
+}
+
+
+/* Sidebar links */
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 0.875rem;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.sidebar-link:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.sidebar-link.active {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Submenus */
+.sidebar-submenu {
+  display: flex;
+  flex-direction: column;
+  padding-left: 20px;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-submenu .sidebar-link {
+  font-size: 0.875rem;
+  color: #f0f0f0;
+}
+
+.sidebar-submenu .sidebar-link:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}

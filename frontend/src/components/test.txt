@@ -1,0 +1,434 @@
+import React, { useEffect, useState } from 'react';
+import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
+import { Modal, Button } from 'react-bootstrap';
+// import userImage from '../assets/images/image.jpg';
+// import universityLogo from '../assets/images/sec-10.png';
+import './Navbar.css';
+// import axios from 'axios';
+import api from '../services/api'; // Importez votre instance API personnalisée
+// import { ACCESS_TOKEN } from '../services/constants';
+
+const Navbar = () => {
+  const [showDropDown, setShowDropDown] = useState(false);
+  const [showDropDown1, setShowDropDown1] = useState(false);
+  const [showDropDown2, setShowDropDown2] = useState(false);
+  const [showDropDown3, setShowDropDown3] = useState(false);
+  const [showDropDown4, setShowDropDown4] = useState(false);
+  const [showDropDown5, setShowDropDown5] = useState(false);
+  const [showSide, setShowSide] = useState(true);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const location = useLocation();
+  const [username, setUsername] = useState('');
+  const [first_name, setFirstName] = useState('');
+  const [email, setEmail] = useState('');
+  const [isStaff, setIsStaff] = useState(false);
+  const navigate = useNavigate();
+  // const [isSuperuser, setIsSuperuser] = useState(false);
+
+  const fetchUsername = async () => {
+    try {
+      const response = await api.get('https://localhost:8000/api/user-info/');
+      setFirstName(response.data.first_name);
+      setUsername(response.data.username);
+      setEmail(response.data.email);
+      setIsStaff(response.data.is_staff);
+
+    } catch (error) {
+      console.error('Erreur lors de la récupération du nom d\'utilisateur:', error);
+      setFirstName('Nom');  // Valeur par défaut en cas d'erreur
+      setUsername('Utilisateur');  // Valeur par défaut en cas d'erreur
+      setEmail('Email');  // Valeur par défaut en cas d'erreur
+      setIsStaff(false);
+    }
+  };
+
+  const handleResize = () => {
+    const minWidth = 720; // Minimum width to consider showing the sidebar
+    const maxWidth = 1200; // Maximum width to show the sidebar
+
+    if (window.innerWidth < minWidth) {
+      setShowSide(false); // Cacher la barre latérale sur mobile
+    } else if (window.innerWidth > maxWidth) {
+      setShowSide(true); // Afficher la barre latérale sur desktop
+    } else {
+      setShowSide(true); // Afficher la barre latérale entre min et max
+    }
+  };
+
+  // const checkSuperuser = async () => {
+  //   try {
+  //     const response = await axios.get('https://localhost:8000/api/check-superuser/');
+  //     setIsSuperuser(response.data.is_superuser);
+  //   } catch (error) {
+  //     console.error('Erreur lors de la vérification du superuser:', error);
+  //   }
+  // };
+
+
+  useEffect(() => {
+    // checkSuperuser();
+    handleResize();
+    fetchUsername();
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
+  const toggleDrop = () => {
+    setShowDropDown(!showDropDown);
+  };
+
+  const toggleDrop1 = () => {
+    setShowDropDown1(!showDropDown1);
+  };
+
+  const toggleDrop2 = () => {
+    setShowDropDown2(!showDropDown2);
+  };
+
+  const toggleDrop3 = () => {
+    setShowDropDown3(!showDropDown3);
+  };
+
+  const toggleDrop4 = () => {
+    setShowDropDown4(!showDropDown4);
+  };
+
+  const toggleDrop5 = () => {
+    setShowDropDown5(!showDropDown5);
+  };
+
+  const toggleSideBar = () => {
+    setShowSide(!showSide);
+  };
+
+  const isActive = (path) => (location.pathname === path ? 'active-link' : '');
+
+  const isActive1 = (path) => {
+    const isPathActive = location.pathname === path;
+    const isSubMenuActive =
+      location.pathname === '/Inscription' ||
+      location.pathname === '/ComposantsPV/Batteries' ||
+      location.pathname === '/ComposantsPV/Onduleur' ||
+      location.pathname === '/ComposantsPV/Regulateur';
+
+    // Vérifiez si le chemin est actif ou si le sous-menu est actif
+    return isPathActive || (path === '/ListesComposantsPV' && isSubMenuActive) ? 'bg-yellow-400 text-white' : 'text-gray-300'; // Couleur par défaut
+  };
+
+  const isActive2 = (path) => {
+    const isPathActive = location.pathname === path;
+    const isSubMenuActive =
+      location.pathname === '/Dimensionnement' ||
+      location.pathname === '/ListesDimensionnement';
+
+    // Vérifiez si le chemin est actif ou si le sous-menu est actif
+    return isPathActive || (path === '/Dimensionnements' && isSubMenuActive) ? 'bg-yellow-400 text-white' : 'text-gray-600'; // Couleur par défaut
+  };
+
+  const handleLogout = () => {
+    // Supprimer le token ou l'état d'authentification
+    localStorage.removeItem("isAuthenticated");
+    localStorage.removeItem("accessToken"); // si tu stockes un token
+
+    // Fermer le modal
+    setShowLogoutModal(false);
+
+    // Rediriger vers la page de login
+    navigate("/login");
+  };
+
+
+  return (
+    <div className="flex w-screen h-screen">
+      {/* Sidebar */}
+      {showSide && (
+        <div className="w-[185px] h-full bg-blue-600 text-white"> {/* Bleu solaire */}
+          <div className="h-[50px] bg-blue-600"> {/* Jaune solaire */}
+            <div className="flex items-center justify-start px-[5px]">
+              {/* <img src={universityLogo} alt="University Logo" className="h-[85px] w-[85px] items-centers mt-1 border-raduis" /> */}
+              {/* <p className="font-bold mt-3 ml-5">Solar PV</p> */}
+            </div>
+          </div>
+          {/* navlink */}
+          <div className="h-[calc(100vh-50px)] bg-blue-600 py-[40px] overflow-y-auto"> {/* Ajout de overflow-y-auto */}
+            <div className="flex flex-col justify-between h-full px-[22px] space-y-[10px]">
+              <div className="font-bold flex flex-col text-white justify-between space-y-[10px]">
+                <Link to="/Dashboard" className={`router-link h-[50px] ${isActive('/Dashboard')}`}>
+                  <i className="fas fa-home fa-lg mr-2"></i>
+                  ACCUEIL
+                </Link>
+                <Link title="Composant photovoltaique" className={`router-link h-[50px] flex items-center ${isActive1('/ListesComposantsPV')}`} onClick={toggleDrop4}>
+                  <i className="fas fa-sun fa-lg mr-2"></i>
+                  Inscription
+                  <i className={`ml-auto fas fa-chevron-down transition-transform ${showDropDown4 ? 'rotate-180' : 'rotate-0'}`}></i>
+                </Link>
+                {showDropDown4 && (
+                  <div className="ml-[-1px]">
+                    <Link to="/Inscription" className={`mb-1 router-link h-[40px] ${isActive('/Inscription')}`}>
+                      <p className="ml-4">
+                        <i className="fas fa-solar-panel fa-lg mr-2"></i>
+                        <span className="text-black">Inscription</span>
+                      </p>
+                    </Link>
+                    <Link to="/ComposantsPV/Batteries" className={`mb-1 router-link h-[40px] ${isActive('/ComposantsPV/Batteries')}`}>
+                      <p className="ml-4">
+                        <i className="fas fa-car-battery fa-lg mr-2"></i>
+                        <span className="text-black">Batteries</span>
+                      </p>
+                    </Link>
+                    <Link to="/ComposantsPV/Onduleur" className={`mb-1 router-link h-[40px] ${isActive('/ComposantsPV/Onduleur')}`}>
+                      <p className="ml-4">
+                        <i className="fas fa-plug fa-lg mr-2"></i> {/* Changement ici */}
+                        <span className="text-black">Onduleurs</span>
+                      </p>
+                    </Link>
+                    <Link to="/ComposantsPV/Regulateur" className={`router-link h-[40px] ${isActive('/ComposantsPV/Regulateur')}`}>
+                      <p className="ml-4">
+                        <i className="fas fa-tachometer-alt fa-lg mr-2"></i>
+                        <span className="text-black">Régulateur</span>
+                      </p>
+                    </Link>
+                  </div>
+                )}
+                <Link title="Composant photovoltaique" className={`router-link h-[50px] flex items-center ${isActive1('/ListesComposantsPV')}`} onClick={toggleDrop3}>
+                  <i className="fas fa-sun fa-lg mr-2"></i>
+                  Réinscription
+                  <i className={`ml-auto fas fa-chevron-down transition-transform ${showDropDown3 ? 'rotate-180' : 'rotate-0'}`}></i>
+                </Link>
+                {showDropDown3 && (
+                  <div className="ml-[-1px]">
+                    <Link to="/ComposantsPV/Panneaux" className={`mb-1 router-link h-[40px] ${isActive('/ComposantsPV/Panneaux')}`}>
+                      <p className="ml-4">
+                        <i className="fas fa-solar-panel fa-lg mr-2"></i>
+                        <span className="text-black">Panneaux</span>
+                      </p>
+                    </Link>
+                    <Link to="/ComposantsPV/Batteries" className={`mb-1 router-link h-[40px] ${isActive('/ComposantsPV/Batteries')}`}>
+                      <p className="ml-4">
+                        <i className="fas fa-car-battery fa-lg mr-2"></i>
+                        <span className="text-black">Batteries</span>
+                      </p>
+                    </Link>
+                    <Link to="/ComposantsPV/Onduleur" className={`mb-1 router-link h-[40px] ${isActive('/ComposantsPV/Onduleur')}`}>
+                      <p className="ml-4">
+                        <i className="fas fa-plug fa-lg mr-2"></i> {/* Changement ici */}
+                        <span className="text-black">Onduleurs</span>
+                      </p>
+                    </Link>
+                    <Link to="/ComposantsPV/Regulateur" className={`router-link h-[40px] ${isActive('/ComposantsPV/Regulateur')}`}>
+                      <p className="ml-4">
+                        <i className="fas fa-tachometer-alt fa-lg mr-2"></i>
+                        <span className="text-black">Régulateur</span>
+                      </p>
+                    </Link>
+                  </div>
+                )}
+                <Link title="Composant photovoltaique" className={`router-link h-[50px] flex items-center ${isActive1('/ListesComposantsPV')}`} onClick={toggleDrop1}>
+                  <i className="fas fa-sun fa-lg mr-2"></i>
+                  Étudiant
+                  <i className={`ml-auto fas fa-chevron-down transition-transform ${showDropDown1 ? 'rotate-180' : 'rotate-0'}`}></i>
+                </Link>
+                {showDropDown1 && (
+                  <div className="ml-[-1px]">
+                    <Link to="/ComposantsPV/Panneaux" className={`mb-1 router-link h-[40px] ${isActive('/ComposantsPV/Panneaux')}`}>
+                      <p className="ml-4">
+                        <i className="fas fa-solar-panel fa-lg mr-2"></i>
+                        <span className="text-black">Panneaux</span>
+                      </p>
+                    </Link>
+                    <Link to="/ComposantsPV/Batteries" className={`mb-1 router-link h-[40px] ${isActive('/ComposantsPV/Batteries')}`}>
+                      <p className="ml-4">
+                        <i className="fas fa-car-battery fa-lg mr-2"></i>
+                        <span className="text-black">Batteries</span>
+                      </p>
+                    </Link>
+                    <Link to="/ComposantsPV/Onduleur" className={`mb-1 router-link h-[40px] ${isActive('/ComposantsPV/Onduleur')}`}>
+                      <p className="ml-4">
+                        <i className="fas fa-plug fa-lg mr-2"></i> {/* Changement ici */}
+                        <span className="text-black">Onduleurs</span>
+                      </p>
+                    </Link>
+                    <Link to="/ComposantsPV/Regulateur" className={`router-link h-[40px] ${isActive('/ComposantsPV/Regulateur')}`}>
+                      <p className="ml-4">
+                        <i className="fas fa-tachometer-alt fa-lg mr-2"></i>
+                        <span className="text-black">Régulateur</span>
+                      </p>
+                    </Link>
+                  </div>
+                )}
+                <Link className={`router-link h-[50px] ${isActive2('/Dimensionnements')}`} onClick={toggleDrop2}>
+                  <i className="fas fa-ruler fa-lg mr-1"></i>
+                  Bourses
+                  <i className={`ml-auto fas fa-chevron-down transition-transform ${showDropDown2 ? 'rotate-180' : 'rotate-0'}`}></i>
+                </Link>
+                {showDropDown2 && (
+                  <div className="ml-[-1px]">
+                    <Link to="/Dimensionnement" title="Calcule de dimensionnement" className={`mb-1 router-link h-[40px] ${isActive('/Dimensionnement')}`}>
+                      <p className="ml-4">
+                        {/* <span className="icon-circle mr-2"> */}
+                        <i className="fas fa- fa-calculator fa-lg mr-2"></i>
+                        {/* </span> */}
+                        <span className="text-black">Calcule</span>
+                      </p>
+                    </Link>
+                    <Link to="/ListesDimensionnement" title="Listes des dimensionnements" className={`mb-1 router-link h-[40px] ${isActive('/ListesDimensionnement')}`}>
+                      <p className="ml-4">
+                        {/* <span className="icon-circle mr-2"> */}
+                        <i className="fas fa-list fa-lg mr-2"></i>
+                        {/* </span> */}
+                        <span className="text-black">Listes</span>
+                      </p>
+                    </Link>
+                  </div>
+                )}
+                <Link title="Composant photovoltaique" className={`router-link h-[50px] flex items-center ${isActive1('/ListesComposantsPV')}`} onClick={toggleDrop5}>
+                  <i className="fas fa-sun fa-lg mr-2"></i>
+                  Réinscription
+                  <i className={`ml-auto fas fa-chevron-down transition-transform ${showDropDown5 ? 'rotate-180' : 'rotate-0'}`}></i>
+                </Link>
+                {showDropDown5 && (
+                  <div className="ml-[-1px]">
+                    <Link to="/ComposantsPV/Panneaux" className={`mb-1 router-link h-[40px] ${isActive('/ComposantsPV/Panneaux')}`}>
+                      <p className="ml-4">
+                        <i className="fas fa-solar-panel fa-lg mr-2"></i>
+                        <span className="text-black">Panneaux</span>
+                      </p>
+                    </Link>
+                    <Link to="/ComposantsPV/Batteries" className={`mb-1 router-link h-[40px] ${isActive('/ComposantsPV/Batteries')}`}>
+                      <p className="ml-4">
+                        <i className="fas fa-car-battery fa-lg mr-2"></i>
+                        <span className="text-black">Batteries</span>
+                      </p>
+                    </Link>
+                    <Link to="/ComposantsPV/Onduleur" className={`mb-1 router-link h-[40px] ${isActive('/ComposantsPV/Onduleur')}`}>
+                      <p className="ml-4">
+                        <i className="fas fa-plug fa-lg mr-2"></i> {/* Changement ici */}
+                        <span className="text-black">Onduleurs</span>
+                      </p>
+                    </Link>
+                    <Link to="/ComposantsPV/Regulateur" className={`router-link h-[40px] ${isActive('/ComposantsPV/Regulateur')}`}>
+                      <p className="ml-4">
+                        <i className="fas fa-tachometer-alt fa-lg mr-2"></i>
+                        <span className="text-black">Régulateur</span>
+                      </p>
+                    </Link>
+                  </div>
+                )}
+                {isStaff && (
+                  <Link
+                    to="/Utilisateur"
+                    className={`router-link h-[50px] ${isActive('/Utilisateur')}`}>
+                    <i className="fas fa-user fa-lg mr-2"></i>
+                    UTILISATEURS
+                  </Link>)}
+              </div>
+              <div className="h-[39px]" onClick={() => setShowLogoutModal(true)}>
+                <div className={`router-link h-[50px] font-bold ${isActive('/logout')}`}>
+                  <i className="fas fa-sign-out-alt fa-lg mr-2"></i>
+                  {/* Déconnexion */}
+                  DECONNEXION
+                </div>
+                <p className='mt-1'
+                  style={{
+                    fontSize: '10px'
+                  }}
+                >V1.0.0</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Main content */}
+      <div className="w-full h-full bg-blue-800"> {/* Fond principal bleu solaire */}
+        <div className="h-[50px] bg-gray-300 flex items-center shadow-sm px-4 md:px-6 w-full py-[10px] z-10 border-b">
+          <div className="cursor-pointer w-[30px]" onClick={toggleSideBar}>
+            <i className="fas fa-bars"></i>
+          </div>
+          <div className="flex justify-center ml-auto">
+            <h1 className="items-center justify-center py-1 px-3 text-sm sm:text-base md:text-lg lg:text-xl text-blue-900 text-center truncate">
+              {/* Gestion des Dimensionnement du Systeme Photovoltaique */}
+            </h1>
+            {/* <div className='flex items-center space-x-1'>
+              <div className='cursor-pointer'>
+                <i className='fas fa-close mr-5'></i>
+              </div>
+              <div className='cursor-pointer'>
+                <i className='fas fa-close mr-5'></i>
+              </div>
+              <div className='cursor-pointer flex items-center space-x-1 sm:inline'>
+                <i className='fas fa-close mr-'></i>
+                <span className="w-10 h-4 mb-3 bg-red-500 rounded-full font-sm">20+</span>
+              </div>
+            </div> */}
+
+          </div>
+          <div className="relative ml-auto">
+            <div className="flex items-center justify-start space-x-2 cursor-pointer" onClick={toggleDrop}>
+              <span className="flex items-center space-x-1">
+                {/* Bouton vert pour indiquer en ligne */}
+                <span className="w-2.5 h-2.5 mb-3 bg-green-500 rounded-full"></span>
+
+                {/* Nom d'utilisateur */}
+                <span className="sm:inline text-sm text-blue-900 truncate max-w-[100px] md:max-w-[150px]">
+                  {first_name || "Nom d'utilisateur inconnu"}
+                  <i className="fas fa-user ml-3"></i>
+                </span>
+              </span>
+            </div>
+            {showDropDown && (
+              <div className="absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-gray-300">
+                <div className="py-1 text-left" role="none">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 px-4 py-2">
+                    <p className="text-gray-700 w-full text-left text-sm truncate">
+                      {username || 'Nom d\'utilisateur inconnu'}
+                    </p>
+                    <p className="text-gray-700 w-full text-left text-sm truncate">
+                      {email || 'Email inconnu'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="h-[calc(100vh-50px)] bg-gray-50">
+          <div className="border-gray-300 rounded-md h-full overflow-y-auto w-full">
+            <Outlet />
+          </div>
+        </div>
+      </div>
+
+      {/* Modal de confirmation pour la déconnexion */}
+      <Modal
+        style={{
+          backdropFilter: 'blur(1px)', // Utilisez la notation camelCase et des guillemets pour la valeur
+          backgroundColor: 'rgba(0, 0, 0, 0.5)', // Idem ici
+        }}
+        backdrop="static" show={showLogoutModal} onHide={() => setShowLogoutModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Confirmation de déconnexion</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>Êtes-vous sûr de vouloir vous déconnecter ?</Modal.Body>
+        <Modal.Footer className="flex justify-end space-x-4 p-4 bg-gray-50">
+          <Button
+            className="px-4 py-2 border border-gray-300 rounded-md"
+            variant="secondary" onClick={() => setShowLogoutModal(false)}>
+            <i className="fas fa-close me-2"></i>
+            Annuler
+          </Button>
+          <Button
+            className="px-4 py-2 border border-gray-300 rounded-md hover:bg-red-500"
+            variant="danger" onClick={handleLogout}>
+            <i className="fas fa-sign-out-alt mr-2"></i>
+            Déconnexion
+          </Button>
+        </Modal.Footer>
+      </Modal>
+    </div>
+  );
+};
+
+export default Navbar;

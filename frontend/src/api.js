@@ -1,0 +1,196 @@
+import axios from 'axios';
+
+const API_URL = 'http://127.0.0.1:8000/api';
+
+const api = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Endpoints d'authentification
+export const authApi = {
+  login: (credentials) => api.post('/auth/login/', credentials),
+  refreshToken: (refreshToken) => api.post('/auth/login/refresh/', { refresh: refreshToken }),
+  resetPassword: (email) => api.post('/auth/reset-password/', { email }),
+  confirmResetPassword: (uid, token, data) => api.post(`/auth/reset-password-confirm/${uid}/${token}/`, data),
+};
+
+// Fonction pour gérer les erreurs API
+const handleApiError = (error, endpoint) => {
+  console.error(`Erreur API ${endpoint}:`, {
+    message: error.message,
+    status: error.response?.status,
+    data: error.response?.data,
+    url: error.config?.url
+  });
+  
+  if (error.response?.status === 404) {
+    console.warn(`Endpoint ${endpoint} non trouvé (404)`);
+  }
+  
+  return Promise.reject(error);
+};
+
+// Endpoints étudiants
+export const etudiantApi = {
+  // Récupérer les étudiants
+  getEtudiants: async (params = {}) => {
+    try {
+      console.log("API: Récupération étudiants avec params:", params);
+      const response = await api.get('/etudiants/', { params });
+      console.log("API: Réponse brute:", response.data);
+      return response;
+    } catch (error) {
+      return handleApiError(error, 'getEtudiants');
+    }
+  },
+
+  // Récupérer les statistiques
+  getStats: async () => {
+    try {
+      console.log("API: Récupération des statistiques");
+      const response = await api.get('/etudiants/stats/');
+      console.log("API: Statistiques reçues:", response.data);
+      return response;
+    } catch (error) {
+      if (error.response?.status === 404) {
+        console.log("Endpoint stats/ non trouvé, tentative avec stats");
+        try {
+          const response = await api.get('/etudiants/stats');
+          return response;
+        } catch (secondError) {
+          return handleApiError(secondError, 'getStats');
+        }
+      }
+      return handleApiError(error, 'getStats');
+    }
+  },
+
+  // Autres méthodes
+  getEtudiant: (id) => api.get(`/etudiants/${id}/`),
+  createEtudiant: (data) => api.post('/etudiants/', data),
+  updateEtudiant: (id, data) => api.put(`/etudiants/${id}/`, data),
+  patchEtudiant: (id, data) => api.patch(`/etudiants/${id}/`, data),
+  deleteEtudiant: (id) => api.delete(`/etudiants/${id}/`),
+  searchEtudiants: (params) => api.get('/etudiants/search/', { params }),
+};
+
+// Endpoints bourses (AJOUTÉ)
+export const bourseApi = {
+  // Récupérer toutes les bourses
+  getBourses: async (params = {}) => {
+    try {
+      console.log("API: Récupération bourses avec params:", params);
+      const response = await api.get('/bourses/', { params });
+      console.log("API: Réponse brute bourses:", response.data);
+      return response;
+    } catch (error) {
+      return handleApiError(error, 'getBourses');
+    }
+  },
+
+  // Récupérer une bourse spécifique
+  getBourse: (id) => api.get(`/bourses/${id}/`),
+
+  // Créer une nouvelle bourse
+  createBourse: async (data) => {
+    try {
+      console.log("API: Création bourse avec data:", data);
+      const response = await api.post('/bourses/', data);
+      console.log("API: Réponse création bourse:", response.data);
+      return response;
+    } catch (error) {
+      return handleApiError(error, 'createBourse');
+    }
+  },
+
+  // Mettre à jour une bourse (PUT)
+  updateBourse: async (id, data) => {
+    try {
+      console.log(`API: Mise à jour bourse ${id} avec data:`, data);
+      const response = await api.put(`/bourses/${id}/`, data);
+      console.log("API: Réponse mise à jour bourse:", response.data);
+      return response;
+    } catch (error) {
+      return handleApiError(error, 'updateBourse');
+    }
+  },
+
+  // Mettre à jour partiellement une bourse (PATCH)
+  patchBourse: async (id, data) => {
+    try {
+      console.log(`API: Patch bourse ${id} avec data:`, data);
+      const response = await api.patch(`/bourses/${id}/`, data);
+      console.log("API: Réponse patch bourse:", response.data);
+      return response;
+    } catch (error) {
+      return handleApiError(error, 'patchBourse');
+    }
+  },
+
+  // Supprimer une bourse
+  deleteBourse: (id) => api.delete(`/bourses/${id}/`),
+
+  // Récupérer les bourses d'un étudiant spécifique
+  getBoursesByEtudiant: async (etudiantId) => {
+    try {
+      console.log("API: Récupération bourses pour étudiant:", etudiantId);
+      const response = await api.get('/bourses/', { params: { etudiant: etudiantId } });
+      return response;
+    } catch (error) {
+      return handleApiError(error, 'getBoursesByEtudiant');
+    }
+  }
+};
+
+// Interceptor pour ajouter le token
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Interceptor pour gérer les erreurs et refresh token
+api.interceptors.response.use(
+  (response) => {
+    console.log(`API ${response.config.url}:`, response.status);
+    return response;
+  },
+  async (error) => {
+    const originalRequest = error.config;
+    
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      try {
+        const refreshToken = localStorage.getItem('refresh_token');
+        if (!refreshToken) {
+          throw new Error('No refresh token');
+        }
+        
+        const response = await authApi.refreshToken(refreshToken);
+        const newAccessToken = response.data.access;
+        
+        localStorage.setItem('access_token', newAccessToken);
+        api.defaults.headers.common['Authorization'] = `Bearer ${newAccessToken}`;
+        
+        return api(originalRequest);
+      } catch (refreshError) {
+        localStorage.clear();
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
+    }
+    
+    return Promise.reject(error);
+  }
+);
+
+export default api;
