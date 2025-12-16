@@ -15,8 +15,21 @@ import ToastContainer from 'react-bootstrap/ToastContainer';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { etudiantApi } from '../api';
 
+import { FaUpload, FaFileExcel, FaDownload } from "react-icons/fa";
+import * as XLSX from 'xlsx';
+
 export default function Inscription() {
   // État pour les données
+const [showImportModal, setShowImportModal] = useState(false);
+const [importFile, setImportFile] = useState(null);
+const [importProgress, setImportProgress] = useState(0);
+const [importStatus, setImportStatus] = useState(null);
+const [importResults, setImportResults] = useState({
+  total: 0,
+  success: 0,
+  failed: 0,
+  errors: []
+});
   const [etudiants, setEtudiants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
