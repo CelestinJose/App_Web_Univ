@@ -1,6 +1,6 @@
 // src/components/Inscription.js
 import React, { useState, useEffect, useCallback } from "react";
-import { FaEdit, FaTrash, FaPlus, FaSearch, FaSync } from "react-icons/fa";
+import { FaEdit, FaTrash, FaPlus, FaSearch } from "react-icons/fa";
 import Modal from 'react-bootstrap/Modal';
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
@@ -12,6 +12,7 @@ import Pagination from 'react-bootstrap/Pagination';
 import Spinner from 'react-bootstrap/Spinner';
 import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer';
+import ProgressBar from 'react-bootstrap/ProgressBar';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { etudiantApi } from '../api';
 
