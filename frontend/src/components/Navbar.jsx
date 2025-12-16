@@ -67,7 +67,7 @@ const Navbar = () => {
   return (
     <div className="w-[185px] bg-blue-600 text-white h-full flex flex-col">
       <div className="h-[50px] flex items-center justify-center text-lg font-bold border-b border-blue-500">
-        UVT
+        EDU-UNIV/TUL
       </div>
 
       <div className="p-4 text-center border-b border-blue-500">

@@ -16,7 +16,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { etudiantApi } from '../api';
 
 import { FaUpload, FaFileExcel, FaDownload } from "react-icons/fa";
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx'; didi
 
 export default function Inscription() {
   // État pour les données

@@ -87,7 +87,7 @@ function Login() {
         <div className="col-md-6 d-none d-md-flex flex-column justify-content-center align-items-center bg-primary text-white p-5">
           <div className="text-center mb-5">
             <h1 className="display-4 fw-bold mb-4">Bienvenue !</h1>
-            {/* <p className="lead mb-4">Système de Gestion Scolaire</p> */}
+            <p className="lead mb-4">EDU-UNIV/TUL</p>
 
             {/* Logo ou image */}
             <div className="mb-4">
