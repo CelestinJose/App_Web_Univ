@@ -16,20 +16,20 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { etudiantApi } from '../api';
 
 import { FaUpload, FaFileExcel, FaDownload } from "react-icons/fa";
-import * as XLSX from 'xlsx'; didi
+import * as XLSX from 'xlsx';
 
 export default function Inscription() {
   // État pour les données
-const [showImportModal, setShowImportModal] = useState(false);
-const [importFile, setImportFile] = useState(null);
-const [importProgress, setImportProgress] = useState(0);
-const [importStatus, setImportStatus] = useState(null);
-const [importResults, setImportResults] = useState({
-  total: 0,
-  success: 0,
-  failed: 0,
-  errors: []
-});
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importFile, setImportFile] = useState(null);
+  const [importProgress, setImportProgress] = useState(0);
+  const [importStatus, setImportStatus] = useState(null);
+  const [importResults, setImportResults] = useState({
+    total: 0,
+    success: 0,
+    failed: 0,
+    errors: []
+  });
   const [etudiants, setEtudiants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -159,14 +159,14 @@ const [importResults, setImportResults] = useState({
   // Fonctions pour gérer les changements de faculté
   const handleFaculteChange = (selectedFaculte) => {
     const faculteInfo = facultesData[selectedFaculte];
-    
+
     const updatedForm = {
       ...form,
       faculte: selectedFaculte,
       domaine: faculteInfo ? faculteInfo.domaine : "",
       mention: "" // Réinitialiser la mention quand on change de faculté
     };
-    
+
     setForm(updatedForm);
   };
 
@@ -207,7 +207,7 @@ const [importResults, setImportResults] = useState({
 
       console.log("Fetching étudiants avec params:", params);
       const response = await etudiantApi.getEtudiants(params);
-      
+
       // Si la réponse contient des résultats
       if (response.data && Array.isArray(response.data.results)) {
         setEtudiants(response.data.results);
@@ -226,7 +226,7 @@ const [importResults, setImportResults] = useState({
     } catch (err) {
       console.error("Erreur lors du fetch:", err);
       let errorMessage = "Erreur lors du chargement des données";
-      
+
       if (err.response) {
         errorMessage = `Erreur ${err.response.status}: ${err.response.statusText}`;
         if (err.response.data) {
@@ -269,6 +269,237 @@ const [importResults, setImportResults] = useState({
   // Fonction pour montrer les toasts
   const showToast = (message, type = 'success') => {
     setToast({ show: true, message, type });
+  };
+
+  // ... vos fonctions existantes ...
+
+  // Ouvrir la modale d'importation
+  const openImportModal = () => {
+    setShowImportModal(true);
+    setImportFile(null);
+    setImportProgress(0);
+    setImportStatus(null);
+    setImportResults({ total: 0, success: 0, failed: 0, errors: [] });
+  };
+
+  // Fermer la modale d'importation
+  const closeImportModal = () => {
+    setShowImportModal(false);
+    setImportFile(null);
+    setImportProgress(0);
+    setImportStatus(null);
+    setImportResults({ total: 0, success: 0, failed: 0, errors: [] });
+  };
+
+  // Gérer la sélection du fichier
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file && (file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+      file.type === 'application/vnd.ms-excel' ||
+      file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
+      setImportFile(file);
+      setImportStatus(null);
+    } else {
+      showToast('Veuillez sélectionner un fichier Excel valide (.xlsx ou .xls)', 'warning');
+      setImportFile(null);
+    }
+  };
+
+  // Télécharger un modèle Excel
+  const downloadTemplate = () => {
+    // Créer un workbook avec les colonnes attendues
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['matricule', 'nom', 'prenom', 'date_naissance', 'lieu_naissance', 'telephone', 'email', 'cin', 'annee_bacc', 'code_redoublement', 'boursier', 'faculte', 'domaine', 'niveau', 'nationalite', 'mention', 'nom_pere', 'nom_mere'],
+      ['MAT001', 'RAKOTO', 'Jean', '1995-01-15', 'Antananarivo', '0341234567', 'jean.rakoto@email.com', '101123456789', '2013', 'N', 'OUI', 'FACULTE DES SCIENCES - TUL', 'Sciences et Technologies', 'Licence 1', 'Malagasy', 'TUL - L - FST - PHYSIQUE ET APPLICATION', 'RAKOTO Pierre', 'RASOA Marie']
+    ]);
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Etudiants');
+    XLSX.writeFile(wb, 'modele_import_etudiants.xlsx');
+
+    showToast('Modèle Excel téléchargé', 'success');
+  };
+
+  // Traiter l'importation Excel
+  const processImport = async () => {
+    if (!importFile) {
+      showToast('Veuillez sélectionner un fichier Excel', 'warning');
+      return;
+    }
+
+    setImportStatus('processing');
+    setImportProgress(10);
+
+    try {
+      // Lire le fichier Excel
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+
+          // Prendre la première feuille
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+
+          // Convertir en JSON
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+          if (jsonData.length < 2) {
+            throw new Error('Le fichier Excel doit contenir au moins une ligne d\'en-tête et une ligne de données');
+          }
+
+          // Extraire les en-têtes et les données
+          const headers = jsonData[0].map(h => h?.toString().toLowerCase().trim());
+          const rows = jsonData.slice(1);
+
+          setImportProgress(30);
+
+          // Mapper les données
+          const etudiantsData = [];
+          const errors = [];
+
+          for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            if (!row || row.length === 0) continue;
+
+            try {
+              const etudiant = {};
+
+              // Mapper chaque colonne
+              headers.forEach((header, colIndex) => {
+                const value = row[colIndex]?.toString().trim() || '';
+
+                switch (header) {
+                  case 'matricule':
+                    etudiant.matricule = value;
+                    break;
+                  case 'nom':
+                    etudiant.nom = value;
+                    break;
+                  case 'prenom':
+                    etudiant.prenom = value;
+                    break;
+                  case 'date_naissance':
+                    if (value) {
+                      // Essayer de parser la date
+                      const date = new Date(value);
+                      if (!isNaN(date.getTime())) {
+                        etudiant.date_naissance = date.toISOString().split('T')[0];
+                      }
+                    }
+                    break;
+                  case 'lieu_naissance':
+                    etudiant.lieu_naissance = value;
+                    break;
+                  case 'telephone':
+                    etudiant.telephone = value;
+                    break;
+                  case 'email':
+                    etudiant.email = value;
+                    break;
+                  case 'cin':
+                    etudiant.cin = value;
+                    break;
+                  case 'annee_bacc':
+                    etudiant.annee_bacc = value;
+                    break;
+                  case 'code_redoublement':
+                    etudiant.code_redoublement = value || 'N';
+                    break;
+                  case 'boursier':
+                    etudiant.boursier = value || 'OUI';
+                    break;
+                  case 'faculte':
+                    etudiant.faculte = value;
+                    break;
+                  case 'domaine':
+                    etudiant.domaine = value;
+                    break;
+                  case 'niveau':
+                    etudiant.niveau = value || 'Licence 1';
+                    break;
+                  case 'nationalite':
+                    etudiant.nationalite = value || 'Malagasy';
+                    break;
+                  case 'mention':
+                    etudiant.mention = value;
+                    break;
+                  case 'nom_pere':
+                    etudiant.nom_pere = value;
+                    break;
+                  case 'nom_mere':
+                    etudiant.nom_mere = value;
+                    break;
+                  default:
+                    break;
+                }
+              });
+
+              // Validation basique
+              if (!etudiant.matricule || !etudiant.nom || !etudiant.prenom) {
+                throw new Error(`Ligne ${i + 2}: Champs obligatoires manquants (matricule, nom, prenom)`);
+              }
+
+              etudiantsData.push(etudiant);
+
+            } catch (rowError) {
+              errors.push(`Ligne ${i + 2}: ${rowError.message}`);
+            }
+          }
+
+          setImportProgress(50);
+          setImportResults({
+            total: etudiantsData.length,
+            success: 0,
+            failed: errors.length,
+            errors: errors
+          });
+
+          if (etudiantsData.length === 0) {
+            throw new Error('Aucune donnée valide trouvée dans le fichier');
+          }
+
+          // Envoyer les données au backend
+          setImportProgress(70);
+
+          const response = await etudiantApi.bulkImport(etudiantsData);
+
+          setImportProgress(100);
+          setImportStatus('success');
+
+          const results = response.data;
+          setImportResults({
+            total: results.total,
+            success: results.success,
+            failed: results.failed,
+            errors: results.errors || []
+          });
+
+          showToast(`Importation terminée: ${results.success} succès, ${results.failed} échecs`, 'success');
+
+          // Rafraîchir les données
+          fetchEtudiants();
+          fetchStats();
+
+        } catch (error) {
+          console.error('Erreur lors du traitement du fichier:', error);
+          setImportStatus('error');
+          setImportResults(prev => ({
+            ...prev,
+            errors: [...prev.errors, error.message]
+          }));
+          showToast(`Erreur lors de l'importation: ${error.message}`, 'danger');
+        }
+      };
+
+      reader.readAsArrayBuffer(importFile);
+
+    } catch (error) {
+      console.error('Erreur lors de l\'importation:', error);
+      setImportStatus('error');
+      showToast(`Erreur lors de l'importation: ${error.message}`, 'danger');
+    }
   };
 
   // Ouvrir modal d'ajout
@@ -574,6 +805,13 @@ const [importResults, setImportResults] = useState({
             </div>
             <div className="col-md-4 text-end">
               <Button
+                variant="success"
+                onClick={openImportModal}
+                className="d-inline-flex align-items-center me-2"
+              >
+                <FaUpload className="me-2" /> Importer Excel
+              </Button>
+              <Button
                 variant="primary"
                 onClick={openAddModal}
                 className="d-inline-flex align-items-center"
@@ -741,8 +979,8 @@ const [importResults, setImportResults] = useState({
                           <td className="font-monospace">{etudiant.cin || '-'}</td>
                           <td>
                             <Badge
-                              bg={etudiant.code_redoublement === 'N' ? 'success' : 
-                                   etudiant.code_redoublement === 'R' ? 'danger' : 'warning'}
+                              bg={etudiant.code_redoublement === 'N' ? 'success' :
+                                etudiant.code_redoublement === 'R' ? 'danger' : 'warning'}
                               className="font-monospace"
                             >
                               {etudiant.code_redoublement}
@@ -752,11 +990,11 @@ const [importResults, setImportResults] = useState({
                             <Badge
                               bg={
                                 etudiant.niveau?.includes('Licence 1') ? 'primary' :
-                                etudiant.niveau?.includes('Licence 2') ? 'info' :
-                                etudiant.niveau?.includes('Licence 3') ? 'secondary' :
-                                etudiant.niveau?.includes('Master 1') ? 'warning' :
-                                etudiant.niveau?.includes('Master 2') ? 'success' :
-                                'dark'
+                                  etudiant.niveau?.includes('Licence 2') ? 'info' :
+                                    etudiant.niveau?.includes('Licence 3') ? 'secondary' :
+                                      etudiant.niveau?.includes('Master 1') ? 'warning' :
+                                        etudiant.niveau?.includes('Master 2') ? 'success' :
+                                          'dark'
                               }
                               className="font-monospace"
                             >
@@ -1198,6 +1436,133 @@ const [importResults, setImportResults] = useState({
           </Button>
         </Modal.Footer>
       </Modal>
+
+      // ... votre code existant ...
+
+      {/* Modal d'importation Excel */}
+      <Modal show={showImportModal} onHide={closeImportModal} size="lg" centered>
+        <Modal.Header closeButton className="bg-success text-white">
+          <Modal.Title>
+            <FaFileExcel className="me-2" />
+            Importer des étudiants depuis Excel
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <div className="mb-4">
+            <h6>Instructions d'importation :</h6>
+            <ul className="text-muted small">
+              <li>Le fichier doit être au format Excel (.xlsx ou .xls)</li>
+              <li>La première ligne doit contenir les en-têtes des colonnes</li>
+              <li>Les colonnes obligatoires sont : matricule, nom, prenom</li>
+              <li>Les dates doivent être au format YYYY-MM-DD</li>
+              <li>Téléchargez le modèle pour voir le format attendu</li>
+            </ul>
+            <Button
+              variant="outline-info"
+              size="sm"
+              onClick={downloadTemplate}
+              className="d-inline-flex align-items-center"
+            >
+              <FaDownload className="me-2" />
+              Télécharger le modèle Excel
+            </Button>
+          </div>
+
+          <Form.Group className="mb-3">
+            <Form.Label>Sélectionner le fichier Excel</Form.Label>
+            <Form.Control
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={handleFileChange}
+              disabled={importStatus === 'processing'}
+            />
+            {importFile && (
+              <Form.Text className="text-success">
+                Fichier sélectionné : {importFile.name}
+              </Form.Text>
+            )}
+          </Form.Group>
+
+          {importStatus === 'processing' && (
+            <div className="mb-3">
+              <div className="d-flex align-items-center mb-2">
+                <span className="me-2">Traitement en cours...</span>
+                <span className="text-muted">({importProgress}%)</span>
+              </div>
+              <ProgressBar now={importProgress} animated />
+            </div>
+          )}
+
+          {importResults.total > 0 && (
+            <div className="mb-3">
+              <h6>Résultats de l'importation :</h6>
+              <div className="row text-center">
+                <div className="col-md-4">
+                  <div className="p-2 bg-light rounded">
+                    <div className="h5 text-primary">{importResults.total}</div>
+                    <small className="text-muted">Total</small>
+                  </div>
+                </div>
+                <div className="col-md-4">
+                  <div className="p-2 bg-success rounded text-white">
+                    <div className="h5">{importResults.success}</div>
+                    <small>Succès</small>
+                  </div>
+                </div>
+                <div className="col-md-4">
+                  <div className="p-2 bg-danger rounded text-white">
+                    <div className="h5">{importResults.failed}</div>
+                    <small>Échecs</small>
+                  </div>
+                </div>
+              </div>
+
+              {importResults.errors.length > 0 && (
+                <div className="mt-3">
+                  <h6 className="text-danger">Erreurs rencontrées :</h6>
+                  <div className="bg-light p-2 rounded" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                    {importResults.errors.map((error, index) => (
+                      <div key={index} className="text-danger small">
+                        - {error}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {importStatus === 'error' && (
+            <Alert variant="danger">
+              <Alert.Heading>Erreur lors de l'importation</Alert.Heading>
+              <p>Une erreur s'est produite pendant le traitement du fichier. Vérifiez le format et réessayez.</p>
+            </Alert>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={closeImportModal}>
+            Fermer
+          </Button>
+          <Button
+            variant="success"
+            onClick={processImport}
+            disabled={!importFile || importStatus === 'processing'}
+          >
+            {importStatus === 'processing' ? (
+              <>
+                <Spinner animation="border" size="sm" className="me-2" />
+                Importation en cours...
+              </>
+            ) : (
+              <>
+                <FaUpload className="me-2" />
+                Importer
+              </>
+            )}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
     </div>
   );
 }
