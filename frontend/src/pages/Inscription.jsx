@@ -1,6 +1,6 @@
 // src/components/Inscription.js
 import React, { useState, useEffect, useCallback } from "react";
-import { FaEdit, FaTrash, FaPlus, FaSearch } from "react-icons/fa";
+import { FaEdit, FaTrash, FaPlus, FaSearch, FaExclamationTriangle } from "react-icons/fa";
 import Modal from 'react-bootstrap/Modal';
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
@@ -21,10 +21,15 @@ import * as XLSX from 'xlsx';
 
 export default function Inscription() {
   // État pour les données
+  // Ajoutez cet état avec vos autres états
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [importData, setImportData] = useState(null); // Pour stocker les données d'importation
+  const [duplicateErrors, setDuplicateErrors] = useState([]);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importFile, setImportFile] = useState(null);
   const [importProgress, setImportProgress] = useState(0);
   const [importStatus, setImportStatus] = useState(null);
+  const [ignoreDuplicates, setIgnoreDuplicates] = useState(true);
   const [importResults, setImportResults] = useState({
     total: 0,
     success: 0,
@@ -187,6 +192,11 @@ export default function Inscription() {
     "Master 1", "Master 2", "Doctorat 1"
   ];
 
+  // Fonction pour montrer les toasts
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+  };
+
   // Charger les étudiants
   const fetchEtudiants = useCallback(async () => {
     setLoading(true);
@@ -267,13 +277,6 @@ export default function Inscription() {
     fetchStats();
   }, [fetchEtudiants, fetchStats]);
 
-  // Fonction pour montrer les toasts
-  const showToast = (message, type = 'success') => {
-    setToast({ show: true, message, type });
-  };
-
-  // ... vos fonctions existantes ...
-
   // Ouvrir la modale d'importation
   const openImportModal = () => {
     setShowImportModal(true);
@@ -322,6 +325,38 @@ export default function Inscription() {
   };
 
   // Traiter l'importation Excel
+  // Fonction pour détecter les doublons
+  const detectDuplicates = async (etudiantsData) => {
+    const duplicates = [];
+    const seenMatricules = new Set();
+    const seenInscriptions = new Set();
+
+    for (let i = 0; i < etudiantsData.length; i++) {
+      const etudiant = etudiantsData[i];
+
+      // Vérifier les doublons de matricule dans le fichier
+      if (etudiant.matricule) {
+        if (seenMatricules.has(etudiant.matricule)) {
+          duplicates.push(`⚠️ Ligne ${i + 2}: Matricule en double: "${etudiant.matricule}"`);
+        } else {
+          seenMatricules.add(etudiant.matricule);
+        }
+      }
+
+      // Vérifier les doublons de numéro d'inscription dans le fichier
+      if (etudiant.numero_inscription) {
+        if (seenInscriptions.has(etudiant.numero_inscription)) {
+          duplicates.push(`⚠️ Ligne ${i + 2}: Numéro d'inscription en double: "${etudiant.numero_inscription}"`);
+        } else {
+          seenInscriptions.add(etudiant.numero_inscription);
+        }
+      }
+    }
+
+    return duplicates;
+  };
+
+  // Modifiez votre fonction processImport pour utiliser la modale
   const processImport = async () => {
     if (!importFile) {
       showToast('Veuillez sélectionner un fichier Excel', 'warning');
@@ -332,25 +367,19 @@ export default function Inscription() {
     setImportProgress(10);
 
     try {
-      // Lire le fichier Excel
       const reader = new FileReader();
       reader.onload = async (e) => {
         try {
           const data = new Uint8Array(e.target.result);
           const workbook = XLSX.read(data, { type: 'array' });
-
-          // Prendre la première feuille
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
-
-          // Convertir en JSON
           const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
           if (jsonData.length < 2) {
             throw new Error('Le fichier Excel doit contenir au moins une ligne d\'en-tête et une ligne de données');
           }
 
-          // Extraire les en-têtes et les données
           const headers = jsonData[0].map(h => h?.toString().toLowerCase().trim());
           const rows = jsonData.slice(1);
 
@@ -371,75 +400,14 @@ export default function Inscription() {
               headers.forEach((header, colIndex) => {
                 const value = row[colIndex]?.toString().trim() || '';
 
-                switch (header) {
-                  case 'matricule':
-                    etudiant.matricule = value;
-                    break;
-                  case 'nom':
-                    etudiant.nom = value;
-                    break;
-                  case 'prenom':
-                    etudiant.prenom = value;
-                    break;
-                  case 'date_naissance':
-                    if (value) {
-                      // Essayer de parser la date
-                      const date = new Date(value);
-                      if (!isNaN(date.getTime())) {
-                        etudiant.date_naissance = date.toISOString().split('T')[0];
-                      }
-                    }
-                    break;
-                  case 'lieu_naissance':
-                    etudiant.lieu_naissance = value;
-                    break;
-                  case 'telephone':
-                    etudiant.telephone = value;
-                    break;
-                  case 'email':
-                    etudiant.email = value;
-                    break;
-                  case 'cin':
-                    etudiant.cin = value;
-                    break;
-                  case 'annee_bacc':
-                    etudiant.annee_bacc = value;
-                    break;
-                  case 'code_redoublement':
-                    etudiant.code_redoublement = value || 'N';
-                    break;
-                  case 'boursier':
-                    etudiant.boursier = value || 'OUI';
-                    break;
-                  case 'faculte':
-                    etudiant.faculte = value;
-                    break;
-                  case 'domaine':
-                    etudiant.domaine = value;
-                    break;
-                  case 'niveau':
-                    etudiant.niveau = value || 'Licence 1';
-                    break;
-                  case 'nationalite':
-                    etudiant.nationalite = value || 'Malagasy';
-                    break;
-                  case 'mention':
-                    etudiant.mention = value;
-                    break;
-                  case 'nom_pere':
-                    etudiant.nom_pere = value;
-                    break;
-                  case 'nom_mere':
-                    etudiant.nom_mere = value;
-                    break;
-                  default:
-                    break;
+                if (header && value) {
+                  etudiant[header] = value;
                 }
               });
 
-              // Validation basique
+              // Validation
               if (!etudiant.matricule || !etudiant.nom || !etudiant.prenom) {
-                throw new Error(`Ligne ${i + 2}: Champs obligatoires manquants (matricule, nom, prenom)`);
+                throw new Error(`Champs obligatoires manquants (matricule, nom, prenom)`);
               }
 
               etudiantsData.push(etudiant);
@@ -450,46 +418,37 @@ export default function Inscription() {
           }
 
           setImportProgress(50);
-          setImportResults({
+
+          // Détecter les doublons
+          const duplicates = await detectDuplicates(etudiantsData);
+          const allErrors = [...errors, ...duplicates];
+
+          // Stocker les données pour la modale de confirmation
+          setImportData({
+            etudiantsData,
             total: etudiantsData.length,
-            success: 0,
-            failed: errors.length,
-            errors: errors
+            errors: allErrors
           });
+
+          setDuplicateErrors(allErrors);
 
           if (etudiantsData.length === 0) {
             throw new Error('Aucune donnée valide trouvée dans le fichier');
           }
 
-          // Envoyer les données au backend
-          setImportProgress(70);
+          // Si des doublons sont détectés, afficher la modale de confirmation
+          if (allErrors.length > 0) {
+            setShowConfirmModal(true);
+            setImportStatus('idle');
+            return;
+          }
 
-          const response = await etudiantApi.bulkImport(etudiantsData);
-
-          setImportProgress(100);
-          setImportStatus('success');
-
-          const results = response.data;
-          setImportResults({
-            total: results.total,
-            success: results.success,
-            failed: results.failed,
-            errors: results.errors || []
-          });
-
-          showToast(`Importation terminée: ${results.success} succès, ${results.failed} échecs`, 'success');
-
-          // Rafraîchir les données
-          fetchEtudiants();
-          fetchStats();
+          // Sinon, continuer directement avec l'importation
+          proceedWithImport(etudiantsData, allErrors);
 
         } catch (error) {
           console.error('Erreur lors du traitement du fichier:', error);
           setImportStatus('error');
-          setImportResults(prev => ({
-            ...prev,
-            errors: [...prev.errors, error.message]
-          }));
           showToast(`Erreur lors de l'importation: ${error.message}`, 'danger');
         }
       };
@@ -499,6 +458,42 @@ export default function Inscription() {
     } catch (error) {
       console.error('Erreur lors de l\'importation:', error);
       setImportStatus('error');
+      showToast(`Erreur lors de l'importation: ${error.message}`, 'danger');
+    }
+  };
+
+  // Fonction pour procéder à l'importation
+  const proceedWithImport = async (etudiantsData, errors) => {
+    setImportStatus('processing');
+    setImportProgress(70);
+
+    try {
+      const response = await etudiantApi.bulkImport(etudiantsData);
+
+      setImportProgress(100);
+      setImportStatus('success');
+
+      const results = response.data;
+      setImportResults({
+        total: results.total,
+        success: results.success,
+        failed: results.failed,
+        errors: results.errors || errors
+      });
+
+      showToast(`Importation terminée: ${results.success} succès, ${results.failed} échecs`, 'success');
+
+      // Rafraîchir les données
+      fetchEtudiants();
+      fetchStats();
+
+    } catch (error) {
+      console.error('Erreur lors de l\'importation:', error);
+      setImportStatus('error');
+      setImportResults(prev => ({
+        ...prev,
+        errors: [...prev.errors, error.message]
+      }));
       showToast(`Erreur lors de l'importation: ${error.message}`, 'danger');
     }
   };
@@ -1438,8 +1433,6 @@ export default function Inscription() {
         </Modal.Footer>
       </Modal>
 
-      // ... votre code existant ...
-
       {/* Modal d'importation Excel */}
       <Modal show={showImportModal} onHide={closeImportModal} size="lg" centered>
         <Modal.Header closeButton className="bg-success text-white">
@@ -1482,6 +1475,17 @@ export default function Inscription() {
                 Fichier sélectionné : {importFile.name}
               </Form.Text>
             )}
+          </Form.Group>
+          <Form.Group className="mb-3">
+            <Form.Check
+              type="checkbox"
+              label="Ignorer les doublons (mettre à jour les étudiants existants)"
+              checked={ignoreDuplicates}
+              onChange={(e) => setIgnoreDuplicates(e.target.checked)}
+            />
+            <Form.Text className="text-muted">
+              Si coché, les étudiants existants seront mis à jour au lieu de créer des doublons
+            </Form.Text>
           </Form.Group>
 
           {importStatus === 'processing' && (
@@ -1564,6 +1568,106 @@ export default function Inscription() {
         </Modal.Footer>
       </Modal>
 
+      {/* Modal de confirmation pour les doublons */}
+      <Modal show={showConfirmModal} onHide={() => setShowConfirmModal(false)} centered>
+        <Modal.Header closeButton className="bg-warning">
+          <Modal.Title>
+            <FaExclamationTriangle className="me-2" />
+            Doublons détectés
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Alert variant="warning" className="mb-3">
+            <Alert.Heading>⚠️ Attention !</Alert.Heading>
+            <p>
+              <strong>{duplicateErrors.length} erreur(s)</strong> détectée(s) dans le fichier.
+              Certaines lignes peuvent contenir des doublons.
+            </p>
+            <p className="mb-0">
+              En continuant, l'importation risque d'échouer à cause des contraintes d'unicité.
+            </p>
+          </Alert>
+
+          {duplicateErrors.length > 0 && (
+            <div className="mb-3">
+              <h6 className="text-danger">Détails des erreurs :</h6>
+              <div className="bg-light p-2 rounded" style={{
+                maxHeight: '200px',
+                overflowY: 'auto',
+                fontSize: '0.875rem'
+              }}>
+                {duplicateErrors.map((error, index) => (
+                  <div key={index} className="text-danger mb-1">
+                    • {error}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="bg-light p-3 rounded">
+            <h6>Que voulez-vous faire ?</h6>
+            <div className="form-check mb-2">
+              <input
+                className="form-check-input"
+                type="radio"
+                id="optionCancel"
+                name="importOption"
+                defaultChecked
+              />
+              <label className="form-check-label" htmlFor="optionCancel">
+                <strong>Annuler l'importation</strong>
+                <div className="text-muted small">
+                  Corrigez le fichier Excel et réessayez
+                </div>
+              </label>
+            </div>
+            <div className="form-check">
+              <input
+                className="form-check-input"
+                type="radio"
+                id="optionContinue"
+                name="importOption"
+              />
+              <label className="form-check-label" htmlFor="optionContinue">
+                <strong>Continuer malgré les doublons</strong>
+                <div className="text-muted small">
+                  L'importation pourrait échouer partiellement
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div className="mt-3">
+            <small className="text-muted">
+              Total des étudiants valides : {importData?.total || 0}
+            </small>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setShowConfirmModal(false);
+              setImportStatus('idle');
+            }}
+          >
+            Annuler l'importation
+          </Button>
+          <Button
+            variant="warning"
+            onClick={() => {
+              setShowConfirmModal(false);
+              if (importData) {
+                proceedWithImport(importData.etudiantsData, importData.errors);
+              }
+            }}
+          >
+            <FaExclamationTriangle className="me-2" />
+            Continuer malgré les erreurs
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 }

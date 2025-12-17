@@ -9,6 +9,7 @@ import Paiement from "./pages/Paiement";
 import Reinscription from "./pages/Reinscription";
 import Inscription from "./pages/Inscription";
 import Authentification from "./pages/Authentification";
+import Impression from "./pages/Impression";
 
 // Route protégée par authentification
 function PrivateRoute({ children }) {
@@ -46,6 +47,7 @@ function App() {
           <Route path="paiement" element={<Paiement />} />
           <Route path="reinscription" element={<Reinscription />} />
           <Route path="authentification" element={<Authentification />} />
+          <Route path="impression" element={<Impression />} />
         </Route>
         
         {/* Redirection par défaut */}

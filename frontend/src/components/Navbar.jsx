@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Modal, Button } from 'react-bootstrap';
-import api from '../api'; // Import corrigé
+import api from '../api';
 import './Navbar.css';
 
 const Navbar = () => {
@@ -9,6 +9,7 @@ const Navbar = () => {
   const [showDrop1, setShowDrop1] = useState(false); // Inscription
   const [showDrop2, setShowDrop2] = useState(false); // Réinscription
   const [showDrop3, setShowDrop3] = useState(false); // Étudiant
+  const [showDrop4, setShowDrop4] = useState(false); // Doublon (nouveau)
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [userInfo, setUserInfo] = useState({
     first_name: 'Utilisateur',
@@ -21,7 +22,6 @@ const Navbar = () => {
 
   const fetchUser = async () => {
     try {
-      // Utiliser l'API configurée
       const res = await api.get('/user-info/');
       setUserInfo({
         first_name: res.data.first_name || 'Utilisateur',
@@ -30,7 +30,6 @@ const Navbar = () => {
       });
     } catch (err) {
       console.error("Erreur récupération utilisateur:", err);
-      // Continuer avec les valeurs par défaut
     }
   };
 
@@ -39,12 +38,12 @@ const Navbar = () => {
     if (token) {
       fetchUser();
     }
-    
+
     const handleResize = () => {
       if (window.innerWidth < 720) setShowSide(false);
       else setShowSide(true);
     };
-    
+
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -54,12 +53,11 @@ const Navbar = () => {
   const isActive = (path) => location.pathname === path ? 'active' : '';
 
   const handleLogout = () => {
-    // Supprimer tous les tokens possibles
     localStorage.removeItem("access_token");
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refresh_token");
     localStorage.removeItem("refreshToken");
-    
+
     setShowLogoutModal(false);
     navigate("/login");
   };
@@ -91,12 +89,27 @@ const Navbar = () => {
           </div>
 
           {showDrop1 && (
-            <div className="sidebar-submenu">
-              <Link to="/inscription" className={`sidebar-link ${isActive('/inscription')}`}>
-                Nouvelle inscription
-              </Link>
-            </div>
+            <>
+              <div className="sidebar-submenu">
+                <Link
+                  to="/inscription"
+                  className={`sidebar-link ${isActive('/inscription')}`}
+                >
+                  Nouvelle inscription
+                </Link>
+              </div>
+
+              <div className="sidebar-submenu">
+                <Link
+                  to="/impression"
+                  className={`sidebar-link ${isActive('/impression')}`}
+                >
+                  Impression
+                </Link>
+              </div>
+            </>
           )}
+
         </div>
 
         {/* Réinscription */}
@@ -121,6 +134,30 @@ const Navbar = () => {
           {showDrop3 && (
             <div className="sidebar-submenu">
               <Link to="/list-etudiants" className={`sidebar-link ${isActive('/list-etudiants')}`}>Liste Étudiants</Link>
+            </div>
+          )}
+        </div>
+
+        {/* Doublon - Section séparée */}
+        <div>
+          <div onClick={() => setShowDrop4(!showDrop4)} className="sidebar-link flex justify-between items-center">
+            <span><i className="fas fa-clone mr-2"></i>Détection Doublons</span>
+            <i className={`fas fa-chevron-down transition-transform ${showDrop4 ? 'rotate-180' : 'rotate-0'}`}></i>
+          </div>
+          {showDrop4 && (
+            <div className="sidebar-submenu">
+              <Link to="/doublons/nom-prenom" className={`sidebar-link ${isActive('/doublons/nom-prenom')}`}>
+                Doublon Nom et Prénom
+              </Link>
+              <Link to="/doublons/cin" className={`sidebar-link ${isActive('/doublons/cin')}`}>
+                Doublon CIN
+              </Link>
+              <Link to="/doublons/telephone" className={`sidebar-link ${isActive('/doublons/telephone')}`}>
+                Doublon Numéro Tél
+              </Link>
+              <Link to="/doublons/inscription" className={`sidebar-link ${isActive('/doublons/inscription')}`}>
+                Doublon Inscription
+              </Link>
             </div>
           )}
         </div>

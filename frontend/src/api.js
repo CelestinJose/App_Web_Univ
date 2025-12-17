@@ -25,11 +25,11 @@ const handleApiError = (error, endpoint) => {
     data: error.response?.data,
     url: error.config?.url
   });
-  
+
   if (error.response?.status === 404) {
     console.warn(`Endpoint ${endpoint} non trouvé (404)`);
   }
-  
+
   return Promise.reject(error);
 };
 
@@ -44,6 +44,37 @@ export const etudiantApi = {
       return response;
     } catch (error) {
       return handleApiError(error, 'getEtudiants');
+    }
+  },
+
+  // Importation en masse
+  bulkImport: async (etudiantsData) => {
+    try {
+      console.log("API: Importation en masse avec", etudiantsData.length, "étudiants");
+      const response = await api.post('/etudiants/bulk_import/', etudiantsData);
+      console.log("API: Résultat importation:", response.data);
+      return response;
+    } catch (error) {
+      return handleApiError(error, 'bulkImport');
+    }
+  },
+
+  // Importation depuis Excel
+  importExcel: async (file) => {
+    try {
+      console.log("API: Importation depuis Excel");
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await api.post('/etudiants/import-excel/', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      console.log("API: Résultat import Excel:", response.data);
+      return response;
+    } catch (error) {
+      return handleApiError(error, 'importExcel');
     }
   },
 
@@ -77,7 +108,7 @@ export const etudiantApi = {
   searchEtudiants: (params) => api.get('/etudiants/search/', { params }),
 };
 
-// Endpoints bourses (AJOUTÉ)
+// Endpoints bourses
 export const bourseApi = {
   // Récupérer toutes les bourses
   getBourses: async (params = {}) => {
@@ -165,22 +196,22 @@ api.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
-    
+
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-      
+
       try {
         const refreshToken = localStorage.getItem('refresh_token');
         if (!refreshToken) {
           throw new Error('No refresh token');
         }
-        
+
         const response = await authApi.refreshToken(refreshToken);
         const newAccessToken = response.data.access;
-        
+
         localStorage.setItem('access_token', newAccessToken);
         api.defaults.headers.common['Authorization'] = `Bearer ${newAccessToken}`;
-        
+
         return api(originalRequest);
       } catch (refreshError) {
         localStorage.clear();
@@ -188,7 +219,7 @@ api.interceptors.response.use(
         return Promise.reject(refreshError);
       }
     }
-    
+
     return Promise.reject(error);
   }
 );
