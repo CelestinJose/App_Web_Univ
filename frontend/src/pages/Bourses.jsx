@@ -716,7 +716,7 @@ export default function Bourses() {
             </div>
           ) : filteredEtudiants.length === 0 ? (
             <div className="text-center py-5">
-              <FaSearch className="text-muted mb-3" size={48} />
+              {/* <FaSearch className="text-muted mb-3" size={48} /> */}
               <p className="text-muted">Aucun étudiant trouvé</p>
               {etudiants.length === 0 ? (
                 <p className="text-danger">

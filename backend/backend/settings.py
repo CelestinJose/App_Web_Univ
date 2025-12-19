@@ -19,12 +19,14 @@ INSTALLED_APPS = [
     'corsheaders',                    # AJOUTÉ ICI - doit être avant vos apps
     'rest_framework',                 # DRF
     'rest_framework_simplejwt',       # AJOUTÉ ICI pour JWT
+    'django_filters',
     
     # Local apps
     'users.apps.UsersConfig',
     'etudiants',
     'paiements',
     'bourses',
+    'facultes',
 ]
 
 MIDDLEWARE = [

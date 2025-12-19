@@ -10,6 +10,11 @@ import Reinscription from "./pages/Reinscription";
 import Inscription from "./pages/Inscription";
 import Authentification from "./pages/Authentification";
 import Impression from "./pages/Impression";
+import DoublonNomPrenom from "./pages/DoublonNomPrenom";
+import DoublonBourse from "./pages/DoublonBourseExact";
+import Facultes from "./pages/Facultes";
+import Mentions from "./pages/Mentions";
+import Domaines from "./pages/Domaines";
 
 // Route protégée par authentification
 function PrivateRoute({ children }) {
@@ -36,7 +41,7 @@ function App() {
       <Routes>
         {/* Page de connexion publique */}
         <Route path="/login" element={<Login />} />
-        
+
         {/* Routes protégées avec layout */}
         <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
           <Route index element={<Navigate to="/dashboard" replace />} />
@@ -48,8 +53,13 @@ function App() {
           <Route path="reinscription" element={<Reinscription />} />
           <Route path="authentification" element={<Authentification />} />
           <Route path="impression" element={<Impression />} />
+          <Route path="doublonsnom-prenom" element={<DoublonNomPrenom />} />
+          <Route path="Doublonbourse" element={<DoublonBourse />} />
+          <Route path="facultes" element={<Facultes />} />
+          <Route path="/mentions" element={<Mentions />} />
+          <Route path="domaines" element={<Domaines />} />
         </Route>
-        
+
         {/* Redirection par défaut */}
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

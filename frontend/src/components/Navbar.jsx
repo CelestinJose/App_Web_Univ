@@ -9,7 +9,8 @@ const Navbar = () => {
   const [showDrop1, setShowDrop1] = useState(false); // Inscription
   const [showDrop2, setShowDrop2] = useState(false); // Réinscription
   const [showDrop3, setShowDrop3] = useState(false); // Étudiant
-  const [showDrop4, setShowDrop4] = useState(false); // Doublon (nouveau)
+  const [showDrop4, setShowDrop4] = useState(false); // Doublon
+  const [showDrop5, setShowDrop5] = useState(false); // Paramètres Académiques (Nouveau)
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [userInfo, setUserInfo] = useState({
     first_name: 'Utilisateur',
@@ -138,7 +139,7 @@ const Navbar = () => {
           )}
         </div>
 
-        {/* Doublon - Section séparée */}
+        {/* Doublon */}
         <div>
           <div onClick={() => setShowDrop4(!showDrop4)} className="sidebar-link flex justify-between items-center">
             <span><i className="fas fa-clone mr-2"></i>Détection Doublons</span>
@@ -146,17 +147,32 @@ const Navbar = () => {
           </div>
           {showDrop4 && (
             <div className="sidebar-submenu">
-              <Link to="/doublons/nom-prenom" className={`sidebar-link ${isActive('/doublons/nom-prenom')}`}>
-                Doublon Nom et Prénom
+              <Link to="/doublonsnom-prenom" className={`sidebar-link ${isActive('/doublonsnom-prenom')}`}>
+                Doublon Identité
               </Link>
-              <Link to="/doublons/cin" className={`sidebar-link ${isActive('/doublons/cin')}`}>
-                Doublon CIN
+              <Link to="/Doublonbourse" className={`sidebar-link ${isActive('/Doublonbourse')}`}>
+                Doublon Bourse par Identité
               </Link>
-              <Link to="/doublons/telephone" className={`sidebar-link ${isActive('/doublons/telephone')}`}>
-                Doublon Numéro Tél
+            </div>
+          )}
+        </div>
+
+        {/* NOUVEAU : Paramètres Académiques */}
+        <div>
+          <div onClick={() => setShowDrop5(!showDrop5)} className="sidebar-link flex justify-between items-center">
+            <span><i className="fas fa-cogs mr-2"></i>Paramètres Académiques</span>
+            <i className={`fas fa-chevron-down transition-transform ${showDrop5 ? 'rotate-180' : 'rotate-0'}`}></i>
+          </div>
+          {showDrop5 && (
+            <div className="sidebar-submenu">
+              <Link to="/facultes" className={`sidebar-link ${isActive('/facultes')}`}>
+                <i className="fas fa-university mr-2"></i>Facultés
               </Link>
-              <Link to="/doublons/inscription" className={`sidebar-link ${isActive('/doublons/inscription')}`}>
-                Doublon Inscription
+              <Link to="/domaines" className={`sidebar-link ${isActive('/domaines')}`}>
+                <i className="fas fa-book mr-2"></i>Domaines
+              </Link>
+              <Link to="/mentions" className={`sidebar-link ${isActive('/mentions')}`}>
+                <i className="fas fa-graduation-cap mr-2"></i>Mentions
               </Link>
             </div>
           )}

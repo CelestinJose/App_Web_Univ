@@ -523,7 +523,7 @@ export default function Authentification() {
                   {filteredUsers.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="text-center py-5">
-                        <FaSearch className="text-muted mb-3" size={48} />
+                        {/* <FaSearch className="text-muted mb-3" size={48} /> */}
                         <p className="text-muted">Aucun utilisateur trouvé</p>
                         {users.length === 0 && (
                           <p className="text-muted small">La liste des utilisateurs est vide</p>

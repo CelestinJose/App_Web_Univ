@@ -65,7 +65,7 @@ export const etudiantApi = {
       console.log("API: Importation depuis Excel");
       const formData = new FormData();
       formData.append('file', file);
-      
+
       const response = await api.post('/etudiants/import-excel/', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -172,6 +172,30 @@ export const bourseApi = {
       return response;
     } catch (error) {
       return handleApiError(error, 'getBoursesByEtudiant');
+    }
+  },
+
+  // Récupérer les doublons par identité
+  getDoublonsIdentite: async () => {
+    try {
+      console.log("API: Récupération des doublons par identité");
+      const response = await api.get('/bourses/doublons_identite/');
+      console.log("API: Réponse doublons identité:", response.data);
+      return response;
+    } catch (error) {
+      return handleApiError(error, 'getDoublonsIdentite');
+    }
+  },
+
+  // Attribuer une bourse unique
+  attribuerBourseUnique: async (data) => {
+    try {
+      console.log("API: Attribution bourse unique avec data:", data);
+      const response = await api.post('/bourses/attribuer_bourse_unique/', data);
+      console.log("API: Réponse attribution bourse unique:", response.data);
+      return response;
+    } catch (error) {
+      return handleApiError(error, 'attribuerBourseUnique');
     }
   }
 };

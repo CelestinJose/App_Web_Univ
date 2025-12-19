@@ -7,7 +7,8 @@ import {
     FaSearch,
     FaEye,
     FaEyeSlash,
-    FaExclamationTriangle
+    FaExclamationTriangle,
+    FaCheckCircle
 } from "react-icons/fa";
 import {
     Button,
@@ -124,6 +125,32 @@ export default function Impression() {
     const facultes = Object.keys(facultesData);
     const domaines = [...new Set(Object.values(facultesData).map(f => f.domaine))];
     const niveaux = ["Licence 1", "Licence 2", "Licence 3", "Master 1", "Master 2", "Doctorat 1"];
+
+    // Vérifier si tous les filtres requis sont sélectionnés (pour PDF)
+    const areAllRequiredFiltersSelected = () => {
+        return selectedFaculte !== "" &&
+            selectedDomaine !== "" &&
+            selectedMention !== "" &&
+            selectedNiveau !== "";
+    };
+
+    // Vérifier si le bouton PDF doit être activé
+    const isPdfEnabled = () => {
+        // Le PDF est activé seulement si:
+        // 1. Il y a des étudiants filtrés
+        // 2. ET tous les filtres requis sont sélectionnés (faculté, domaine, mention, niveau)
+        return filteredEtudiants.length > 0 && areAllRequiredFiltersSelected();
+    };
+
+    // Obtenir la liste des filtres manquants
+    const getMissingFilters = () => {
+        const missing = [];
+        if (!selectedFaculte) missing.push("Faculté");
+        if (!selectedDomaine) missing.push("Domaine");
+        if (!selectedMention) missing.push("Mention");
+        if (!selectedNiveau) missing.push("Niveau");
+        return missing;
+    };
 
     // Charger tous les étudiants
     const fetchEtudiants = async () => {
@@ -306,6 +333,7 @@ export default function Impression() {
     };
 
     // Fonction d'exportation PDF avec format de document spécifique
+    // Fonction d'exportation PDF avec format de document spécifique
     const exportToPDF = () => {
         setExportLoading(true);
         setExportError(null); // Réinitialiser les erreurs
@@ -339,17 +367,16 @@ export default function Impression() {
 
             doc.setFontSize(10);
             doc.setFont("helvetica", "normal");
-            doc.text(`Faculte: ${firstStudent.faculte || 'DEGS - TUL'}`, 20, 60);
-            doc.text(`Domaine: ${firstStudent.domaine || 'Sciences de la Société'}`, 20, 67);
-            doc.text(`Mention: ${firstStudent.mention || 'TUL - L - DEGS - DROIT'}`, 20, 74);
-            doc.text(`Niveau: ${firstStudent.niveau || 'Licence 1'}`, 20, 81);
+            doc.text(`Faculte: ${firstStudent.faculte || selectedFaculte || 'Non spécifié'}`, 20, 60);
+            doc.text(`Domaine: ${firstStudent.domaine || selectedDomaine || 'Non spécifié'}`, 20, 67);
+            doc.text(`Mention: ${firstStudent.mention || selectedMention || 'Non spécifié'}`, 20, 74);
+            doc.text(`Niveau: ${firstStudent.niveau || selectedNiveau || 'Non spécifié'}`, 20, 81);
 
             // Date de génération à droite
             doc.text(`Date: ${currentDate}`, 180, 81, { align: 'right' });
 
             // Tableau des étudiants (format similaire au document source)
             const tableColumn = [
-                { header: "N°", dataKey: "index", width: 15 },
                 { header: "Matricule", dataKey: "matricule", width: 30 },
                 { header: "Nom et Prénoms", dataKey: "nom_complet", width: 50 },
                 { header: "Date de naissance", dataKey: "date_naissance", width: 25 },
@@ -358,23 +385,39 @@ export default function Impression() {
                 { header: "N/R/T", dataKey: "code_redoublement", width: 15 },
                 { header: "Année Bacc", dataKey: "annee_bacc", width: 20 },
                 { header: "Bourse", dataKey: "boursier", width: 15 },
-                { header: "Montant", dataKey: "montant", width: 20 },
+                { header: "Montant", dataKey: "montant", width: 10 },
                 { header: "Signature", dataKey: "signature", width: 30 }
             ];
 
-            const tableRows = filteredEtudiants.map((etudiant, index) => ({
-                index: index + 1,
-                matricule: etudiant.matricule || '-',
-                nom_complet: `${etudiant.nom || ''} ${etudiant.prenom || ''}`.trim(),
-                date_naissance: formatDate(etudiant.date_naissance) || '-',
-                cin: etudiant.cin || '-',
-                telephone: etudiant.telephone || '-',
-                code_redoublement: etudiant.code_redoublement || 'N',
-                annee_bacc: etudiant.annee_bacc || '-',
-                boursier: etudiant.boursier === 'OUI' ? 'OUI' : 'NON',
-                montant: etudiant.bourse > 0 ? `${parseFloat(etudiant.bourse).toLocaleString('fr-FR')}` : '-',
-                signature: ""
-            }));
+            const tableRows = filteredEtudiants.map((etudiant, index) => {
+                // Formater le montant correctement
+                let montantFormatted = '-';
+                if (etudiant.bourse > 0) {
+                    // Convertir en nombre et formater sans espaces problématiques
+                    const montantNum = parseFloat(etudiant.bourse);
+                    // Formater avec toLocaleString mais remplacer les espaces insécables par des espaces normaux
+                    montantFormatted = montantNum.toLocaleString('fr-FR', {
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0
+                    }).replace(/\u202f/g, ' '); // Remplacer les espaces insécables
+
+                    // Alternative plus simple : formater manuellement
+                    // montantFormatted = Math.round(montantNum).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+                }
+
+                return {
+                    matricule: etudiant.matricule || '-',
+                    nom_complet: `${etudiant.nom || ''} ${etudiant.prenom || ''}`.trim(),
+                    date_naissance: formatDate(etudiant.date_naissance) || '-',
+                    cin: etudiant.cin || '-',
+                    telephone: etudiant.telephone || '-',
+                    code_redoublement: etudiant.code_redoublement || 'N',
+                    annee_bacc: etudiant.annee_bacc || '-',
+                    boursier: etudiant.boursier === 'OUI' ? 'OUI' : 'NON',
+                    montant: montantFormatted,
+                    signature: ""
+                };
+            });
 
             const startY = 90;
 
@@ -387,11 +430,29 @@ export default function Impression() {
                     fillColor: [220, 220, 220],
                     textColor: [0, 0, 0],
                     fontStyle: 'bold',
-                    fontSize: 8
+                    fontSize: 6
                 },
                 bodyStyles: {
                     fontSize: 7,
-                    cellPadding: 1
+                    cellPadding: 1,
+                    // Ajouter un style pour éviter les coupures de mots
+                    cellWidth: 'wrap',
+                    overflow: 'linebreak',
+                    halign: 'center'
+                },
+                columnStyles: {
+                    montant: {
+                        halign: 'right',
+                        cellWidth: 10
+                    },
+                    date_naissance: {
+                        halign: 'right',
+                        cellWidth: 15
+                    },
+                    annee_bacc: {
+                        halign: 'right',
+                        cellWidth: 10
+                    }
                 },
                 margin: { left: 10, right: 10 },
                 styles: {
@@ -411,16 +472,16 @@ export default function Impression() {
 
                     // Mention de bas de page (comme dans le document source)
                     doc.text(
-                        `${firstStudent.mention || 'TUL - L - DEGS - DROIT'} --- ${firstStudent.niveau || 'Licence 1'}`,
+                        `${selectedMention || firstStudent.mention || 'Non spécifié'} --- ${selectedNiveau || firstStudent.niveau || 'Non spécifié'}`,
                         105,
                         doc.internal.pageSize.height - 20,
-                        { align: 'center' }
+                        { align: 'right' }
                     );
 
                     // Ligne de compte des étudiants à la fin
                     if (data.pageNumber === pageCount) {
                         const totalY = doc.internal.pageSize.height - 30;
-                        doc.setFont("helvetica", "bold");
+                        doc.setFont("helvetica");
                         doc.text(
                             `Arrêtée la présente liste au nombre de ${filteredEtudiants.length} étudiants`,
                             105,
@@ -432,7 +493,7 @@ export default function Impression() {
             });
 
             // Nom du fichier avec date et mention
-            const fileName = `Liste_Inscription_${firstStudent.mention?.replace(/\s+/g, '_') || 'TUL'}_${new Date().getFullYear()}.pdf`;
+            const fileName = `Liste_Inscription_${selectedMention?.replace(/\s+/g, '_') || firstStudent.mention?.replace(/\s+/g, '_') || 'TUL'}_${selectedNiveau?.replace(/\s+/g, '_') || ''}_${new Date().getFullYear()}.pdf`;
             doc.save(fileName);
 
         } catch (error) {
@@ -479,6 +540,28 @@ export default function Impression() {
             return; // Ne pas ouvrir le modal
         }
 
+        // Vérification spéciale pour PDF
+        if (type === 'pdf' && !isPdfEnabled()) {
+            const missingFilters = getMissingFilters();
+            let errorMessage = "Impossible d'exporter en PDF : ";
+
+            if (filteredEtudiants.length === 0) {
+                errorMessage += "Aucun étudiant à exporter.";
+            } else if (missingFilters.length > 0) {
+                errorMessage += `Filtres requis manquants : ${missingFilters.join(', ')}.`;
+            } else {
+                errorMessage += "Conditions d'exportation PDF non remplies.";
+            }
+
+            setExportError(errorMessage);
+
+            setTimeout(() => {
+                setExportError(null);
+            }, 5000);
+
+            return; // Ne pas ouvrir le modal
+        }
+
         setExportType(type);
         setShowExportModal(true);
     };
@@ -488,6 +571,19 @@ export default function Impression() {
         // Double vérification avant export
         if (filteredEtudiants.length === 0) {
             setExportError("Impossible d'exporter : La liste des étudiants est vide.");
+            setShowExportModal(false);
+
+            setTimeout(() => {
+                setExportError(null);
+            }, 5000);
+
+            return;
+        }
+
+        // Vérification supplémentaire pour PDF
+        if (exportType === 'pdf' && !isPdfEnabled()) {
+            const missingFilters = getMissingFilters();
+            setExportError(`Impossible d'exporter en PDF : Filtres requis manquants : ${missingFilters.join(', ')}.`);
             setShowExportModal(false);
 
             setTimeout(() => {
@@ -529,6 +625,15 @@ export default function Impression() {
                     <p className="text-muted">
                         Affichage organisé par faculté, domaine, mention et niveau
                     </p>
+                    {/* Avertissement pour PDF */}
+                    {!isPdfEnabled() && filteredEtudiants.length > 0 && (
+                        <Alert variant="warning" className="mt-2 p-2">
+                            <FaExclamationTriangle className="me-2" />
+                            <small>
+                                Pour exporter en PDF, vous devez sélectionner <strong>tous</strong> les filtres : Faculté, Domaine, Mention et Niveau.
+                            </small>
+                        </Alert>
+                    )}
                 </div>
             </div>
 
@@ -563,14 +668,36 @@ export default function Impression() {
                     <Card className="border-info shadow-sm">
                         <Card.Body className="p-3">
                             <Card.Title className="text-info h6 mb-2">
-                                Résumé par Faculté
+                                Conditions PDF
                             </Card.Title>
-                            <div className="d-flex flex-wrap gap-2">
-                                {Object.keys(stats.facultes).map(faculte => (
-                                    <Badge key={faculte} bg="info" className="p-2">
-                                        {faculte.split('-')[0].trim()}: {stats.facultes[faculte].total}
+                            <div className="d-flex flex-wrap gap-2 align-items-center">
+                                <Badge bg={selectedFaculte ? "success" : "secondary"} className="p-2 d-flex align-items-center">
+                                    {selectedFaculte ? <FaCheckCircle className="me-1" /> : null}
+                                    Faculté
+                                </Badge>
+                                <Badge bg={selectedDomaine ? "success" : "secondary"} className="p-2 d-flex align-items-center">
+                                    {selectedDomaine ? <FaCheckCircle className="me-1" /> : null}
+                                    Domaine
+                                </Badge>
+                                <Badge bg={selectedMention ? "success" : "secondary"} className="p-2 d-flex align-items-center">
+                                    {selectedMention ? <FaCheckCircle className="me-1" /> : null}
+                                    Mention
+                                </Badge>
+                                <Badge bg={selectedNiveau ? "success" : "secondary"} className="p-2 d-flex align-items-center">
+                                    {selectedNiveau ? <FaCheckCircle className="me-1" /> : null}
+                                    Niveau
+                                </Badge>
+                                {isPdfEnabled() ? (
+                                    <Badge bg="success" className="p-2 ms-2">
+                                        <FaCheckCircle className="me-1" />
+                                        PDF Activé
                                     </Badge>
-                                ))}
+                                ) : (
+                                    <Badge bg="warning" text="dark" className="p-2 ms-2">
+                                        <FaExclamationTriangle className="me-1" />
+                                        PDF Désactivé
+                                    </Badge>
+                                )}
                             </div>
                         </Card.Body>
                     </Card>
@@ -594,7 +721,9 @@ export default function Impression() {
                     <Row className="g-3">
                         <Col md={3}>
                             <Form.Group>
-                                <Form.Label className="fw-medium">Faculté</Form.Label>
+                                <Form.Label className="fw-medium">
+                                    Faculté <span className="text-danger">*</span>
+                                </Form.Label>
                                 <Form.Select
                                     value={selectedFaculte}
                                     onChange={(e) => {
@@ -602,19 +731,24 @@ export default function Impression() {
                                         setSelectedDomaine("");
                                         setSelectedMention("");
                                     }}
-                                    className="border-primary"
+                                    className={`border-${selectedFaculte ? 'success' : 'primary'}`}
                                 >
-                                    <option value="">Toutes les facultés</option>
+                                    <option value="">Sélectionnez une faculté</option>
                                     {facultes.map((fac, idx) => (
                                         <option key={idx} value={fac}>{fac.split('-')[0].trim()}</option>
                                     ))}
                                 </Form.Select>
+                                <Form.Text className={selectedFaculte ? "text-success" : "text-danger"}>
+                                    {selectedFaculte ? "✓ Sélectionné" : "✗ Obligatoire pour PDF"}
+                                </Form.Text>
                             </Form.Group>
                         </Col>
 
                         <Col md={3}>
                             <Form.Group>
-                                <Form.Label className="fw-medium">Domaine</Form.Label>
+                                <Form.Label className="fw-medium">
+                                    Domaine <span className="text-danger">*</span>
+                                </Form.Label>
                                 <Form.Select
                                     value={selectedDomaine}
                                     onChange={(e) => {
@@ -622,56 +756,69 @@ export default function Impression() {
                                         setSelectedMention("");
                                     }}
                                     disabled={!selectedFaculte}
-                                    className="border-success"
+                                    className={`border-${selectedDomaine ? 'success' : 'warning'}`}
                                 >
-                                    <option value="">Tous les domaines</option>
+                                    <option value="">Sélectionnez un domaine</option>
                                     {selectedFaculte && facultesData[selectedFaculte] && (
                                         <option value={facultesData[selectedFaculte].domaine}>
                                             {facultesData[selectedFaculte].domaine}
                                         </option>
                                     )}
                                 </Form.Select>
+                                <Form.Text className={selectedDomaine ? "text-success" : "text-danger"}>
+                                    {selectedDomaine ? "✓ Sélectionné" : "✗ Obligatoire pour PDF"}
+                                </Form.Text>
                             </Form.Group>
                         </Col>
 
                         <Col md={3}>
                             <Form.Group>
-                                <Form.Label className="fw-medium">Mention</Form.Label>
+                                <Form.Label className="fw-medium">
+                                    Mention <span className="text-danger">*</span>
+                                </Form.Label>
                                 <Form.Select
                                     value={selectedMention}
                                     onChange={(e) => setSelectedMention(e.target.value)}
                                     disabled={!selectedFaculte}
-                                    className="border-warning"
+                                    className={`border-${selectedMention ? 'success' : 'warning'}`}
                                 >
-                                    <option value="">Toutes les mentions</option>
+                                    <option value="">Sélectionnez une mention</option>
                                     {selectedFaculte && facultesData[selectedFaculte] &&
                                         facultesData[selectedFaculte].mentions.map((mention, idx) => (
                                             <option key={idx} value={mention}>{mention}</option>
                                         ))
                                     }
                                 </Form.Select>
+                                <Form.Text className={selectedMention ? "text-success" : "text-danger"}>
+                                    {selectedMention ? "✓ Sélectionnée" : "✗ Obligatoire pour PDF"}
+                                </Form.Text>
                             </Form.Group>
                         </Col>
 
                         <Col md={3}>
                             <Form.Group>
-                                <Form.Label className="fw-medium">Niveau</Form.Label>
+                                <Form.Label className="fw-medium">
+                                    Niveau <span className="text-danger">*</span>
+                                </Form.Label>
                                 <Form.Select
                                     value={selectedNiveau}
                                     onChange={(e) => setSelectedNiveau(e.target.value)}
-                                    className="border-info"
+                                    className={`border-${selectedNiveau ? 'success' : 'info'}`}
                                 >
-                                    <option value="">Tous les niveaux</option>
+                                    <option value="">Sélectionnez un niveau</option>
                                     {niveaux.map((niv, idx) => (
                                         <option key={idx} value={niv}>{niv}</option>
                                     ))}
                                 </Form.Select>
+                                <Form.Text className={selectedNiveau ? "text-success" : "text-danger"}>
+                                    {selectedNiveau ? "✓ Sélectionné" : "✗ Obligatoire pour PDF"}
+                                </Form.Text>
                             </Form.Group>
                         </Col>
 
                         <Col md={6}>
                             <Form.Group>
-                                <Form.Label className="fw-medium">Recherche</Form.Label>
+                                <Form.Label className="fw-medium">Recherche (optionnel)</Form.Label>
                                 <InputGroup>
                                     <InputGroup.Text className="bg-light">
                                         <FaSearch />
@@ -725,21 +872,49 @@ export default function Impression() {
                                 onClick={() => handleExport('excel')}
                                 className="d-flex align-items-center"
                                 disabled={exportLoading || filteredEtudiants.length === 0}
+                                title={filteredEtudiants.length === 0 ? "Aucun étudiant à exporter" : "Exporter en Excel"}
                             >
                                 <FaDownload className="me-2" />
                                 Excel
                             </Button>
                             <Button
-                                variant="danger"
+                                variant={isPdfEnabled() ? "danger" : "secondary"}
                                 onClick={() => handleExport('pdf')}
                                 className="d-flex align-items-center"
-                                disabled={exportLoading || filteredEtudiants.length === 0}
+                                disabled={exportLoading || !isPdfEnabled()}
+                                title={!isPdfEnabled() ? "Sélectionnez tous les filtres (Faculté, Domaine, Mention, Niveau) pour exporter en PDF" : "Exporter en PDF"}
                             >
                                 <FaPrint className="me-2" />
                                 PDF
+                                {!isPdfEnabled() && filteredEtudiants.length > 0 && (
+                                    <span className="ms-1 badge bg-warning">!</span>
+                                )}
                             </Button>
                         </Col>
                     </Row>
+
+                    {/* Indicateur de progression des filtres */}
+                    <div className="mt-3">
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                            <small className="fw-medium">Progression des filtres requis :</small>
+                            <small className={areAllRequiredFiltersSelected() ? "text-success" : "text-warning"}>
+                                {areAllRequiredFiltersSelected() ? "✓ Tous les filtres sont sélectionnés" : `${getMissingFilters().length} filtre(s) manquant(s)`}
+                            </small>
+                        </div>
+                        <div className="progress" style={{ height: '10px' }}>
+                            <div
+                                className="progress-bar bg-success"
+                                role="progressbar"
+                                style={{ width: `${(getMissingFilters().length === 0 ? 4 : 4 - getMissingFilters().length) / 4 * 100}%` }}
+                                aria-valuenow={(getMissingFilters().length === 0 ? 4 : 4 - getMissingFilters().length)}
+                                aria-valuemin="0"
+                                aria-valuemax="4"
+                            ></div>
+                        </div>
+                        <small className="text-muted mt-2 d-block">
+                            Filtres requis pour PDF: <span className="fw-bold">Faculté, Domaine, Mention, Niveau</span>
+                        </small>
+                    </div>
                 </Card.Body>
             </Card>
 
@@ -771,6 +946,12 @@ export default function Impression() {
                             {selectedMention && ` | Mention : ${selectedMention}`}
                             {selectedNiveau && ` | Niveau : ${selectedNiveau}`}
                         </p>
+                        {!isPdfEnabled() && (
+                            <p className="mb-0 mt-2 text-warning">
+                                <FaExclamationTriangle className="me-1" />
+                                <small>Pour exporter en PDF : {getMissingFilters().join(', ')} {getMissingFilters().length > 1 ? 'sont requis' : 'est requis'}</small>
+                            </p>
+                        )}
                     </Alert>
 
                     {/* Liste organisée */}
@@ -910,6 +1091,17 @@ export default function Impression() {
                     <p>
                         Vous êtes sur le point d'exporter <strong>{filteredEtudiants.length}</strong> étudiant(s) au format {exportType.toUpperCase()}.
                     </p>
+                    {exportType === 'pdf' && (
+                        <div className="alert alert-success mb-2">
+                            <strong>Filtres appliqués :</strong>
+                            <div className="mt-1">
+                                <Badge bg="info" className="me-1">Faculté: {selectedFaculte.split('-')[0].trim()}</Badge>
+                                <Badge bg="info" className="me-1">Domaine: {selectedDomaine}</Badge>
+                                <Badge bg="info" className="me-1">Mention: {selectedMention}</Badge>
+                                <Badge bg="info" className="me-1">Niveau: {selectedNiveau}</Badge>
+                            </div>
+                        </div>
+                    )}
                     {exportType === 'excel' && (
                         <div className="alert alert-info mb-0">
                             <strong>Format Excel :</strong> Toutes les colonnes seront incluses dans un fichier Excel.

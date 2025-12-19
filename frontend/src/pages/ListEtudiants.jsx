@@ -861,7 +861,7 @@ const genererCarteEtudiantPDF = () => {
                             </>
                           ) : (
                             <>
-                              <FaSearch className="text-muted mb-3" size={48} />
+                              {/* <FaSearch className="text-muted mb-3" size={48} /> */}
                               <p className="text-muted">Aucun étudiant trouvé avec ces filtres</p>
                               <Button variant="outline-primary" size="sm" onClick={resetFilters}>
                                 Réinitialiser les filtres

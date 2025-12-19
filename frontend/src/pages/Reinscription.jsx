@@ -915,7 +915,7 @@ export default function Reinscription() {
                     {etudiants.length === 0 ? (
                       <tr>
                         <td colSpan="12" className="text-center py-5">
-                          <FaSearch className="text-muted mb-3" size={48} />
+                          {/* <FaSearch className="text-muted mb-3" size={48} /> */}
                           <p className="text-muted">Aucun étudiant redoublant ou triplant trouvé</p>
                           {searchTerm && (
                             <Button 
