@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { 
-  FaUser, FaLock, FaEye, FaEyeSlash, FaSignInAlt, FaUserPlus, 
+import {
+  FaUser, FaLock, FaEye, FaEyeSlash, FaSignInAlt, FaUserPlus,
   FaUsers, FaEdit, FaTrash, FaCheck, FaTimes, FaKey, FaEnvelope,
   FaUserShield, FaUserCheck, FaUserTimes, FaCalendarAlt, FaPhone,
   FaSearch, FaExclamationTriangle, FaSpinner, FaSync
@@ -15,7 +15,7 @@ import InputGroup from 'react-bootstrap/InputGroup';
 import Card from 'react-bootstrap/Card';
 import Spinner from 'react-bootstrap/Spinner';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { authApi } from "../api";
+import api from "../api"; // Utilisez votre instance api configurée
 
 export default function Authentification() {
   // États pour les utilisateurs (CRUD)
@@ -23,13 +23,14 @@ export default function Authentification() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [userRole, setUserRole] = useState(null);
-  
+  const [currentUserId, setCurrentUserId] = useState(null);
+
   // États pour les modales
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
-  
+
   // États pour les formulaires
   const [newUser, setNewUser] = useState({
     username: "",
@@ -38,7 +39,7 @@ export default function Authentification() {
     confirmPassword: "",
     role: "scolarite" // Valeur par défaut
   });
-  
+
   const [editingUser, setEditingUser] = useState(null);
   const [userToDelete, setUserToDelete] = useState(null);
   const [passwordData, setPasswordData] = useState({
@@ -46,7 +47,7 @@ export default function Authentification() {
     newPassword: "",
     confirmPassword: ""
   });
-  
+
   // États pour la recherche
   const [searchTerm, setSearchTerm] = useState("");
   const [filterRole, setFilterRole] = useState("");
@@ -61,11 +62,73 @@ export default function Authentification() {
   ];
 
   // Charger les utilisateurs depuis l'API
+  // Dans Authentification.js - ajoutez cette fonction avant le useEffect
+  const decodeJWT = (token) => {
+    try {
+      if (!token) return null;
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split('')
+          .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join('')
+      );
+      return JSON.parse(jsonPayload);
+    } catch (error) {
+      console.error("Erreur décodage JWT:", error);
+      return null;
+    }
+  };
+
+  // Modifiez le useEffect
   useEffect(() => {
-    // Vérifier le rôle de l'utilisateur connecté
-    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+    // Fonction pour obtenir les infos utilisateur
+    const getUserInfo = () => {
+      // Vérifier d'abord si les données sont déjà dans localStorage
+      const storedId = localStorage.getItem("user_id");
+      const storedRole = localStorage.getItem("user_role");
+      const storedUsername = localStorage.getItem("user_name");
+
+      // Si les données sont vides ou non définies, décoder depuis le token
+      if (!storedId || !storedRole || !storedUsername) {
+        const accessToken = localStorage.getItem("access_token");
+        if (accessToken) {
+          const decoded = decodeJWT(accessToken);
+          console.log("Token décodé:", decoded);
+
+          if (decoded) {
+            // Mettre à jour localStorage avec les données du token
+            localStorage.setItem("user_id", decoded.user_id || '');
+            localStorage.setItem("user_name", decoded.username || '');
+            localStorage.setItem("user_role", decoded.role || '');
+
+            // Retourner les nouvelles données
+            return {
+              id: decoded.user_id || '',
+              username: decoded.username || '',
+              email: decoded.email || localStorage.getItem("user_email") || '',
+              role: decoded.role || ''
+            };
+          }
+        }
+      }
+
+      // Si les données étaient déjà présentes, les utiliser
+      return {
+        id: storedId || '',
+        username: storedUsername || '',
+        email: localStorage.getItem("user_email") || '',
+        role: storedRole || ''
+      };
+    };
+
+    const userInfo = getUserInfo();
+    console.log("Informations utilisateur finales:", userInfo);
+
     setUserRole(userInfo.role);
-    
+    setCurrentUserId(userInfo.id);
+
     fetchUsers();
   }, []);
 
@@ -74,33 +137,41 @@ export default function Authentification() {
     setLoading(true);
     setError(null);
     try {
-      // Récupérer le token d'authentification
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        throw new Error("Non authentifié");
+      // Utilisez votre instance api configurée qui gère automatiquement les tokens
+      const response = await api.get('/auth/users/');
+
+      if (response.data) {
+        setUsers(response.data);
+        console.log("Utilisateurs chargés:", response.data);
+      } else {
+        throw new Error("Réponse invalide de l'API");
       }
-      
-      const response = await fetch('http://127.0.0.1:8000/api/users/', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Erreur ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      setUsers(data);
     } catch (error) {
       console.error("Erreur lors du chargement des utilisateurs:", error);
-      setError("Impossible de charger les utilisateurs. Vérifiez votre connexion ou vos permissions.");
-      
-      // En cas d'erreur 401 (non authentifié), rediriger vers la page de login
-      if (error.message.includes('401')) {
-        localStorage.clear();
-        window.location.href = '/login';
+
+      // Messages d'erreur plus précis
+      if (error.response) {
+        switch (error.response.status) {
+          case 401:
+            setError("Session expirée. Veuillez vous reconnecter.");
+            localStorage.clear();
+            setTimeout(() => {
+              window.location.href = '/login';
+            }, 2000);
+            break;
+          case 403:
+            setError("Accès refusé. Vous n'avez pas les permissions nécessaires.");
+            break;
+          case 404:
+            setError("Endpoint API non trouvé. Vérifiez l'URL.");
+            break;
+          default:
+            setError(`Erreur serveur (${error.response.status}): ${error.response.data?.detail || 'Erreur inconnue'}`);
+        }
+      } else if (error.request) {
+        setError("Impossible de contacter le serveur. Vérifiez votre connexion réseau.");
+      } else {
+        setError(`Erreur: ${error.message}`);
       }
     } finally {
       setLoading(false);
@@ -110,151 +181,183 @@ export default function Authentification() {
   // Fonction pour ajouter un nouvel utilisateur
   const handleAddUser = async () => {
     // Vérifier que seul l'administrateur peut ajouter des utilisateurs
-    if (userRole !== 'administrateur') {
+    if (!isAdmin) {
       alert("Seul l'administrateur peut ajouter de nouveaux utilisateurs.");
       return;
     }
-    
+
     // Validation des champs
     if (!newUser.username || !newUser.email || !newUser.password || !newUser.role) {
       alert("Veuillez remplir tous les champs obligatoires");
       return;
     }
-    
+
     if (newUser.password !== newUser.confirmPassword) {
       alert("Les mots de passe ne correspondent pas");
       return;
     }
-    
+
     if (newUser.password.length < 6) {
       alert("Le mot de passe doit contenir au moins 6 caractères");
       return;
     }
-    
+
     try {
-      const token = localStorage.getItem('access_token');
-      const response = await fetch('http://127.0.0.1:8000/api/users/', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          username: newUser.username,
-          email: newUser.email,
-          password: newUser.password,
-          role: newUser.role
-        })
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || `Erreur ${response.status}`);
+      const userData = {
+        username: newUser.username,
+        email: newUser.email,
+        password: newUser.password,
+        role: newUser.role
+      };
+
+      console.log("Données envoyées pour création:", userData);
+
+      const response = await api.post('/auth/users/', userData);
+
+      if (response.data) {
+        // Ajouter l'utilisateur à la liste locale
+        setUsers([...users, response.data]);
+
+        // Réinitialiser le formulaire
+        setNewUser({
+          username: "",
+          email: "",
+          password: "",
+          confirmPassword: "",
+          role: "scolarite"
+        });
+
+        setShowAddModal(false);
+        alert("Utilisateur créé avec succès !");
       }
-      
-      const createdUser = await response.json();
-      
-      // Ajouter l'utilisateur à la liste locale
-      setUsers([...users, createdUser]);
-      
-      // Réinitialiser le formulaire
-      setNewUser({
-        username: "",
-        email: "",
-        password: "",
-        confirmPassword: "",
-        role: "scolarite"
-      });
-      
-      setShowAddModal(false);
-      alert("Utilisateur créé avec succès !");
     } catch (error) {
       console.error("Erreur lors de la création de l'utilisateur:", error);
-      alert(`Erreur: ${error.message}`);
+
+      if (error.response) {
+        const errorData = error.response.data;
+        let errorMessage = "Erreur lors de la création de l'utilisateur";
+
+        if (errorData.username) {
+          errorMessage = `Nom d'utilisateur: ${errorData.username[0]}`;
+        } else if (errorData.email) {
+          errorMessage = `Email: ${errorData.email[0]}`;
+        } else if (errorData.password) {
+          errorMessage = `Mot de passe: ${errorData.password[0]}`;
+        } else if (errorData.detail) {
+          errorMessage = errorData.detail;
+        }
+
+        alert(`Erreur: ${errorMessage}`);
+      } else {
+        alert("Erreur réseau lors de la création de l'utilisateur");
+      }
     }
   };
 
   // Fonction pour modifier un utilisateur
   const handleEditUser = async () => {
     // Vérifier que seul l'administrateur peut modifier des utilisateurs
-    if (userRole !== 'administrateur') {
+    if (!isAdmin) {
       alert("Seul l'administrateur peut modifier les utilisateurs.");
       return;
     }
-    
+
     if (!editingUser) return;
-    
+
     if (!editingUser.username || !editingUser.email || !editingUser.role) {
       alert("Veuillez remplir tous les champs obligatoires");
       return;
     }
-    
+
+    // Empêcher la modification de son propre rôle d'administrateur
+    if (editingUser.id === currentUserId && editingUser.role !== "administrateur") {
+      alert("Vous ne pouvez pas modifier votre propre rôle d'administrateur.");
+      return;
+    }
+
     try {
-      const token = localStorage.getItem('access_token');
-      const response = await fetch(`http://127.0.0.1:8000/api/users/${editingUser.id}/`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          username: editingUser.username,
-          email: editingUser.email,
-          role: editingUser.role
-        })
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || `Erreur ${response.status}`);
+      const userData = {
+        username: editingUser.username,
+        email: editingUser.email,
+        role: editingUser.role
+      };
+
+      console.log("Données envoyées pour modification:", userData);
+
+      const response = await api.put(`/auth/users/${editingUser.id}/`, userData);
+
+      if (response.data) {
+        // Mettre à jour l'utilisateur dans la liste locale
+        setUsers(users.map(u => u.id === response.data.id ? response.data : u));
+
+        setShowEditModal(false);
+        setEditingUser(null);
+        alert("Utilisateur mis à jour avec succès !");
       }
-      
-      const updatedUser = await response.json();
-      
-      // Mettre à jour l'utilisateur dans la liste locale
-      setUsers(users.map(u => u.id === updatedUser.id ? updatedUser : u));
-      
-      setShowEditModal(false);
-      setEditingUser(null);
-      alert("Utilisateur mis à jour avec succès !");
     } catch (error) {
       console.error("Erreur lors de la mise à jour de l'utilisateur:", error);
-      alert(`Erreur: ${error.message}`);
+
+      if (error.response) {
+        const errorData = error.response.data;
+        let errorMessage = "Erreur lors de la mise à jour de l'utilisateur";
+
+        if (errorData.username) {
+          errorMessage = `Nom d'utilisateur: ${errorData.username[0]}`;
+        } else if (errorData.email) {
+          errorMessage = `Email: ${errorData.email[0]}`;
+        } else if (errorData.detail) {
+          errorMessage = errorData.detail;
+        }
+
+        alert(`Erreur: ${errorMessage}`);
+      } else {
+        alert("Erreur réseau lors de la mise à jour de l'utilisateur");
+      }
     }
   };
 
   // Fonction pour supprimer un utilisateur
   const handleDeleteUser = async () => {
     // Vérifier que seul l'administrateur peut supprimer des utilisateurs
-    if (userRole !== 'administrateur') {
+    if (!isAdmin) {
       alert("Seul l'administrateur peut supprimer des utilisateurs.");
       return;
     }
-    
+
     if (!userToDelete) return;
-    
+
+    // Empêcher la suppression de soi-même ou d'autres administrateurs
+    if (userToDelete.id === currentUserId) {
+      alert("Vous ne pouvez pas supprimer votre propre compte.");
+      return;
+    }
+
+    if (userToDelete.role === "administrateur") {
+      alert("Vous ne pouvez pas supprimer un administrateur.");
+      return;
+    }
+
     try {
-      const token = localStorage.getItem('access_token');
-      const response = await fetch(`http://127.0.0.1:8000/api/users/${userToDelete.id}/`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok && response.status !== 204) {
-        throw new Error(`Erreur ${response.status}`);
-      }
-      
+      await api.delete(`/auth/users/${userToDelete.id}/`);
+
       // Supprimer l'utilisateur de la liste locale
       setUsers(users.filter(u => u.id !== userToDelete.id));
-      
+
       setShowDeleteModal(false);
       setUserToDelete(null);
       alert("Utilisateur supprimé avec succès !");
     } catch (error) {
       console.error("Erreur lors de la suppression de l'utilisateur:", error);
-      alert(`Erreur: ${error.message}`);
+
+      if (error.response) {
+        if (error.response.status === 403) {
+          alert("Erreur: Vous n'avez pas la permission de supprimer cet utilisateur.");
+        } else {
+          alert(`Erreur serveur (${error.response.status}): ${error.response.data?.detail || 'Erreur inconnue'}`);
+        }
+      } else {
+        alert("Erreur réseau lors de la suppression de l'utilisateur");
+      }
     }
   };
 
@@ -264,63 +367,64 @@ export default function Authentification() {
       alert("Veuillez remplir tous les champs");
       return;
     }
-    
+
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       alert("Les nouveaux mots de passe ne correspondent pas");
       return;
     }
-    
+
     if (passwordData.newPassword.length < 6) {
       alert("Le mot de passe doit contenir au moins 6 caractères");
       return;
     }
-    
+
     try {
-      // Récupérer l'ID de l'utilisateur connecté
-      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
-      const userId = userInfo.id;
-      
-      const token = localStorage.getItem('access_token');
-      const response = await fetch(`http://127.0.0.1:8000/api/change-password/${userId}/`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          old_password: passwordData.oldPassword,
-          new_password: passwordData.newPassword,
-          confirm_password: passwordData.confirmPassword
-        })
+      const response = await api.post('/auth/change-password/', {
+        old_password: passwordData.oldPassword,
+        new_password: passwordData.newPassword,
+        confirm_password: passwordData.confirmPassword
       });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || `Erreur ${response.status}`);
+
+      if (response.status === 200) {
+        setPasswordData({
+          oldPassword: "",
+          newPassword: "",
+          confirmPassword: ""
+        });
+
+        setShowChangePasswordModal(false);
+        alert("Mot de passe changé avec succès !");
       }
-      
-      setPasswordData({
-        oldPassword: "",
-        newPassword: "",
-        confirmPassword: ""
-      });
-      
-      setShowChangePasswordModal(false);
-      alert("Mot de passe changé avec succès !");
     } catch (error) {
       console.error("Erreur lors du changement de mot de passe:", error);
-      alert(`Erreur: ${error.message}`);
+
+      if (error.response) {
+        const errorData = error.response.data;
+        let errorMessage = "Erreur lors du changement de mot de passe";
+
+        if (errorData.old_password) {
+          errorMessage = `Ancien mot de passe: ${errorData.old_password[0]}`;
+        } else if (errorData.new_password) {
+          errorMessage = `Nouveau mot de passe: ${errorData.new_password[0]}`;
+        } else if (errorData.detail) {
+          errorMessage = errorData.detail;
+        }
+
+        alert(`Erreur: ${errorMessage}`);
+      } else {
+        alert("Erreur réseau lors du changement de mot de passe");
+      }
     }
   };
 
   // Filtrer les utilisateurs localement
   const filteredUsers = users.filter(user => {
-    const matchesSearch = 
-      user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    
+    const matchesSearch =
+      (user.username && user.username.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase()));
+
     const matchesRole = filterRole ? user.role === filterRole : true;
-    
+
     return matchesSearch && matchesRole;
   });
 
@@ -331,6 +435,9 @@ export default function Authentification() {
 
   // Vérifier si l'utilisateur est administrateur
   const isAdmin = userRole === 'administrateur';
+
+  // Vérifier si l'utilisateur a un accès limité (pas administrateur)
+  const isLimitedAccess = !isAdmin;
 
   return (
     <div className="container-fluid py-4">
@@ -344,22 +451,22 @@ export default function Authentification() {
                 Gestion des Utilisateurs
               </h1>
               <p className="text-muted mb-0">
-                {isAdmin ? "Mode administrateur" : "Mode utilisateur"}
+                {isAdmin ? "Mode administrateur" : "Mode consultation"}
                 <Badge bg={isAdmin ? "danger" : "info"} className="ms-2">
-                  {isAdmin ? "ADMIN" : userRole?.toUpperCase()}
+                  {isAdmin ? "ADMIN" : userRole?.toUpperCase() || "UTILISATEUR"}
                 </Badge>
               </p>
             </div>
             <div>
-              <Button 
-                variant="outline-primary" 
+              <Button
+                variant="outline-primary"
                 onClick={() => setShowChangePasswordModal(true)}
                 className="me-2"
               >
                 <FaKey className="me-1" /> Changer mon mot de passe
               </Button>
-              <Button 
-                variant="outline-secondary" 
+              <Button
+                variant="outline-secondary"
                 onClick={refreshData}
                 disabled={loading}
               >
@@ -370,7 +477,7 @@ export default function Authentification() {
           </div>
         </div>
       </div>
-      
+
       {/* Statistiques */}
       <div className="row mb-4">
         <div className="col-md-3">
@@ -416,7 +523,7 @@ export default function Authentification() {
           </Card>
         </div>
       </div>
-      
+
       {/* Barre d'outils */}
       <div className="card mb-4">
         <div className="card-body">
@@ -450,8 +557,8 @@ export default function Authentification() {
             </div>
             <div className="col-md-4 text-end">
               {isAdmin ? (
-                <Button 
-                  variant="primary" 
+                <Button
+                  variant="primary"
                   onClick={() => setShowAddModal(true)}
                   className="d-inline-flex align-items-center"
                 >
@@ -465,7 +572,7 @@ export default function Authentification() {
               )}
             </div>
           </div>
-          
+
           <div className="row">
             <div className="col">
               <div className="d-flex justify-content-between align-items-center">
@@ -481,14 +588,14 @@ export default function Authentification() {
                   )}
                 </div>
                 <div className="text-muted">
-                  Connecté en tant que : {userRole}
+                  Connecté en tant que : {userRole || "Non défini"}
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-      
+
       {/* Messages d'erreur */}
       {error && (
         <Alert variant="danger" className="mb-4">
@@ -499,7 +606,7 @@ export default function Authentification() {
           </Button>
         </Alert>
       )}
-      
+
       {/* Tableau des utilisateurs */}
       <div className="card">
         <div className="card-body">
@@ -513,6 +620,7 @@ export default function Authentification() {
               <Table striped hover>
                 <thead className="table-light">
                   <tr>
+                    <th>#</th>
                     <th>Nom d'utilisateur</th>
                     <th>Email</th>
                     <th>Rôle</th>
@@ -522,8 +630,8 @@ export default function Authentification() {
                 <tbody>
                   {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="text-center py-5">
-                        {/* <FaSearch className="text-muted mb-3" size={48} /> */}
+                      <td colSpan={5} className="text-center py-5">
+                        <FaSearch className="text-muted mb-3" size={48} />
                         <p className="text-muted">Aucun utilisateur trouvé</p>
                         {users.length === 0 && (
                           <p className="text-muted small">La liste des utilisateurs est vide</p>
@@ -531,12 +639,13 @@ export default function Authentification() {
                       </td>
                     </tr>
                   ) : (
-                    filteredUsers.map((user) => {
+                    filteredUsers.map((user, index) => {
                       const role = roles.find(r => r.value === user.role);
-                      const isCurrentUser = user.id === JSON.parse(localStorage.getItem('userInfo') || '{}').id;
-                      
+                      const isCurrentUser = user.id === parseInt(currentUserId);
+
                       return (
                         <tr key={user.id}>
+                          <td>{index + 1}</td>
                           <td>
                             <div className="fw-medium">{user.username}</div>
                             {isCurrentUser && (
@@ -558,12 +667,12 @@ export default function Authentification() {
                           </td>
                           <td>
                             <div className="btn-group btn-group-sm" role="group">
-                              {isAdmin && (
+                              {isAdmin ? (
                                 <>
                                   <Button
                                     variant="outline-warning"
                                     onClick={() => {
-                                      setEditingUser({...user});
+                                      setEditingUser({ ...user });
                                       setShowEditModal(true);
                                     }}
                                     title="Modifier"
@@ -585,8 +694,7 @@ export default function Authentification() {
                                     <FaTrash />
                                   </Button>
                                 </>
-                              )}
-                              {!isAdmin && (
+                              ) : (
                                 <span className="text-muted">Actions non autorisées</span>
                               )}
                             </div>
@@ -601,7 +709,7 @@ export default function Authentification() {
           )}
         </div>
       </div>
-      
+
       {/* Modal Ajout d'utilisateur */}
       <Modal show={showAddModal} onHide={() => setShowAddModal(false)} size="lg">
         <Modal.Header closeButton className="bg-primary text-white">
@@ -613,7 +721,7 @@ export default function Authentification() {
               <FaUserShield className="me-2" />
               Seul l'administrateur peut créer de nouveaux utilisateurs
             </Alert>
-            
+
             <div className="row">
               <div className="col-md-6">
                 <Form.Group className="mb-3">
@@ -625,7 +733,7 @@ export default function Authentification() {
                     <Form.Control
                       type="text"
                       value={newUser.username}
-                      onChange={(e) => setNewUser({...newUser, username: e.target.value})}
+                      onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
                       required
                       placeholder="ex: john.doe"
                     />
@@ -643,7 +751,7 @@ export default function Authentification() {
                     <Form.Control
                       type="email"
                       value={newUser.email}
-                      onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                      onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
                       required
                       placeholder="ex: john.doe@tul.mg"
                     />
@@ -651,14 +759,14 @@ export default function Authentification() {
                 </Form.Group>
               </div>
             </div>
-            
+
             <div className="row">
               <div className="col-md-6">
                 <Form.Group className="mb-3">
                   <Form.Label>Rôle *</Form.Label>
                   <Form.Select
                     value={newUser.role}
-                    onChange={(e) => setNewUser({...newUser, role: e.target.value})}
+                    onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
                   >
                     {roles.map((role, index) => (
                       <option key={index} value={role.value}>{role.label}</option>
@@ -670,7 +778,7 @@ export default function Authentification() {
                 </Form.Group>
               </div>
             </div>
-            
+
             <div className="row">
               <div className="col-md-6">
                 <Form.Group className="mb-3">
@@ -682,7 +790,7 @@ export default function Authentification() {
                     <Form.Control
                       type={showPassword ? "text" : "password"}
                       value={newUser.password}
-                      onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                      onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
                       required
                       placeholder="Minimum 6 caractères"
                     />
@@ -702,7 +810,7 @@ export default function Authentification() {
                   <Form.Control
                     type={showPassword ? "text" : "password"}
                     value={newUser.confirmPassword}
-                    onChange={(e) => setNewUser({...newUser, confirmPassword: e.target.value})}
+                    onChange={(e) => setNewUser({ ...newUser, confirmPassword: e.target.value })}
                     required
                     placeholder="Retapez le mot de passe"
                   />
@@ -720,7 +828,7 @@ export default function Authentification() {
           </Button>
         </Modal.Footer>
       </Modal>
-      
+
       {/* Modal Modification d'utilisateur */}
       <Modal show={showEditModal} onHide={() => setShowEditModal(false)} size="lg">
         <Modal.Header closeButton className="bg-warning text-dark">
@@ -731,11 +839,11 @@ export default function Authentification() {
             <>
               <Alert variant="info">
                 Modification de : <strong>{editingUser.username}</strong>
-                {editingUser.id === JSON.parse(localStorage.getItem('userInfo') || '{}').id && (
+                {editingUser.id === parseInt(currentUserId) && (
                   <Badge bg="primary" className="ms-2">Vous</Badge>
                 )}
               </Alert>
-              
+
               <Form>
                 <div className="row">
                   <div className="col-md-6">
@@ -744,9 +852,9 @@ export default function Authentification() {
                       <Form.Control
                         type="text"
                         value={editingUser.username}
-                        onChange={(e) => setEditingUser({...editingUser, username: e.target.value})}
+                        onChange={(e) => setEditingUser({ ...editingUser, username: e.target.value })}
                         required
-                        disabled={editingUser.id === JSON.parse(localStorage.getItem('userInfo') || '{}').id}
+                        disabled={editingUser.id === parseInt(currentUserId)}
                       />
                     </Form.Group>
                   </div>
@@ -756,27 +864,27 @@ export default function Authentification() {
                       <Form.Control
                         type="email"
                         value={editingUser.email}
-                        onChange={(e) => setEditingUser({...editingUser, email: e.target.value})}
+                        onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
                         required
                       />
                     </Form.Group>
                   </div>
                 </div>
-                
+
                 <div className="row">
                   <div className="col-md-6">
                     <Form.Group className="mb-3">
                       <Form.Label>Rôle *</Form.Label>
                       <Form.Select
                         value={editingUser.role}
-                        onChange={(e) => setEditingUser({...editingUser, role: e.target.value})}
-                        disabled={editingUser.id === JSON.parse(localStorage.getItem('userInfo') || '{}').id}
+                        onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}
+                        disabled={editingUser.id === parseInt(currentUserId)}
                       >
                         {roles.map((role, index) => (
                           <option key={index} value={role.value}>{role.label}</option>
                         ))}
                       </Form.Select>
-                      {editingUser.id === JSON.parse(localStorage.getItem('userInfo') || '{}').id && (
+                      {editingUser.id === parseInt(currentUserId) && (
                         <Form.Text className="text-muted">
                           Vous ne pouvez pas modifier votre propre rôle
                         </Form.Text>
@@ -797,7 +905,7 @@ export default function Authentification() {
           </Button>
         </Modal.Footer>
       </Modal>
-      
+
       {/* Modal Suppression d'utilisateur */}
       <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)}>
         <Modal.Header closeButton className="bg-danger text-white">
@@ -814,7 +922,9 @@ export default function Authentification() {
               </p>
               <Alert variant="warning" className="mt-3">
                 <FaExclamationTriangle className="me-2" />
-                {userToDelete.role === "administrateur" ? (
+                {userToDelete.id === parseInt(currentUserId) ? (
+                  "Vous ne pouvez pas supprimer votre propre compte."
+                ) : userToDelete.role === "administrateur" ? (
                   "Vous ne pouvez pas supprimer un administrateur."
                 ) : (
                   "Cette action est irréversible. Toutes les données de l'utilisateur seront perdues."
@@ -827,16 +937,18 @@ export default function Authentification() {
           <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
             <FaTimes className="me-1" /> Annuler
           </Button>
-          <Button 
-            variant="danger" 
-            onClick={handleDeleteUser} 
-            disabled={!isAdmin || (userToDelete && userToDelete.role === "administrateur")}
+          <Button
+            variant="danger"
+            onClick={handleDeleteUser}
+            disabled={!isAdmin ||
+              (userToDelete && userToDelete.role === "administrateur") ||
+              (userToDelete && userToDelete.id === parseInt(currentUserId))}
           >
             <FaTrash className="me-1" /> Supprimer définitivement
           </Button>
         </Modal.Footer>
       </Modal>
-      
+
       {/* Modal Changement de mot de passe */}
       <Modal show={showChangePasswordModal} onHide={() => setShowChangePasswordModal(false)}>
         <Modal.Header closeButton className="bg-primary text-white">
@@ -848,7 +960,7 @@ export default function Authentification() {
               <FaKey className="me-2" />
               Vous allez modifier votre mot de passe personnel
             </Alert>
-            
+
             <Form.Group className="mb-3">
               <Form.Label>Ancien mot de passe *</Form.Label>
               <InputGroup>
@@ -858,12 +970,12 @@ export default function Authentification() {
                 <Form.Control
                   type={showPassword ? "text" : "password"}
                   value={passwordData.oldPassword}
-                  onChange={(e) => setPasswordData({...passwordData, oldPassword: e.target.value})}
+                  onChange={(e) => setPasswordData({ ...passwordData, oldPassword: e.target.value })}
                   required
                 />
               </InputGroup>
             </Form.Group>
-            
+
             <Form.Group className="mb-3">
               <Form.Label>Nouveau mot de passe *</Form.Label>
               <InputGroup>
@@ -873,13 +985,13 @@ export default function Authentification() {
                 <Form.Control
                   type={showPassword ? "text" : "password"}
                   value={passwordData.newPassword}
-                  onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
+                  onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
                   required
                 />
               </InputGroup>
               <small className="text-muted">Minimum 6 caractères</small>
             </Form.Group>
-            
+
             <Form.Group className="mb-3">
               <Form.Label>Confirmer le nouveau mot de passe *</Form.Label>
               <InputGroup>
@@ -889,12 +1001,12 @@ export default function Authentification() {
                 <Form.Control
                   type={showPassword ? "text" : "password"}
                   value={passwordData.confirmPassword}
-                  onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
+                  onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
                   required
                 />
               </InputGroup>
             </Form.Group>
-            
+
             <Form.Check
               type="checkbox"
               label="Afficher les mots de passe"
@@ -913,7 +1025,7 @@ export default function Authentification() {
           </Button>
         </Modal.Footer>
       </Modal>
-      
+
       {/* Pied de page */}
       <footer className="mt-5 pt-3 border-top">
         <div className="row">
@@ -921,18 +1033,18 @@ export default function Authentification() {
             <p className="text-muted">
               <small>
                 Système de gestion des utilisateurs - Université de Toliara<br />
-                {isAdmin ? "Mode administrateur" : "Mode utilisateur"}
+                {isAdmin ? "Mode administrateur" : "Mode consultation"}
               </small>
             </p>
           </div>
           <div className="col-md-6 text-end">
             <p className="text-muted">
               <small>
-                {new Date().toLocaleDateString('fr-FR', { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
+                {new Date().toLocaleDateString('fr-FR', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
                 })}<br />
                 Version 1.0.0
               </small>

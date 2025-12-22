@@ -1,4 +1,6 @@
 from rest_framework import viewsets, permissions, status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.views import TokenObtainPairView # type: ignore
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -74,3 +76,13 @@ class PasswordResetConfirmView(APIView):
         user.save()
 
         return Response({"message": "Mot de passe réinitialisé avec succès"})
+    
+    # Vue pour récupérer les informations de l'utilisateur connecté
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_current_user(request):
+    """
+    Retourne les informations de l'utilisateur actuellement connecté
+    """
+    serializer = UserSerializer(request.user)
+    return Response(serializer.data)

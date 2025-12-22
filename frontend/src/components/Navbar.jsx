@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Modal, Button } from 'react-bootstrap';
 import api from '../api';
 import './Navbar.css';
+import logoUnivToliara from '../assets/logo-univ-toliara.png';
 
 const Navbar = () => {
   const [showSide, setShowSide] = useState(true);
@@ -13,31 +14,54 @@ const Navbar = () => {
   const [showDrop5, setShowDrop5] = useState(false); // Paramètres Académiques (Nouveau)
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [userInfo, setUserInfo] = useState({
-    first_name: 'Utilisateur',
-    username: 'user',
-    email: 'email@example.com'
+    first_name: '',
+    username: '',
+    email: '',
+    role: ''
   });
+
+
 
   const location = useLocation();
   const navigate = useNavigate();
 
-  const fetchUser = async () => {
+  const fetchUserInfo = async () => {
     try {
-      const res = await api.get('/user-info/');
-      setUserInfo({
-        first_name: res.data.first_name || 'Utilisateur',
-        username: res.data.username || 'user',
-        email: res.data.email || 'email@example.com'
-      });
+      // Utilisez le bon endpoint
+      const response = await api.get('/auth/current-user/');
+
+      if (response.data) {
+        setUserInfo({
+          first_name: response.data.first_name || response.data.username || 'Utilisateur',
+          username: response.data.username || 'user',
+          email: response.data.email || '',
+          role: response.data.role || ''
+        });
+      }
     } catch (err) {
-      console.error("Erreur récupération utilisateur:", err);
+      console.error("Erreur lors de la récupération des informations utilisateur:", err);
+
+      // Fallback: essayez de récupérer depuis localStorage
+      const storedEmail = localStorage.getItem("user_email");
+      const storedUsername = localStorage.getItem("user_name");
+      const storedRole = localStorage.getItem("user_role");
+
+      setUserInfo({
+        first_name: storedUsername || 'Utilisateur',
+        username: storedUsername || 'user',
+        email: storedEmail || 'email@example.com',
+        role: storedRole || ''
+      });
     }
   };
 
   useEffect(() => {
     const token = localStorage.getItem("access_token") || localStorage.getItem("accessToken");
     if (token) {
-      fetchUser();
+      fetchUserInfo();
+    } else {
+      // Si pas de token, rediriger vers login
+      navigate("/login");
     }
 
     const handleResize = () => {
@@ -48,7 +72,7 @@ const Navbar = () => {
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [navigate]);
 
   const toggleSideBar = () => setShowSide(!showSide);
   const isActive = (path) => location.pathname === path ? 'active' : '';
@@ -65,8 +89,40 @@ const Navbar = () => {
 
   return (
     <div className="w-[185px] bg-blue-600 text-white h-full flex flex-col">
-      <div className="h-[50px] flex items-center justify-center text-lg font-bold border-b border-blue-500">
-        EDU-UNIV/TUL
+      {/* En-tête avec logo et nom de l'université */}
+      <div className="h-auto min-h-[50px] flex flex-col items-center justify-center py-2 border-b border-blue-500">
+        {/* Logo */}
+        <div className="mb-1">
+          <div
+            style={{
+              width: '50px',
+              height: '50px',
+              backgroundColor: 'white',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '5px',
+              boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
+            }}
+          >
+            <img
+              src={logoUnivToliara}
+              alt="Logo Université de Toliara"
+              style={{
+                maxWidth: '100%',
+                maxHeight: '100%',
+                objectFit: 'contain'
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Nom de l'application */}
+        <div className="text-center">
+          <div className="text-sm font-bold">EDU-UNIV</div>
+          {/* <div className="text-xs text-blue-200">Université de Toliara</div> */}
+        </div>
       </div>
 
       <div className="p-4 text-center border-b border-blue-500">

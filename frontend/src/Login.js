@@ -29,23 +29,61 @@ function Login() {
         }
       );
 
+      // Dans Login.js - fonction handleSubmit
       if (response.data && response.data.access) {
         // Stocker le token JWT
         localStorage.setItem("access_token", response.data.access);
         localStorage.setItem("refresh_token", response.data.refresh);
 
-        // Stocker les infos utilisateur
-        localStorage.setItem("user_email", response.data.email || username);
-        localStorage.setItem("user_role", response.data.role || '');
-        localStorage.setItem("user_name", response.data.username || '');
-        localStorage.setItem("user_id", response.data.user_id || '');
+        // Fonction pour décoder le token JWT
+        const decodeJWT = (token) => {
+          try {
+            const base64Url = token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(
+              atob(base64)
+                .split('')
+                .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                .join('')
+            );
+            return JSON.parse(jsonPayload);
+          } catch (error) {
+            console.error("Erreur décodage token:", error);
+            return null;
+          }
+        };
+
+        // Décoder le token pour obtenir les infos utilisateur
+        const decodedToken = decodeJWT(response.data.access);
+
+        if (decodedToken) {
+          // Stocker les informations utilisateur depuis le token
+          localStorage.setItem("user_id", decodedToken.user_id || '');
+          localStorage.setItem("user_name", decodedToken.username || username);
+          localStorage.setItem("user_email", decodedToken.email || response.data.email || username);
+          localStorage.setItem("user_role", decodedToken.role || response.data.role || '');
+
+          console.log("Informations utilisateur stockées:", {
+            id: localStorage.getItem("user_id"),
+            username: localStorage.getItem("user_name"),
+            email: localStorage.getItem("user_email"),
+            role: localStorage.getItem("user_role")
+          });
+        } else {
+          // Fallback si le décodage échoue
+          localStorage.setItem("user_email", response.data.email || username);
+          localStorage.setItem("user_role", response.data.role || '');
+          localStorage.setItem("user_name", response.data.username || '');
+          localStorage.setItem("user_id", response.data.user_id || '');
+        }
 
         setMessage("Connexion réussie ✅");
         setType("success");
 
         // Rediriger selon le rôle
+        const userRole = decodedToken?.role || response.data.role || '';
         setTimeout(() => {
-          if (response.data.role === 'administrateur') {
+          if (userRole === 'administrateur') {
             navigate("/authentification");
           } else {
             navigate("/dashboard");
