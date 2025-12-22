@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import logoUnivToliara from './assets/logo-univ-toliara.png';
 
 function Login() {
   const [username, setUsername] = useState("");  // Changer email par username
@@ -17,7 +18,7 @@ function Login() {
     setMessage(null);
 
     console.log(password)
-    
+
     try {
       console.log(password)
       const response = await axios.post(
@@ -89,9 +90,31 @@ function Login() {
             <h1 className="display-4 fw-bold mb-4">Bienvenue !</h1>
             <p className="lead mb-4">EDU-UNIV/TUL</p>
 
-            {/* Logo ou image */}
-            <div className="mb-4">
-              <i className="fas fa-graduation-cap fa-6x"></i>
+            {/* Logo de l'Université de Toliara */}
+            <div className="mb-4 d-flex justify-content-center">
+              <div
+                style={{
+                  width: '250px',
+                  height: '250px',
+                  backgroundColor: 'white',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '20px',
+                  boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
+                }}
+              >
+                <img
+                  src={logoUnivToliara}
+                  alt="Logo Université de Toliara"
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: '100%',
+                    objectFit: 'contain'
+                  }}
+                />
+              </div>
             </div>
 
             <div className="mt-5">
@@ -105,13 +128,76 @@ function Login() {
         {/* Section de login à droite */}
         <div className="col-md-6 d-flex flex-column justify-content-center align-items-center p-4">
           <div className="w-100" style={{ maxWidth: "400px" }}>
-            <form onSubmit={handleSubmit} className="border p-4 rounded shadow">
-              <h2 className="text-center mb-4 text-primary">Connexion</h2>
 
-              {/* Message pour les petits écrans */}
+            {/* Logo pour mobile et tablette */}
+            <div className="d-block d-md-none text-center mb-4">
+              <div className="mb-3 d-flex justify-content-center">
+                <div
+                  style={{
+                    width: '150px',
+                    height: '150px',
+                    backgroundColor: 'white',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '15px',
+                    boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+                    border: '3px solid #0d6efd'
+                  }}
+                >
+                  <img
+                    src={logoUnivToliara}
+                    alt="Logo Université de Toliara"
+                    style={{
+                      maxWidth: '100%',
+                      maxHeight: '100%',
+                      objectFit: 'contain'
+                    }}
+                  />
+                </div>
+              </div>
+              <h4 className="text-primary">Bienvenue !</h4>
+              <p className="text-muted">Connectez-vous pour continuer</p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="border p-4 rounded shadow">
+
+              {/* Logo pour desktop (version réduite) */}
+              <div className="d-none d-md-block text-center mb-4">
+                <div className="mb-3 d-flex justify-content-center">
+                  <div
+                    style={{
+                      width: '100px',
+                      height: '100px',
+                      backgroundColor: 'white',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '10px',
+                      // boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+                      // border: '2px solid #0d6efd'
+                    }}
+                  >
+                    <img
+                      src={logoUnivToliara}
+                      alt="Logo Université de Toliara"
+                      style={{
+                        maxWidth: '100%',
+                        maxHeight: '100%',
+                        objectFit: 'contain'
+                      }}
+                    />
+                  </div>
+                </div>
+                <h2 className="text-center mb-2 text-primary">Connexion</h2>
+              </div>
+
+              {/* Titre pour mobile (sans logo dans le formulaire) */}
               <div className="d-block d-md-none text-center mb-4">
-                <h4 className="text-primary">Bienvenue !</h4>
-                <p className="text-muted">Connectez-vous pour continuer</p>
+                <h2 className="text-center mb-2 text-primary">Connexion</h2>
+                <p className="text-muted small">Plateforme de gestion universitaire</p>
               </div>
 
               {/* Affichage du message */}
@@ -122,9 +208,9 @@ function Login() {
               )}
 
               <div className="mb-3">
-                <label className="form-label">Nom d'utilisateur</label> {/* Changer le label */}
+                <label className="form-label">Nom d'utilisateur</label>
                 <input
-                  type="text"  // Changer de email à text
+                  type="text"
                   className="form-control"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -145,8 +231,8 @@ function Login() {
                 />
               </div>
 
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="btn btn-primary w-100 py-2"
                 disabled={loading}
               >
@@ -166,12 +252,12 @@ function Login() {
               {/* Informations sur les comptes de démo */}
               <div className="mt-3 p-3 bg-light rounded">
                 {/* <small className="text-muted">
-                  <strong>Comptes de test :</strong><br />
-                  • Admin: <strong>admin</strong> / 123456<br />
-                  • Scolarité: <strong>scolarite</strong> / 123456<br />
-                  • Bourse: <strong>bourse</strong> / 123456<br />
-                  • Finance: <strong>finance</strong> / 123456
-                </small> */}
+          <strong>Comptes de test :</strong><br />
+          • Admin: <strong>admin</strong> / 123456<br />
+          • Scolarité: <strong>scolarite</strong> / 123456<br />
+          • Bourse: <strong>bourse</strong> / 123456<br />
+          • Finance: <strong>finance</strong> / 123456
+        </small> */}
               </div>
             </form>
           </div>

@@ -701,10 +701,6 @@ export default function Reinscription() {
           <p className="text-muted">
             Gestion des étudiants redoublants (code redoublement = "R" - Redoublant, "T" - Triplant)
           </p>
-          <Alert variant="info" className="mt-2">
-            <strong>Note :</strong> Seule la modification des étudiants existants est autorisée. 
-            Les nouveaux étudiants doivent être créés via le module d'inscription.
-          </Alert>
         </div>
       </div>
 

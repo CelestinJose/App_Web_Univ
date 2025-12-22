@@ -625,15 +625,6 @@ export default function Impression() {
                     <p className="text-muted">
                         Affichage organisé par faculté, domaine, mention et niveau
                     </p>
-                    {/* Avertissement pour PDF */}
-                    {!isPdfEnabled() && filteredEtudiants.length > 0 && (
-                        <Alert variant="warning" className="mt-2 p-2">
-                            <FaExclamationTriangle className="me-2" />
-                            <small>
-                                Pour exporter en PDF, vous devez sélectionner <strong>tous</strong> les filtres : Faculté, Domaine, Mention et Niveau.
-                            </small>
-                        </Alert>
-                    )}
                 </div>
             </div>
 

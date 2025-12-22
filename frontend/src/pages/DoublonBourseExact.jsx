@@ -226,11 +226,6 @@ export default function DoublonBourseExact() {
                     <p className="text-muted">
                         Détection des étudiants avec mêmes Nom/Prénom/CIN mais formations différentes
                     </p>
-                    <Alert variant="danger" className="mt-2">
-                        <FaExclamationTriangle className="me-2" />
-                        <strong>Règle stricte :</strong> Une seule bourse par personne (même nom/prénom/CIN), 
-                        même si inscrit dans plusieurs formations.
-                    </Alert>
                 </div>
             </div>
 

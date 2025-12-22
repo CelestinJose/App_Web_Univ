@@ -58,7 +58,6 @@ class Mention(models.Model):
     nom = models.CharField(max_length=200)
     description = models.TextField(blank=True, null=True)
     duree_etude = models.IntegerField(help_text="Durée d'étude en années", default=3)
-    credits_requis = models.IntegerField(help_text="Nombre de crédits requis", default=180)
     statut = models.CharField(max_length=10, choices=STATUT_CHOICES, default='ACTIVE')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

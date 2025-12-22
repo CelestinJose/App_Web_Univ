@@ -913,7 +913,6 @@ const genererCarteEtudiantPDF = () => {
                             <td>
                               {etudiant.mention ? (
                                 <div>
-                                  <FaBook className="text-primary me-1" />
                                   <small className="text-muted" style={{
                                     maxWidth: '200px',
                                     overflow: 'hidden',

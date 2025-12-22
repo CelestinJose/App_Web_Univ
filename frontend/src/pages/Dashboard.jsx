@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { 
   FaUserGraduate, FaUniversity, FaMoneyBillWave, FaFileAlt, 
   FaChartLine, FaCalendarAlt, FaClock, FaArrowUp, FaArrowDown,
-  FaIdCard, FaPrint, FaUserPlus, FaUserCheck 
+  FaIdCard, FaPrint, FaUserPlus, FaUserCheck, FaRedo, FaUserTimes
 } from "react-icons/fa";
 import { Bar, Pie, Line } from "react-chartjs-2";
 import {
@@ -37,20 +37,137 @@ function Dashboard() {
     totalEtudiants: 0,
     etudiantsInscrits: 0,
     etudiantsReinscrits: 0,
+    triplants: 0,
     totalBoursiers: 0,
     montantTotalBourses: 0,
-    demandesAttente: 0,
-    certificatsGeneres: 0,
-    cartesEtudiant: 0,
+    tauxBoursiers: 0,
     parNiveau: {},
-    parMois: {},
-    tauxBoursiers: 0
+    parMois: {
+      inscriptions: Array(12).fill(0),
+      reinscriptions: Array(12).fill(0),
+      labels: Array(12).fill('')
+    },
+    boursiersData: [0, 0],
+    parNiveauArray: Array(6).fill(0)
   });
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activites, setActivites] = useState([]);
   const user = localStorage.getItem("username") || "Administrateur";
+
+  // Fonction pour analyser les inscriptions par mois basée sur created_at
+  const analyserInscriptionsParMois = (etudiants) => {
+    // Initialiser les données pour les 12 derniers mois
+    const moisActuel = new Date();
+    const dataParMois = {
+      inscriptions: Array(12).fill(0),
+      reinscriptions: Array(12).fill(0),
+      labels: Array(12).fill('')
+    };
+    
+    // Récupérer les 12 derniers mois
+    for (let i = 0; i < 12; i++) {
+      const date = new Date(moisActuel.getFullYear(), moisActuel.getMonth() - i, 1);
+      dataParMois.labels[11 - i] = date.toLocaleDateString('fr-FR', { 
+        month: 'short', 
+        year: '2-digit' 
+      });
+    }
+    
+    // Analyser chaque étudiant
+    etudiants.forEach(etudiant => {
+      if (etudiant.created_at) {
+        const dateInscription = new Date(etudiant.created_at);
+        const moisInscription = dateInscription.getMonth();
+        const anneeInscription = dateInscription.getFullYear();
+        const moisActuelDate = new Date();
+        const moisActuel = moisActuelDate.getMonth();
+        const anneeActuel = moisActuelDate.getFullYear();
+        
+        // Calculer l'index (0-11) pour les 12 derniers mois
+        const moisDiff = (anneeActuel - anneeInscription) * 12 + (moisActuel - moisInscription);
+        
+        if (moisDiff >= 0 && moisDiff < 12) {
+          const index = 11 - moisDiff;
+          
+          if (etudiant.code_redoublement === 'N') {
+            // Nouvel inscrit
+            dataParMois.inscriptions[index]++;
+          } else if (etudiant.code_redoublement === 'R' || etudiant.code_redoublement === 'T') {
+            // Réinscription (R ou T)
+            dataParMois.reinscriptions[index]++;
+          }
+        }
+      }
+    });
+    
+    return dataParMois;
+  };
+
+  // Fonction pour générer des activités basées sur les inscriptions récentes
+  const genererActivitesReelles = (etudiants) => {
+    // Trier les étudiants par date d'inscription (du plus récent au plus ancien)
+    const etudiantsTries = [...etudiants]
+      .filter(e => e.created_at)
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      .slice(0, 6); // Prendre les 6 plus récents
+    
+    const activitesReelles = etudiantsTries.map((etudiant, index) => {
+      const dateInscription = new Date(etudiant.created_at);
+      const maintenant = new Date();
+      const difference = maintenant - dateInscription;
+      
+      // Calculer le temps écoulé de manière lisible
+      let tempsEcoule = '';
+      const minutes = Math.floor(difference / (1000 * 60));
+      const heures = Math.floor(minutes / 60);
+      const jours = Math.floor(heures / 24);
+      
+      if (jours > 0) {
+        tempsEcoule = `Il y a ${jours} jour${jours > 1 ? 's' : ''}`;
+      } else if (heures > 0) {
+        tempsEcoule = `Il y a ${heures} heure${heures > 1 ? 's' : ''}`;
+      } else {
+        tempsEcoule = `Il y a ${minutes} minute${minutes > 1 ? 's' : ''}`;
+      }
+      
+      // Déterminer le type d'inscription
+      let typeInscription = '';
+      let icon = null;
+      
+      switch(etudiant.code_redoublement) {
+        case 'N':
+          typeInscription = 'Nouvel étudiant inscrit';
+          icon = <FaUserPlus className="text-success" />;
+          break;
+        case 'R':
+          typeInscription = 'Étudiant réinscrit';
+          icon = <FaRedo className="text-warning" />;
+          break;
+        case 'T':
+          typeInscription = 'Étudiant triplant';
+          icon = <FaUserTimes className="text-danger" />;
+          break;
+        default:
+          typeInscription = 'Étudiant inscrit';
+          icon = <FaUserGraduate className="text-info" />;
+      }
+      
+      return {
+        id: etudiant.id || index + 1,
+        action: typeInscription,
+        user: `${etudiant.nom} ${etudiant.prenom}`,
+        details: `Matricule: ${etudiant.matricule} | ${etudiant.faculte || 'Non spécifié'}`,
+        time: tempsEcoule,
+        icon: icon,
+        boursier: etudiant.boursier === 'OUI',
+        niveau: etudiant.niveau || 'Non spécifié'
+      };
+    });
+    
+    setActivites(activitesReelles);
+  };
 
   // Charger les données réelles de l'API
   useEffect(() => {
@@ -60,97 +177,122 @@ function Dashboard() {
         
         // 1. Récupérer les statistiques globales
         const statsResponse = await etudiantApi.getStats();
+        let apiStats = {};
         if (statsResponse.data) {
-          const apiStats = statsResponse.data;
-          
-          // Calculer les statistiques basées sur les données API
-          const totalEtudiants = apiStats.total || 0;
-          const etudiantsInscrits = apiStats.non_redoublants || 0;
-          const etudiantsReinscrits = apiStats.redoublants || 0;
-          const totalBoursiers = apiStats.boursiers || 0;
-          const montantTotalBourses = apiStats.total_bourses || 0;
-          
-          setStats(prev => ({
-            ...prev,
-            totalEtudiants,
-            etudiantsInscrits,
-            etudiantsReinscrits,
-            totalBoursiers,
-            montantTotalBourses,
-            tauxBoursiers: totalEtudiants > 0 ? (totalBoursiers / totalEtudiants * 100) : 0
-          }));
+          apiStats = statsResponse.data;
         }
         
         // 2. Récupérer la liste des étudiants pour les graphiques
         const etudiantsResponse = await etudiantApi.getEtudiants({ page_size: 1000 });
+        let etudiants = [];
+        
         if (etudiantsResponse.data) {
-          const etudiants = etudiantsResponse.data.results || etudiantsResponse.data;
+          if (Array.isArray(etudiantsResponse.data.results)) {
+            etudiants = etudiantsResponse.data.results;
+          } else if (Array.isArray(etudiantsResponse.data)) {
+            etudiants = etudiantsResponse.data;
+          }
+        }
+        
+        if (Array.isArray(etudiants) && etudiants.length > 0) {
+          // ANALYSE DES DONNÉES RÉELLES
+          const inscriptionsParMois = analyserInscriptionsParMois(etudiants);
           
-          if (Array.isArray(etudiants)) {
-            // Calculer la répartition par niveau
-            const parNiveau = {
-              'Licence 1': 0,
-              'Licence 2': 0,
-              'Licence 3': 0,
-              'Master 1': 0,
-              'Master 2': 0,
-              'Doctorat': 0
-            };
+          // Calculer les statistiques réelles
+          let totalEtudiants = etudiants.length;
+          let inscritsCount = 0;
+          let reinscritsCount = 0;
+          let triplantsCount = 0;
+          let boursiersCount = 0;
+          let montantTotalBourses = 0;
+          
+          // Répartition par niveau
+          const parNiveau = {
+            'Licence 1': 0,
+            'Licence 2': 0,
+            'Licence 3': 0,
+            'Master 1': 0,
+            'Master 2': 0,
+            'Doctorat': 0,
+            'Autre': 0
+          };
+          
+          etudiants.forEach(etudiant => {
+            // Type d'inscription
+            switch(etudiant.code_redoublement) {
+              case 'N':
+                inscritsCount++;
+                break;
+              case 'R':
+                reinscritsCount++;
+                break;
+              case 'T':
+                triplantsCount++;
+                break;
+            }
             
-            // Calculer la répartition boursiers vs non-boursiers
-            let boursiersCount = 0;
-            let nonBoursiersCount = 0;
+            // Boursiers
+            if (etudiant.boursier === 'OUI') {
+              boursiersCount++;
+              montantTotalBourses += parseFloat(etudiant.bourse || 0);
+            }
             
-            etudiants.forEach(etudiant => {
-              // Répartition par niveau
-              if (etudiant.niveau) {
-                if (etudiant.niveau.includes('Licence 1')) parNiveau['Licence 1']++;
-                else if (etudiant.niveau.includes('Licence 2')) parNiveau['Licence 2']++;
-                else if (etudiant.niveau.includes('Licence 3')) parNiveau['Licence 3']++;
-                else if (etudiant.niveau.includes('Master 1')) parNiveau['Master 1']++;
-                else if (etudiant.niveau.includes('Master 2')) parNiveau['Master 2']++;
-                else if (etudiant.niveau.includes('Doctorat')) parNiveau['Doctorat']++;
-              }
-              
-              // Répartition boursiers
-              if (etudiant.boursier === 'OUI') boursiersCount++;
-              else nonBoursiersCount++;
-            });
-            
+            // Répartition par niveau
+            if (etudiant.niveau) {
+              const niveau = etudiant.niveau.toLowerCase();
+              if (niveau.includes('licence 1') || niveau.includes('l1')) parNiveau['Licence 1']++;
+              else if (niveau.includes('licence 2') || niveau.includes('l2')) parNiveau['Licence 2']++;
+              else if (niveau.includes('licence 3') || niveau.includes('l3')) parNiveau['Licence 3']++;
+              else if (niveau.includes('master 1') || niveau.includes('m1')) parNiveau['Master 1']++;
+              else if (niveau.includes('master 2') || niveau.includes('m2')) parNiveau['Master 2']++;
+              else if (niveau.includes('doctorat') || niveau.includes('d')) parNiveau['Doctorat']++;
+              else parNiveau['Autre']++;
+            } else {
+              parNiveau['Autre']++;
+            }
+          });
+          
+          // Calculer le taux de boursiers
+          const tauxBoursiers = totalEtudiants > 0 ? (boursiersCount / totalEtudiants * 100) : 0;
+          
+          // Mettre à jour les statistiques
+          setStats({
+            totalEtudiants,
+            etudiantsInscrits: inscritsCount,
+            etudiantsReinscrits: reinscritsCount,
+            triplants: triplantsCount,
+            totalBoursiers: boursiersCount,
+            montantTotalBourses,
+            tauxBoursiers,
+            parNiveau,
+            parNiveauArray: [
+              parNiveau['Licence 1'],
+              parNiveau['Licence 2'],
+              parNiveau['Licence 3'],
+              parNiveau['Master 1'],
+              parNiveau['Master 2'],
+              parNiveau['Doctorat'] + parNiveau['Autre']
+            ],
+            boursiersData: [boursiersCount, totalEtudiants - boursiersCount],
+            parMois: inscriptionsParMois
+          });
+          
+          // Générer les activités réelles
+          genererActivitesReelles(etudiants);
+        } else {
+          // Si aucune donnée d'étudiants, utiliser les stats de l'API
+          if (apiStats) {
             setStats(prev => ({
               ...prev,
-              parNiveau,
-              parNiveauArray: Object.values(parNiveau),
-              boursiersData: [boursiersCount, nonBoursiersCount]
+              totalEtudiants: apiStats.total || 0,
+              etudiantsInscrits: apiStats.non_redoublants || 0,
+              etudiantsReinscrits: apiStats.redoublants || 0,
+              triplants: apiStats.triplants || 0,
+              totalBoursiers: apiStats.boursiers || 0,
+              montantTotalBourses: apiStats.total_bourses || 0,
+              tauxBoursiers: apiStats.taux_boursiers || 0
             }));
           }
-        }
-        
-        // 3. Récupérer les activités récentes (si votre API le supporte)
-        try {
-          const activitesResponse = await etudiantApi.getActivites();
-          if (activitesResponse.data) {
-            setActivites(activitesResponse.data.slice(0, 6)); // Limiter à 6 activités
-          } else {
-            // Générer des activités simulées basées sur les données
-            genererActivitesSimulees();
-          }
-        } catch (activitesError) {
-          console.log("API d'activités non disponible, génération simulée");
-          genererActivitesSimulees();
-        }
-        
-        // 4. Récupérer les données mensuelles (si votre API le supporte)
-        try {
-          const mensuelResponse = await etudiantApi.getInscriptionsMensuelles();
-          if (mensuelResponse.data) {
-            setStats(prev => ({
-              ...prev,
-              parMois: mensuelResponse.data
-            }));
-          }
-        } catch (mensuelError) {
-          console.log("API mensuelle non disponible");
         }
         
         setLoading(false);
@@ -163,53 +305,10 @@ function Dashboard() {
     
     fetchDashboardData();
   }, []);
-  
-  // Fonction pour générer des activités simulées
-  const genererActivitesSimulees = () => {
-    const nomsEtudiants = ["RAKOTO Jean", "RASOA Marie", "RANDRIANARIVELO Paul", 
-                          "RAZAFINDRAKOTO Alice", "RABE Marc", "RAHARIMANANA Julie"];
-    const actions = [
-      "Nouvel étudiant inscrit",
-      "Certificat de scolarité généré",
-      "Carte étudiante imprimée",
-      "Bourse attribuée",
-      "Réinscription validée",
-      "Demande de document traitée"
-    ];
-    const delais = ["Il y a 10 min", "Il y a 25 min", "Il y a 40 min", "Il y a 1h", "Il y a 2h", "Il y a 3h"];
-    
-    const activitesSimulees = Array.from({ length: 6 }, (_, i) => ({
-      id: i + 1,
-      action: actions[i],
-      user: nomsEtudiants[i],
-      time: delais[i],
-      icon: getIconForAction(actions[i])
-    }));
-    
-    setActivites(activitesSimulees);
-  };
-  
-  const getIconForAction = (action) => {
-    switch(action) {
-      case "Nouvel étudiant inscrit":
-        return <FaUserPlus className="text-success" />;
-      case "Certificat de scolarité généré":
-      case "Demande de document traitée":
-        return <FaFileAlt className="text-info" />;
-      case "Carte étudiante imprimée":
-        return <FaIdCard className="text-warning" />;
-      case "Bourse attribuée":
-        return <FaMoneyBillWave className="text-success" />;
-      case "Réinscription validée":
-        return <FaUserCheck className="text-primary" />;
-      default:
-        return <FaFileAlt className="text-secondary" />;
-    }
-  };
 
   // Données pour le graphique des inscriptions par niveau
   const chartDataNiveaux = {
-    labels: ['Licence 1', 'Licence 2', 'Licence 3', 'Master 1', 'Master 2', 'Doctorat'],
+    labels: ['Licence 1', 'Licence 2', 'Licence 3', 'Master 1', 'Master 2', 'Autre/Doctorat'],
     datasets: [
       {
         label: 'Nombre d\'étudiants',
@@ -235,23 +334,25 @@ function Dashboard() {
     ]
   };
 
-  // Données pour le graphique des inscriptions mensuelles
+  // Données pour le graphique des inscriptions mensuelles (RÉELLES)
   const chartDataMensuel = {
-    labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'],
+    labels: stats.parMois.labels || ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'],
     datasets: [
       {
-        label: 'Inscriptions',
-        data: stats.parMois?.inscriptions || [45, 52, 48, 65, 72, 85, 92, 88, 95, 102, 98, 110],
+        label: 'Nouveaux inscrits (N)',
+        data: stats.parMois.inscriptions || Array(12).fill(0),
         borderColor: 'rgba(54, 162, 235, 1)',
         backgroundColor: 'rgba(54, 162, 235, 0.2)',
-        tension: 0.4
+        tension: 0.4,
+        fill: true
       },
       {
-        label: 'Réinscriptions',
-        data: stats.parMois?.reinscriptions || [12, 15, 18, 22, 25, 28, 30, 32, 35, 38, 40, 42],
+        label: 'Réinscriptions (R/T)',
+        data: stats.parMois.reinscriptions || Array(12).fill(0),
         borderColor: 'rgba(255, 99, 132, 1)',
         backgroundColor: 'rgba(255, 99, 132, 0.2)',
-        tension: 0.4
+        tension: 0.4,
+        fill: true
       }
     ]
   };
@@ -277,32 +378,51 @@ function Dashboard() {
 
   const optionsBar = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: {
         position: 'top',
       },
       title: {
         display: true,
-        text: 'Répartition par niveau'
+        text: 'Répartition par niveau d\'étude'
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          precision: 0
+        }
       }
     }
   };
 
   const optionsLine = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: {
         position: 'top',
       },
       title: {
         display: true,
-        text: 'Évolution des inscriptions mensuelles'
+        text: 'Évolution des inscriptions sur 12 mois'
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          precision: 0
+        }
       }
     }
   };
 
   const optionsPie = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: {
         position: 'top',
@@ -312,6 +432,14 @@ function Dashboard() {
         text: 'Répartition boursiers / Non boursiers'
       }
     }
+  };
+
+  // Fonction pour formater le montant
+  const formatMontant = (montant) => {
+    return new Intl.NumberFormat('fr-FR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(montant);
   };
 
   if (loading) {
@@ -360,6 +488,10 @@ function Dashboard() {
               month: 'long', 
               day: 'numeric' 
             })}
+            <span className="ms-3">
+              <FaClock className="me-1" />
+              Données mises à jour en temps réel
+            </span>
           </div>
         </div>
       </div>
@@ -380,7 +512,7 @@ function Dashboard() {
                   <div className="mt-2 mb-0 text-muted">
                     <small>
                       <FaUserCheck className="me-1" />
-                      {stats.etudiantsInscrits} inscrits ({stats.etudiantsReinscrits} réinscrits)
+                      {stats.etudiantsInscrits} N • {stats.etudiantsReinscrits} R/T
                     </small>
                   </div>
                 </div>
@@ -431,12 +563,12 @@ function Dashboard() {
                     Montant total bourses
                   </div>
                   <div className="h5 mb-0 fw-bold text-gray-800">
-                    {stats.montantTotalBourses.toLocaleString()} MGA
+                    {formatMontant(stats.montantTotalBourses)} MGA
                   </div>
                   <div className="mt-2 mb-0 text-muted">
                     <small>
                       Moyenne: {stats.totalBoursiers > 0 ? 
-                        Math.round(stats.montantTotalBourses / stats.totalBoursiers).toLocaleString() : 0} MGA/étudiant
+                        formatMontant(Math.round(stats.montantTotalBourses / stats.totalBoursiers)) : 0} MGA/étudiant
                     </small>
                   </div>
                 </div>
@@ -456,27 +588,21 @@ function Dashboard() {
               <div className="row no-gutters align-items-center">
                 <div className="col me-2">
                   <div className="text-xs fw-bold text-warning text-uppercase mb-1">
-                    Répartition par niveau
+                    Types d'inscription
                   </div>
-                  <div className="row no-gutters align-items-center">
-                    <div className="col-auto">
-                      <div className="h5 mb-0 me-3 fw-bold text-gray-800">
-                        {Object.values(stats.parNiveau || {}).reduce((a, b) => a + b, 0)}
-                      </div>
-                    </div>
-                    <div className="col">
-                      <div className="mt-2 mb-0 text-muted">
-                        <small>
-                          <FaChartLine className="me-1" />
-                          {Object.keys(stats.parNiveau || {}).length} niveaux
-                        </small>
-                      </div>
-                    </div>
+                  <div className="h5 mb-0 fw-bold text-gray-800">
+                    {stats.triplants} triplants
+                  </div>
+                  <div className="mt-2 mb-0 text-muted">
+                    <small>
+                      <FaUserTimes className="me-1" />
+                      {stats.etudiantsReinscrits} réinscrits au total
+                    </small>
                   </div>
                 </div>
                 <div className="col-auto">
                   <div className="icon-circle bg-warning">
-                    <FaPrint className="text-white fa-2x" />
+                    <FaRedo className="text-white fa-2x" />
                   </div>
                 </div>
               </div>
@@ -492,7 +618,7 @@ function Dashboard() {
             <div className="card-body">
               <div className="d-flex justify-content-between align-items-center">
                 <div>
-                  <div className="text-white-50 small">Inscrits (N)</div>
+                  <div className="text-white-50 small">Nouveaux inscrits (N)</div>
                   <div className="h3 mb-0">{stats.etudiantsInscrits}</div>
                 </div>
                 <div className="icon-circle bg-white">
@@ -500,7 +626,7 @@ function Dashboard() {
                 </div>
               </div>
               <div className="mt-3">
-                <small>Nouveaux étudiants</small>
+                <small>Étudiants non redoublants</small>
               </div>
             </div>
           </div>
@@ -512,10 +638,10 @@ function Dashboard() {
               <div className="d-flex justify-content-between align-items-center">
                 <div>
                   <div className="text-white-50 small">Réinscrits (R)</div>
-                  <div className="h3 mb-0">{stats.etudiantsReinscrits}</div>
+                  <div className="h3 mb-0">{stats.etudiantsReinscrits - stats.triplants}</div>
                 </div>
                 <div className="icon-circle bg-white">
-                  <FaUserCheck className="text-warning fa-2x" />
+                  <FaRedo className="text-warning fa-2x" />
                 </div>
               </div>
               <div className="mt-3">
@@ -526,11 +652,30 @@ function Dashboard() {
         </div>
 
         <div className="col-xl-3 col-md-6 mb-4">
+          <div className="card bg-danger text-white shadow h-100">
+            <div className="card-body">
+              <div className="d-flex justify-content-between align-items-center">
+                <div>
+                  <div className="text-white-50 small">Triplants (T)</div>
+                  <div className="h3 mb-0">{stats.triplants}</div>
+                </div>
+                <div className="icon-circle bg-white">
+                  <FaUserTimes className="text-danger fa-2x" />
+                </div>
+              </div>
+              <div className="mt-3">
+                <small>Étudiants triplants</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="col-xl-3 col-md-6 mb-4">
           <div className="card bg-success text-white shadow h-100">
             <div className="card-body">
               <div className="d-flex justify-content-between align-items-center">
                 <div>
-                  <div className="text-white-50 small">Ratio boursiers</div>
+                  <div className="text-white-50 small">Taux de boursiers</div>
                   <div className="h3 mb-0">
                     {stats.tauxBoursiers.toFixed(1)}%
                   </div>
@@ -545,28 +690,6 @@ function Dashboard() {
             </div>
           </div>
         </div>
-
-        <div className="col-xl-3 col-md-6 mb-4">
-          <div className="card bg-info text-white shadow h-100">
-            <div className="card-body">
-              <div className="d-flex justify-content-between align-items-center">
-                <div>
-                  <div className="text-white-50 small">Moyenne bourse</div>
-                  <div className="h3 mb-0">
-                    {stats.totalBoursiers > 0 ? 
-                      Math.round(stats.montantTotalBourses / stats.totalBoursiers).toLocaleString() : 0} MGA
-                  </div>
-                </div>
-                <div className="icon-circle bg-white">
-                  <FaMoneyBillWave className="text-info fa-2x" />
-                </div>
-              </div>
-              <div className="mt-3">
-                <small>Par étudiant boursier</small>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Graphiques */}
@@ -574,11 +697,20 @@ function Dashboard() {
         <div className="col-xl-8 col-lg-7">
           <div className="card shadow mb-4">
             <div className="card-header py-3">
-              <h6 className="m-0 fw-bold text-primary">Évolution des inscriptions</h6>
+              <h6 className="m-0 fw-bold text-primary">
+                Évolution des inscriptions sur 12 mois
+                <small className="text-muted ms-2">
+                  (Basé sur created_at)
+                </small>
+              </h6>
             </div>
             <div className="card-body">
-              <div className="chart-area">
-                <Line data={chartDataMensuel} options={optionsLine} height={100} />
+              <div className="chart-area" style={{ height: '350px' }}>
+                <Line data={chartDataMensuel} options={optionsLine} />
+              </div>
+              <div className="mt-3 text-muted small">
+                <FaCalendarAlt className="me-1" />
+                Données calculées à partir des dates d'inscription réelles
               </div>
             </div>
           </div>
@@ -590,7 +722,7 @@ function Dashboard() {
               <h6 className="m-0 fw-bold text-primary">Répartition des boursiers</h6>
             </div>
             <div className="card-body">
-              <div className="chart-pie">
+              <div className="chart-pie" style={{ height: '250px' }}>
                 <Pie data={chartDataBoursiers} options={optionsPie} />
               </div>
               <div className="mt-4 text-center small">
@@ -611,10 +743,12 @@ function Dashboard() {
         <div className="col-lg-6 mb-4">
           <div className="card shadow">
             <div className="card-header py-3">
-              <h6 className="m-0 fw-bold text-primary">Répartition par niveau</h6>
+              <h6 className="m-0 fw-bold text-primary">Répartition par niveau d'étude</h6>
             </div>
             <div className="card-body">
-              <Bar data={chartDataNiveaux} options={optionsBar} />
+              <div style={{ height: '300px' }}>
+                <Bar data={chartDataNiveaux} options={optionsBar} />
+              </div>
             </div>
           </div>
         </div>
@@ -622,11 +756,11 @@ function Dashboard() {
         <div className="col-lg-6 mb-4">
           <div className="card shadow">
             <div className="card-header py-3 d-flex justify-content-between align-items-center">
-              <h6 className="m-0 fw-bold text-primary">Activités récentes</h6>
+              <h6 className="m-0 fw-bold text-primary">Inscriptions récentes</h6>
               <span className="badge bg-primary">{activites.length} nouvelles</span>
             </div>
             <div className="card-body">
-              <div className="activity-feed">
+              <div className="activity-feed" style={{ maxHeight: '300px', overflowY: 'auto' }}>
                 {activites.length > 0 ? (
                   activites.map((activite) => (
                     <div key={activite.id} className="feed-item mb-3">
@@ -638,7 +772,15 @@ function Dashboard() {
                           <div className="fw-bold">{activite.action}</div>
                           <div className="text-muted small">{activite.user}</div>
                           <div className="text-muted smaller">
+                            {activite.details}
+                          </div>
+                          <div className="text-muted smaller">
                             <FaClock className="me-1" /> {activite.time}
+                            {activite.boursier && (
+                              <span className="ms-2 text-success">
+                                <FaMoneyBillWave className="me-1" /> Boursier
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -646,14 +788,9 @@ function Dashboard() {
                   ))
                 ) : (
                   <div className="text-center py-3 text-muted">
-                    Aucune activité récente
+                    Aucune inscription récente
                   </div>
                 )}
-              </div>
-              <div className="text-center mt-3">
-                <button className="btn btn-outline-primary btn-sm">
-                  Voir toutes les activités
-                </button>
               </div>
             </div>
           </div>
@@ -665,40 +802,49 @@ function Dashboard() {
         <div className="col-12">
           <div className="card shadow">
             <div className="card-header py-3">
-              <h6 className="m-0 fw-bold text-primary">Résumé du système - Données en temps réel</h6>
+              <h6 className="m-0 fw-bold text-primary">Synthèse des inscriptions</h6>
             </div>
             <div className="card-body">
-              <div className="row">
-                <div className="col-md-3 text-center">
-                  <div className="h4 text-primary">{stats.etudiantsInscrits}</div>
-                  <div className="text-muted">Inscrits (N)</div>
+              <div className="row text-center">
+                <div className="col-md-2">
+                  <div className="h4 text-primary">{stats.totalEtudiants}</div>
+                  <div className="text-muted">Total</div>
                 </div>
-                <div className="col-md-3 text-center">
-                  <div className="h4 text-warning">{stats.etudiantsReinscrits}</div>
+                <div className="col-md-2">
+                  <div className="h4 text-success">{stats.etudiantsInscrits}</div>
+                  <div className="text-muted">Nouveaux (N)</div>
+                </div>
+                <div className="col-md-2">
+                  <div className="h4 text-warning">{stats.etudiantsReinscrits - stats.triplants}</div>
                   <div className="text-muted">Réinscrits (R)</div>
                 </div>
-                <div className="col-md-3 text-center">
-                  <div className="h4 text-success">
-                    {stats.totalBoursiers}
-                  </div>
+                <div className="col-md-2">
+                  <div className="h4 text-danger">{stats.triplants}</div>
+                  <div className="text-muted">Triplants (T)</div>
+                </div>
+                <div className="col-md-2">
+                  <div className="h4 text-info">{stats.totalBoursiers}</div>
                   <div className="text-muted">Boursiers</div>
                 </div>
-                <div className="col-md-3 text-center">
-                  <div className="h4 text-info">
-                    {stats.montantTotalBourses.toLocaleString()} MGA
-                  </div>
-                  <div className="text-muted">Bourses totales</div>
+                <div className="col-md-2">
+                  <div className="h4 text-dark">{formatMontant(stats.montantTotalBourses)}</div>
+                  <div className="text-muted">MGA total</div>
                 </div>
               </div>
               <div className="row mt-3">
-                <div className="col-md-6 text-center">
+                <div className="col-md-4 text-center">
                   <div className="text-muted">
-                    <small>Total étudiants: <strong>{stats.totalEtudiants}</strong></small>
+                    <small>Taux boursiers: <strong>{stats.tauxBoursiers.toFixed(1)}%</strong></small>
                   </div>
                 </div>
-                <div className="col-md-6 text-center">
+                <div className="col-md-4 text-center">
                   <div className="text-muted">
-                    <small>Taux de boursiers: <strong>{stats.tauxBoursiers.toFixed(1)}%</strong></small>
+                    <small>Inscriptions/mois: <strong>{Math.round(stats.totalEtudiants / 12)}</strong></small>
+                  </div>
+                </div>
+                <div className="col-md-4 text-center">
+                  <div className="text-muted">
+                    <small>Dernière mise à jour: <strong>{new Date().toLocaleTimeString('fr-FR')}</strong></small>
                   </div>
                 </div>
               </div>
@@ -716,13 +862,8 @@ function Dashboard() {
           height: 3.5rem;
           border-radius: 50%;
         }
-        .chart-area, .chart-pie {
-          position: relative;
-          height: 300px;
-        }
-        .activity-feed {
-          max-height: 300px;
-          overflow-y: auto;
+        .border-start-3 {
+          border-left-width: 3px !important;
         }
         .feed-item {
           padding: 10px 0;
@@ -739,9 +880,6 @@ function Dashboard() {
           justify-content: center;
           border-radius: 50%;
           background-color: #f8f9fa;
-        }
-        .border-start-3 {
-          border-left-width: 3px !important;
         }
       `}</style>
     </div>
