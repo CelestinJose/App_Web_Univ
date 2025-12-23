@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import Login from "./Login";
 import Navbar from './components/Navbar';
+import NotFound from "./pages/NotFound";
 import Dashboard from "./pages/Dashboard";
 import ListEtudiants from "./pages/ListEtudiants";
 import Bourses from "./pages/Bourses";
@@ -58,6 +59,7 @@ function App() {
           <Route path="facultes" element={<Facultes />} />
           <Route path="/mentions" element={<Mentions />} />
           <Route path="domaines" element={<Domaines />} />
+          <Route path="*" element={<NotFound />} />
         </Route>
 
         {/* Redirection par défaut */}

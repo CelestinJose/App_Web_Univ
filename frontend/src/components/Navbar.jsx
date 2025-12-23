@@ -9,9 +9,10 @@ const Navbar = () => {
   const [showSide, setShowSide] = useState(true);
   const [showDrop1, setShowDrop1] = useState(false); // Inscription
   const [showDrop2, setShowDrop2] = useState(false); // Réinscription
-  const [showDrop3, setShowDrop3] = useState(false); // Étudiant
+  const [showDrop6, setShowDrop6] = useState(false); // Bourses
   const [showDrop4, setShowDrop4] = useState(false); // Doublon
   const [showDropImpression, setShowDropImpression] = useState(false); // Impression
+  const [showDropImpressionBourses, setShowDropImpressionBourses] = useState(false); // Impression bourses
   const [showDrop5, setShowDrop5] = useState(false); // Paramètres Académiques
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [userInfo, setUserInfo] = useState({
@@ -233,7 +234,7 @@ const Navbar = () => {
                 >
                   Nouvelle inscription
                 </Link>
-                
+
                 {/* Deuxième ligne: Impression avec sous-menu */}
                 <div className="relative">
                   <div
@@ -245,7 +246,7 @@ const Navbar = () => {
                       className={`fas fa-chevron-down transition-transform ${showDropImpression ? 'rotate-180' : ''}`}
                     ></i>
                   </div>
-                  
+
                   {showDropImpression && (
                     <div className="sidebar-submenu-nested ml-4 mt-1">
                       <Link
@@ -278,7 +279,7 @@ const Navbar = () => {
             {showDrop2 && (
               <div className="sidebar-submenu">
                 <Link to="/reinscription" className={`sidebar-link ${isActive('/reinscription')}`}>
-                <i className="fas fa-redo mr-2"></i>Réinscription</Link>
+                  <i className="fas fa-redo mr-2"></i>Réinscription</Link>
               </div>
             )}
           </div>
@@ -327,11 +328,64 @@ const Navbar = () => {
           </div>
         )}
 
-        {/* Service Bourses */}
+        {/* Service Bourses avec sous-menu */}
         {permissions.showBourses && (
-          <Link to="/bourses" className={`sidebar-link ${isActive('/bourses')}`}>
-            <i className="fas fa-hand-holding-usd mr-2"></i>Service Bourses
-          </Link>
+          <div>
+            <div
+              onClick={() => setShowDrop6(!showDrop6)}
+              className="sidebar-link flex justify-between items-center cursor-pointer"
+            >
+              <span><i className="fas fa-hand-holding-usd mr-2"></i>Service Bourses</span>
+              <i className={`fas fa-chevron-down transition-transform ${showDrop6 ? 'rotate-180' : 'rotate-0'}`}></i>
+            </div>
+
+            {showDrop6 && (
+              <div className="sidebar-submenu">
+                {/* Section Bourses */}
+                <Link to="/bourses" className={`sidebar-link ${isActive('/bourses')}`}>
+                  <i className="fas fa-hand-holding-usd mr-2"></i>
+                  <span className="flex-1">Bourses</span>
+                  <span className="text-xs bg-green-500 px-1.5 py-0.5 rounded">24</span>
+                </Link>
+
+                {/* Section Impression avec sous-menu */}
+                <div className="relative">
+                  <div
+                    onClick={() => setShowDropImpressionBourses(!showDropImpressionBourses)}
+                    className="sidebar-link flex justify-between items-center cursor-pointer"
+                  >
+                    <div className="flex items-center">
+                      <i className="fas fa-print mr-2"></i>
+                      <span>Impression</span>
+                    </div>
+                    <i className={`fas fa-chevron-down transition-transform ${showDropImpressionBourses ? 'rotate-180' : ''}`}></i>
+                  </div>
+
+                  {showDropImpressionBourses && (
+                    <div className="sidebar-submenu-nested ml-4 mt-1">
+                      {/* Impression - Bourses */}
+                      <Link
+                        to="/impression-bourses"
+                        className={`sidebar-link ${isActive('/impression-bourses')}`}
+                      >
+                        <i className="fas fa-hand-holding-usd mr-2 text-xs"></i>
+                        <span>Bourses</span>
+                      </Link>
+
+                      {/* Impression - Non bourses */}
+                      <Link
+                        to="/impression-non-bourses"
+                        className={`sidebar-link ${isActive('/impression-non-bourses')}`}
+                      >
+                        <i className="fas fa-ban mr-2 text-xs"></i>
+                        <span>Non bourses</span>
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Service Paiement */}
