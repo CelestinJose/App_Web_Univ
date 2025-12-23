@@ -1383,7 +1383,7 @@ export default function Reinscription() {
       {/* Modal de promotion */}
       <Modal show={showPromotionModal} onHide={() => setShowPromotionModal(false)} centered>
         <Modal.Header closeButton className="bg-info text-white">
-          <Modal.Title>Gestion de la promotion</Modal.Title>
+          <Modal.Title>Passage à niveaux</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {etudiantForPromotion && (
