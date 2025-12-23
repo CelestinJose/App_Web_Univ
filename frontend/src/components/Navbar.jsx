@@ -191,7 +191,7 @@ const Navbar = () => {
 
         {/* Nom de l'application */}
         <div className="text-center">
-          <div className="text-sm font-bold">EDU-UNIV</div>
+          <div className="text-sm font-bold">EDU-UNIV/TUL</div>
           <div className="text-xs text-blue-200 mt-1">
             {userInfo.role === 'administrateur' && 'Administrateur'}
             {userInfo.role === 'scolarite' && 'Service Scolarité'}
