@@ -12,7 +12,7 @@ import Spinner from 'react-bootstrap/Spinner';
 import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import api, { etudiantApi, bourseApi } from '../api'; // IMPORT MODIFIÉ
+import api, { etudiantApi, bourseApi } from '../api';
 
 // Import pour le PDF
 import html2canvas from 'html2canvas';

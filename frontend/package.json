@@ -40,6 +40,8 @@
   },
   "scripts": {
     "start": "react-scripts start",
+    "backend": "cd ../backend && python3 manage.py runserver",
+    "dev": "concurrently \"npm start\" \"npm run backend\"",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
@@ -64,6 +66,7 @@
   },
   "devDependencies": {
     "autoprefixer": "^10.4.22",
+    "concurrently": "^9.2.1",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.17"
   }
