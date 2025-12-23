@@ -11,8 +11,8 @@ const Navbar = () => {
   const [showDrop2, setShowDrop2] = useState(false); // Réinscription
   const [showDrop3, setShowDrop3] = useState(false); // Étudiant
   const [showDrop4, setShowDrop4] = useState(false); // Doublon
-  const [showDropImpression, setShowDropImpression] = useState(false); // Doublon
-  const [showDrop5, setShowDrop5] = useState(false); // Paramètres Académiques (Nouveau)
+  const [showDropImpression, setShowDropImpression] = useState(false); // Impression
+  const [showDrop5, setShowDrop5] = useState(false); // Paramètres Académiques
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [userInfo, setUserInfo] = useState({
     first_name: '',
@@ -39,7 +39,6 @@ const Navbar = () => {
     } catch (err) {
       console.error("Erreur lors de la récupération des informations utilisateur:", err);
 
-      // Fallback: essayez de récupérer depuis localStorage
       const storedEmail = localStorage.getItem("user_email");
       const storedUsername = localStorage.getItem("user_name");
       const storedRole = localStorage.getItem("user_role");
@@ -58,7 +57,6 @@ const Navbar = () => {
     if (token) {
       fetchUserInfo();
     } else {
-      // Si pas de token, rediriger vers login
       navigate("/login");
     }
 
@@ -85,7 +83,6 @@ const Navbar = () => {
     navigate("/login");
   };
 
-  // Fonction pour déterminer quels menus afficher selon le rôle
   const getMenuPermissions = () => {
     const role = userInfo.role;
 
@@ -108,11 +105,11 @@ const Navbar = () => {
           showInscription: true,
           showReinscription: true,
           showEtudiant: true,
-          showDoublon: false, // Scolarité ne voit pas les doublons
-          showParametres: false, // Scolarité ne voit pas les paramètres
-          showBourses: false, // Scolarité ne voit pas les bourses
-          showPaiement: false, // Scolarité ne voit pas les paiements
-          showAuthentification: false, // Scolarité ne voit pas l'authentification
+          showDoublon: false,
+          showParametres: false,
+          showBourses: false,
+          showPaiement: false,
+          showAuthentification: false,
           showDashboard: true
         };
 
@@ -120,10 +117,10 @@ const Navbar = () => {
         return {
           showInscription: false,
           showReinscription: false,
-          showEtudiant: true, // Service bourse peut voir les étudiants
-          showDoublon: true, // Service bourse peut voir les doublons
+          showEtudiant: true,
+          showDoublon: true,
           showParametres: false,
-          showBourses: true, // Service bourse voit son propre module
+          showBourses: true,
           showPaiement: false,
           showAuthentification: false,
           showDashboard: true
@@ -133,11 +130,11 @@ const Navbar = () => {
         return {
           showInscription: false,
           showReinscription: false,
-          showEtudiant: true, // Service finance peut voir les étudiants
+          showEtudiant: true,
           showDoublon: false,
           showParametres: false,
           showBourses: false,
-          showPaiement: true, // Service finance voit son propre module
+          showPaiement: true,
           showAuthentification: false,
           showDashboard: true
         };
@@ -193,12 +190,6 @@ const Navbar = () => {
         {/* Nom de l'application */}
         <div className="text-center">
           <div className="text-sm font-bold">EDU-UNIV/TUL</div>
-          <div className="text-xs text-blue-200 mt-1">
-            {userInfo.role === 'administrateur' && 'Administrateur'}
-            {userInfo.role === 'scolarite' && 'Service Scolarité'}
-            {userInfo.role === 'bourse' && 'Service Bourse'}
-            {userInfo.role === 'finance' && 'Service Finance'}
-          </div>
         </div>
       </div>
 
@@ -234,53 +225,46 @@ const Navbar = () => {
             </div>
 
             {showDrop1 && (
-              <>
-                {/* Nouvelle inscription */}
-                <div className="sidebar-submenu">
-                  <Link
-                    to="/inscription"
-                    className={`sidebar-link ${isActive('/inscription')}`}
-                  >
-                    Nouvelle inscription
-                  </Link>
-                </div>
-
-                {/* Impression (menu déroulant) */}
-                <div
-                  onClick={() => setShowDropImpression(!showDropImpression)}
-                  className="sidebar-link flex justify-between items-center cursor-pointer"
+              <div className="sidebar-submenu">
+                {/* Première ligne: Nouvelle inscription */}
+                <Link
+                  to="/inscription"
+                  className={`sidebar-link ${isActive('/inscription')}`}
                 >
-                  <span>Impression</span>
-                  <i
-                    className={`fas fa-chevron-down transition-transform ${showDropImpression ? 'rotate-180' : ''
-                      }`}
-                  ></i>
-                </div>
-
-                {showDropImpression && (
-                  <>
-                    <div className="sidebar-submenu pl-4">
+                  Nouvelle inscription
+                </Link>
+                
+                {/* Deuxième ligne: Impression avec sous-menu */}
+                <div className="relative">
+                  <div
+                    onClick={() => setShowDropImpression(!showDropImpression)}
+                    className="sidebar-link flex justify-between items-center cursor-pointer"
+                  >
+                    <span>Impression</span>
+                    <i
+                      className={`fas fa-chevron-down transition-transform ${showDropImpression ? 'rotate-180' : ''}`}
+                    ></i>
+                  </div>
+                  
+                  {showDropImpression && (
+                    <div className="sidebar-submenu-nested ml-4 mt-1">
                       <Link
                         to="/impression"
                         className={`sidebar-link ${isActive('/impression')}`}
                       >
-                        Liste des étudiants
+                        <i className="fas fa-list mr-2"></i>Liste des étudiants
                       </Link>
-                    </div>
-
-                    <div className="sidebar-submenu pl-4">
                       <Link
                         to="/list-etudiants"
                         className={`sidebar-link ${isActive('/list-etudiants')}`}
                       >
-                        Carte & Certificat
+                        <i className="fas fa-id-card mr-2"></i>Carte & Certificat
                       </Link>
                     </div>
-                  </>
-                )}
-              </>
+                  )}
+                </div>
+              </div>
             )}
-
           </div>
         )}
 
@@ -293,26 +277,12 @@ const Navbar = () => {
             </div>
             {showDrop2 && (
               <div className="sidebar-submenu">
-                <Link to="/reinscription" className={`sidebar-link ${isActive('/reinscription')}`}>Réinscription</Link>
+                <Link to="/reinscription" className={`sidebar-link ${isActive('/reinscription')}`}>
+                <i className="fas fa-redo mr-2"></i>Réinscription</Link>
               </div>
             )}
           </div>
         )}
-
-        {/* Service Étudiant */}
-        {/* {permissions.showEtudiant && (
-          <div>
-            <div onClick={() => setShowDrop3(!showDrop3)} className="sidebar-link flex justify-between items-center">
-              <span><i className="fas fa-user-graduate mr-2"></i>Service Étudiant</span>
-              <i className={`fas fa-chevron-down transition-transform ${showDrop3 ? 'rotate-180' : 'rotate-0'}`}></i>
-            </div>
-            {showDrop3 && (
-              <div className="sidebar-submenu">
-                <Link to="/list-etudiants" className={`sidebar-link ${isActive('/list-etudiants')}`}>Carte & Certificat</Link>
-              </div>
-            )}
-          </div>
-        )} */}
 
         {/* Détection Doublons */}
         {permissions.showDoublon && (

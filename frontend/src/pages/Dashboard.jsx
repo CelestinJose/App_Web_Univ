@@ -483,11 +483,13 @@ function Dashboard() {
       </div>
 
       {/* Cartes de statistiques */}
-      <div className="row mb-4">
-        <div className="col-xl-3 col-md-6 mb-4">
+      <div className="row g-4 mb-4">
+
+        {/* Total Étudiants */}
+        <div className="col-xl-4 col-lg-4 col-md-6 col-sm-12">
           <div className="card border-start-primary border-start-3 shadow h-100 py-2">
             <div className="card-body">
-              <div className="row no-gutters align-items-center">
+              <div className="row align-items-center">
                 <div className="col me-2">
                   <div className="text-xs fw-bold text-primary text-uppercase mb-1">
                     Total Étudiants
@@ -495,7 +497,7 @@ function Dashboard() {
                   <div className="h5 mb-0 fw-bold text-gray-800">
                     {stats.totalEtudiants.toLocaleString()}
                   </div>
-                  <div className="mt-2 mb-0 text-muted">
+                  <div className="mt-2 text-muted">
                     <small>
                       <FaUserCheck className="me-1" />
                       {stats.etudiantsInscrits} N • {stats.etudiantsReinscrits} R/T
@@ -512,22 +514,17 @@ function Dashboard() {
           </div>
         </div>
 
-        <div className="col-xl-3 col-md-6 mb-4">
+        {/* Étudiants boursiers */}
+        <div className="col-xl-4 col-lg-4 col-md-6 col-sm-12">
           <div className="card border-start-success border-start-3 shadow h-100 py-2">
             <div className="card-body">
-              <div className="row no-gutters align-items-center">
+              <div className="row align-items-center">
                 <div className="col me-2">
                   <div className="text-xs fw-bold text-success text-uppercase mb-1">
                     Étudiants boursiers
                   </div>
                   <div className="h5 mb-0 fw-bold text-gray-800">
                     {stats.totalBoursiers.toLocaleString()}
-                  </div>
-                  <div className="mt-2 mb-0 text-muted">
-                    <small>
-                      <FaMoneyBillWave className="me-1" />
-                      {stats.tauxBoursiers.toFixed(1)}% des étudiants
-                    </small>
                   </div>
                 </div>
                 <div className="col-auto">
@@ -540,38 +537,11 @@ function Dashboard() {
           </div>
         </div>
 
-        <div className="col-xl-3 col-md-6 mb-4">
-          <div className="card border-start-info border-start-3 shadow h-100 py-2">
-            <div className="card-body">
-              <div className="row no-gutters align-items-center">
-                <div className="col me-2">
-                  <div className="text-xs fw-bold text-info text-uppercase mb-1">
-                    Montant total bourses
-                  </div>
-                  <div className="h5 mb-0 fw-bold text-gray-800">
-                    {formatMontant(stats.montantTotalBourses)} MGA
-                  </div>
-                  <div className="mt-2 mb-0 text-muted">
-                    <small>
-                      Moyenne: {stats.totalBoursiers > 0 ?
-                        formatMontant(Math.round(stats.montantTotalBourses / stats.totalBoursiers)) : 0} MGA/étudiant
-                    </small>
-                  </div>
-                </div>
-                <div className="col-auto">
-                  <div className="icon-circle bg-info">
-                    <FaUniversity className="text-white fa-2x" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="col-xl-3 col-md-6 mb-4">
+        {/* Types d'inscription */}
+        <div className="col-xl-4 col-lg-4 col-md-6 col-sm-12">
           <div className="card border-start-warning border-start-3 shadow h-100 py-2">
             <div className="card-body">
-              <div className="row no-gutters align-items-center">
+              <div className="row align-items-center">
                 <div className="col me-2">
                   <div className="text-xs fw-bold text-warning text-uppercase mb-1">
                     Types d'inscription
@@ -579,10 +549,10 @@ function Dashboard() {
                   <div className="h5 mb-0 fw-bold text-gray-800">
                     {stats.triplants} triplants
                   </div>
-                  <div className="mt-2 mb-0 text-muted">
+                  <div className="mt-2 text-muted">
                     <small>
                       <FaUserTimes className="me-1" />
-                      {stats.etudiantsReinscrits} réinscrits au total
+                      {stats.etudiantsReinscrits} réinscrits
                     </small>
                   </div>
                 </div>
@@ -598,8 +568,10 @@ function Dashboard() {
       </div>
 
       {/* Deuxième ligne de cartes */}
-      <div className="row mb-4">
-        <div className="col-xl-3 col-md-6 mb-4">
+      <div className="row g-4 mb-4">
+
+        {/* Nouveaux inscrits */}
+        <div className="col-xl-4 col-lg-4 col-md-6 col-sm-12">
           <div className="card bg-primary text-white shadow h-100">
             <div className="card-body">
               <div className="d-flex justify-content-between align-items-center">
@@ -618,13 +590,16 @@ function Dashboard() {
           </div>
         </div>
 
-        <div className="col-xl-3 col-md-6 mb-4">
+        {/* Réinscrits */}
+        <div className="col-xl-4 col-lg-4 col-md-6 col-sm-12">
           <div className="card bg-warning text-white shadow h-100">
             <div className="card-body">
               <div className="d-flex justify-content-between align-items-center">
                 <div>
                   <div className="text-white-50 small">Réinscrits (R)</div>
-                  <div className="h3 mb-0">{stats.etudiantsReinscrits - stats.triplants}</div>
+                  <div className="h3 mb-0">
+                    {stats.etudiantsReinscrits - stats.triplants}
+                  </div>
                 </div>
                 <div className="icon-circle bg-white">
                   <FaRedo className="text-warning fa-2x" />
@@ -637,7 +612,8 @@ function Dashboard() {
           </div>
         </div>
 
-        <div className="col-xl-3 col-md-6 mb-4">
+        {/* Triplants */}
+        <div className="col-xl-4 col-lg-4 col-md-6 col-sm-12">
           <div className="card bg-danger text-white shadow h-100">
             <div className="card-body">
               <div className="d-flex justify-content-between align-items-center">
@@ -656,27 +632,8 @@ function Dashboard() {
           </div>
         </div>
 
-        <div className="col-xl-3 col-md-6 mb-4">
-          <div className="card bg-success text-white shadow h-100">
-            <div className="card-body">
-              <div className="d-flex justify-content-between align-items-center">
-                <div>
-                  <div className="text-white-50 small">Taux de boursiers</div>
-                  <div className="h3 mb-0">
-                    {stats.tauxBoursiers.toFixed(1)}%
-                  </div>
-                </div>
-                <div className="icon-circle bg-white">
-                  <FaChartLine className="text-success fa-2x" />
-                </div>
-              </div>
-              <div className="mt-3">
-                <small>Sur {stats.totalEtudiants} étudiants</small>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
+
 
       {/* Graphiques */}
       <div className="row mb-4">
