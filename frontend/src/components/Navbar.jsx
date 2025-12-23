@@ -20,14 +20,11 @@ const Navbar = () => {
     role: ''
   });
 
-
-
   const location = useLocation();
   const navigate = useNavigate();
 
   const fetchUserInfo = async () => {
     try {
-      // Utilisez le bon endpoint
       const response = await api.get('/auth/current-user/');
 
       if (response.data) {
@@ -87,6 +84,80 @@ const Navbar = () => {
     navigate("/login");
   };
 
+  // Fonction pour déterminer quels menus afficher selon le rôle
+  const getMenuPermissions = () => {
+    const role = userInfo.role;
+
+    switch (role) {
+      case 'administrateur':
+        return {
+          showInscription: true,
+          showReinscription: true,
+          showEtudiant: true,
+          showDoublon: true,
+          showParametres: true,
+          showBourses: true,
+          showPaiement: true,
+          showAuthentification: true,
+          showDashboard: true
+        };
+
+      case 'scolarite':
+        return {
+          showInscription: true,
+          showReinscription: true,
+          showEtudiant: true,
+          showDoublon: false, // Scolarité ne voit pas les doublons
+          showParametres: false, // Scolarité ne voit pas les paramètres
+          showBourses: false, // Scolarité ne voit pas les bourses
+          showPaiement: false, // Scolarité ne voit pas les paiements
+          showAuthentification: false, // Scolarité ne voit pas l'authentification
+          showDashboard: true
+        };
+
+      case 'bourse':
+        return {
+          showInscription: false,
+          showReinscription: false,
+          showEtudiant: true, // Service bourse peut voir les étudiants
+          showDoublon: true, // Service bourse peut voir les doublons
+          showParametres: false,
+          showBourses: true, // Service bourse voit son propre module
+          showPaiement: false,
+          showAuthentification: false,
+          showDashboard: true
+        };
+
+      case 'finance':
+        return {
+          showInscription: false,
+          showReinscription: false,
+          showEtudiant: true, // Service finance peut voir les étudiants
+          showDoublon: false,
+          showParametres: false,
+          showBourses: false,
+          showPaiement: true, // Service finance voit son propre module
+          showAuthentification: false,
+          showDashboard: true
+        };
+
+      default:
+        return {
+          showInscription: false,
+          showReinscription: false,
+          showEtudiant: false,
+          showDoublon: false,
+          showParametres: false,
+          showBourses: false,
+          showPaiement: false,
+          showAuthentification: false,
+          showDashboard: true
+        };
+    }
+  };
+
+  const permissions = getMenuPermissions();
+
   return (
     <div className="w-[185px] bg-blue-600 text-white h-full flex flex-col">
       {/* En-tête avec logo et nom de l'université */}
@@ -121,135 +192,165 @@ const Navbar = () => {
         {/* Nom de l'application */}
         <div className="text-center">
           <div className="text-sm font-bold">EDU-UNIV</div>
-          {/* <div className="text-xs text-blue-200">Université de Toliara</div> */}
+          <div className="text-xs text-blue-200 mt-1">
+            {userInfo.role === 'administrateur' && 'Administrateur'}
+            {userInfo.role === 'scolarite' && 'Service Scolarité'}
+            {userInfo.role === 'bourse' && 'Service Bourse'}
+            {userInfo.role === 'finance' && 'Service Finance'}
+          </div>
         </div>
       </div>
 
+      {/* Informations utilisateur */}
       <div className="p-4 text-center border-b border-blue-500">
         <div className="text-sm font-medium">{userInfo.first_name}</div>
         <div className="text-xs text-blue-200">{userInfo.email}</div>
+        <div className="mt-1">
+          <span className="px-2 py-1 bg-blue-700 rounded text-xs">
+            {userInfo.role ? userInfo.role.toUpperCase() : 'UTILISATEUR'}
+          </span>
+        </div>
       </div>
 
+      {/* Menu de navigation */}
       <div className="flex-1 overflow-y-auto py-4 flex flex-col">
-        <Link to="/dashboard" className={`sidebar-link ${isActive('/dashboard')}`}>
-          <i className="fas fa-home mr-2"></i>Accueil
-        </Link>
+        {/* Accueil - Toujours visible */}
+        {permissions.showDashboard && (
+          <Link to="/dashboard" className={`sidebar-link ${isActive('/dashboard')}`}>
+            <i className="fas fa-home mr-2"></i>Accueil
+          </Link>
+        )}
 
-        {/* Inscription */}
-        <div>
-          <div
-            onClick={() => setShowDrop1(!showDrop1)}
-            className="sidebar-link flex justify-between items-center"
-          >
-            <span><i className="fas fa-user-plus mr-2"></i>Service Inscription</span>
-            <i className={`fas fa-chevron-down transition-transform ${showDrop1 ? 'rotate-180' : 'rotate-0'}`}></i>
+        {/* Service Inscription */}
+        {permissions.showInscription && (
+          <div>
+            <div
+              onClick={() => setShowDrop1(!showDrop1)}
+              className="sidebar-link flex justify-between items-center"
+            >
+              <span><i className="fas fa-user-plus mr-2"></i>Service Inscription</span>
+              <i className={`fas fa-chevron-down transition-transform ${showDrop1 ? 'rotate-180' : 'rotate-0'}`}></i>
+            </div>
+
+            {showDrop1 && (
+              <>
+                <div className="sidebar-submenu">
+                  <Link
+                    to="/inscription"
+                    className={`sidebar-link ${isActive('/inscription')}`}
+                  >
+                    Nouvelle inscription
+                  </Link>
+                </div>
+
+                <div className="sidebar-submenu">
+                  <Link
+                    to="/impression"
+                    className={`sidebar-link ${isActive('/impression')}`}
+                  >
+                    Impression
+                  </Link>
+                </div>
+              </>
+            )}
           </div>
+        )}
 
-          {showDrop1 && (
-            <>
+        {/* Service Réinscription */}
+        {permissions.showReinscription && (
+          <div>
+            <div onClick={() => setShowDrop2(!showDrop2)} className="sidebar-link flex justify-between items-center">
+              <span><i className="fas fa-redo mr-2"></i>Service Réinscription</span>
+              <i className={`fas fa-chevron-down transition-transform ${showDrop2 ? 'rotate-180' : 'rotate-0'}`}></i>
+            </div>
+            {showDrop2 && (
               <div className="sidebar-submenu">
-                <Link
-                  to="/inscription"
-                  className={`sidebar-link ${isActive('/inscription')}`}
-                >
-                  Nouvelle inscription
+                <Link to="/reinscription" className={`sidebar-link ${isActive('/reinscription')}`}>Réinscription</Link>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Service Étudiant */}
+        {permissions.showEtudiant && (
+          <div>
+            <div onClick={() => setShowDrop3(!showDrop3)} className="sidebar-link flex justify-between items-center">
+              <span><i className="fas fa-user-graduate mr-2"></i>Service Étudiant</span>
+              <i className={`fas fa-chevron-down transition-transform ${showDrop3 ? 'rotate-180' : 'rotate-0'}`}></i>
+            </div>
+            {showDrop3 && (
+              <div className="sidebar-submenu">
+                <Link to="/list-etudiants" className={`sidebar-link ${isActive('/list-etudiants')}`}>Liste Étudiants</Link>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Détection Doublons */}
+        {permissions.showDoublon && (
+          <div>
+            <div onClick={() => setShowDrop4(!showDrop4)} className="sidebar-link flex justify-between items-center">
+              <span><i className="fas fa-clone mr-2"></i>Détection Doublons</span>
+              <i className={`fas fa-chevron-down transition-transform ${showDrop4 ? 'rotate-180' : 'rotate-0'}`}></i>
+            </div>
+            {showDrop4 && (
+              <div className="sidebar-submenu">
+                <Link to="/doublonsnom-prenom" className={`sidebar-link ${isActive('/doublonsnom-prenom')}`}>
+                  Doublon Identité
+                </Link>
+                <Link to="/Doublonbourse" className={`sidebar-link ${isActive('/Doublonbourse')}`}>
+                  Doublon Bourse par Identité
                 </Link>
               </div>
+            )}
+          </div>
+        )}
 
+        {/* Paramètres Académiques */}
+        {permissions.showParametres && (
+          <div>
+            <div onClick={() => setShowDrop5(!showDrop5)} className="sidebar-link flex justify-between items-center">
+              <span><i className="fas fa-cogs mr-2"></i>Paramètres Académiques</span>
+              <i className={`fas fa-chevron-down transition-transform ${showDrop5 ? 'rotate-180' : 'rotate-0'}`}></i>
+            </div>
+            {showDrop5 && (
               <div className="sidebar-submenu">
-                <Link
-                  to="/impression"
-                  className={`sidebar-link ${isActive('/impression')}`}
-                >
-                  Impression
+                <Link to="/facultes" className={`sidebar-link ${isActive('/facultes')}`}>
+                  <i className="fas fa-university mr-2"></i>Facultés
+                </Link>
+                <Link to="/domaines" className={`sidebar-link ${isActive('/domaines')}`}>
+                  <i className="fas fa-book mr-2"></i>Domaines
+                </Link>
+                <Link to="/mentions" className={`sidebar-link ${isActive('/mentions')}`}>
+                  <i className="fas fa-graduation-cap mr-2"></i>Mentions
                 </Link>
               </div>
-            </>
-          )}
-
-        </div>
-
-        {/* Réinscription */}
-        <div>
-          <div onClick={() => setShowDrop2(!showDrop2)} className="sidebar-link flex justify-between items-center">
-            <span><i className="fas fa-redo mr-2"></i>Service Réinscription</span>
-            <i className={`fas fa-chevron-down transition-transform ${showDrop2 ? 'rotate-180' : 'rotate-0'}`}></i>
+            )}
           </div>
-          {showDrop2 && (
-            <div className="sidebar-submenu">
-              <Link to="/reinscription" className={`sidebar-link ${isActive('/reinscription')}`}>Réinscription</Link>
-            </div>
-          )}
-        </div>
+        )}
 
-        {/* Étudiant */}
-        <div>
-          <div onClick={() => setShowDrop3(!showDrop3)} className="sidebar-link flex justify-between items-center">
-            <span><i className="fas fa-user-graduate mr-2"></i>Service Étudiant</span>
-            <i className={`fas fa-chevron-down transition-transform ${showDrop3 ? 'rotate-180' : 'rotate-0'}`}></i>
-          </div>
-          {showDrop3 && (
-            <div className="sidebar-submenu">
-              <Link to="/list-etudiants" className={`sidebar-link ${isActive('/list-etudiants')}`}>Liste Étudiants</Link>
-            </div>
-          )}
-        </div>
+        {/* Service Bourses */}
+        {permissions.showBourses && (
+          <Link to="/bourses" className={`sidebar-link ${isActive('/bourses')}`}>
+            <i className="fas fa-hand-holding-usd mr-2"></i>Service Bourses
+          </Link>
+        )}
 
-        {/* Doublon */}
-        <div>
-          <div onClick={() => setShowDrop4(!showDrop4)} className="sidebar-link flex justify-between items-center">
-            <span><i className="fas fa-clone mr-2"></i>Détection Doublons</span>
-            <i className={`fas fa-chevron-down transition-transform ${showDrop4 ? 'rotate-180' : 'rotate-0'}`}></i>
-          </div>
-          {showDrop4 && (
-            <div className="sidebar-submenu">
-              <Link to="/doublonsnom-prenom" className={`sidebar-link ${isActive('/doublonsnom-prenom')}`}>
-                Doublon Identité
-              </Link>
-              <Link to="/Doublonbourse" className={`sidebar-link ${isActive('/Doublonbourse')}`}>
-                Doublon Bourse par Identité
-              </Link>
-            </div>
-          )}
-        </div>
+        {/* Service Paiement */}
+        {permissions.showPaiement && (
+          <Link to="/paiement" className={`sidebar-link ${isActive('/paiement')}`}>
+            <i className="fas fa-credit-card mr-2"></i>Service Paiement
+          </Link>
+        )}
 
-        {/* NOUVEAU : Paramètres Académiques */}
-        <div>
-          <div onClick={() => setShowDrop5(!showDrop5)} className="sidebar-link flex justify-between items-center">
-            <span><i className="fas fa-cogs mr-2"></i>Paramètres Académiques</span>
-            <i className={`fas fa-chevron-down transition-transform ${showDrop5 ? 'rotate-180' : 'rotate-0'}`}></i>
-          </div>
-          {showDrop5 && (
-            <div className="sidebar-submenu">
-              <Link to="/facultes" className={`sidebar-link ${isActive('/facultes')}`}>
-                <i className="fas fa-university mr-2"></i>Facultés
-              </Link>
-              <Link to="/domaines" className={`sidebar-link ${isActive('/domaines')}`}>
-                <i className="fas fa-book mr-2"></i>Domaines
-              </Link>
-              <Link to="/mentions" className={`sidebar-link ${isActive('/mentions')}`}>
-                <i className="fas fa-graduation-cap mr-2"></i>Mentions
-              </Link>
-            </div>
-          )}
-        </div>
+        {/* Service Authentification */}
+        {permissions.showAuthentification && (
+          <Link to="/authentification" className={`sidebar-link ${isActive('/authentification')}`}>
+            <i className="fas fa-sign-in-alt mr-2"></i>Service Authentification
+          </Link>
+        )}
 
-        {/* Bourses */}
-        <Link to="/bourses" className={`sidebar-link ${isActive('/bourses')}`}>
-          <i className="fas fa-hand-holding-usd mr-2"></i>Service Bourses
-        </Link>
-
-        {/* Paiement */}
-        <Link to="/paiement" className={`sidebar-link ${isActive('/paiement')}`}>
-          <i className="fas fa-credit-card mr-2"></i>Service Paiement
-        </Link>
-
-        {/* Authentification */}
-        <Link to="/authentification" className={`sidebar-link ${isActive('/authentification')}`}>
-          <i className="fas fa-sign-in-alt mr-2"></i>Service Authentification
-        </Link>
-
-        {/* Déconnexion */}
+        {/* Déconnexion - Toujours visible */}
         <div onClick={() => setShowLogoutModal(true)} className="sidebar-link cursor-pointer mt-auto">
           <i className="fas fa-sign-out-alt mr-2"></i> Déconnexion
         </div>
@@ -260,7 +361,12 @@ const Navbar = () => {
         <Modal.Header closeButton>
           <Modal.Title>Confirmation de déconnexion</Modal.Title>
         </Modal.Header>
-        <Modal.Body>Êtes-vous sûr de vouloir vous déconnecter ?</Modal.Body>
+        <Modal.Body>
+          Êtes-vous sûr de vouloir vous déconnecter ?
+          <p className="text-muted small mt-2">
+            Connecté en tant que: <strong>{userInfo.username}</strong> ({userInfo.role})
+          </p>
+        </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowLogoutModal(false)}>Annuler</Button>
           <Button variant="danger" onClick={handleLogout}>Déconnexion</Button>

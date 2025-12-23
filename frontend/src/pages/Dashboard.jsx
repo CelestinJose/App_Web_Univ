@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { 
-  FaUserGraduate, FaUniversity, FaMoneyBillWave, FaFileAlt, 
-  FaChartLine, FaCalendarAlt, FaClock, FaArrowUp, FaArrowDown,
-  FaIdCard, FaPrint, FaUserPlus, FaUserCheck, FaRedo, FaUserTimes
+import {
+  FaUserGraduate, FaUniversity, FaMoneyBillWave,
+  FaChartLine, FaCalendarAlt, FaClock, FaUserPlus, FaUserCheck, FaRedo, FaUserTimes
 } from "react-icons/fa";
 import { Bar, Pie, Line } from "react-chartjs-2";
 import {
@@ -50,7 +49,7 @@ function Dashboard() {
     boursiersData: [0, 0],
     parNiveauArray: Array(6).fill(0)
   });
-  
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activites, setActivites] = useState([]);
@@ -65,16 +64,16 @@ function Dashboard() {
       reinscriptions: Array(12).fill(0),
       labels: Array(12).fill('')
     };
-    
+
     // Récupérer les 12 derniers mois
     for (let i = 0; i < 12; i++) {
       const date = new Date(moisActuel.getFullYear(), moisActuel.getMonth() - i, 1);
-      dataParMois.labels[11 - i] = date.toLocaleDateString('fr-FR', { 
-        month: 'short', 
-        year: '2-digit' 
+      dataParMois.labels[11 - i] = date.toLocaleDateString('fr-FR', {
+        month: 'short',
+        year: '2-digit'
       });
     }
-    
+
     // Analyser chaque étudiant
     etudiants.forEach(etudiant => {
       if (etudiant.created_at) {
@@ -84,13 +83,13 @@ function Dashboard() {
         const moisActuelDate = new Date();
         const moisActuel = moisActuelDate.getMonth();
         const anneeActuel = moisActuelDate.getFullYear();
-        
+
         // Calculer l'index (0-11) pour les 12 derniers mois
         const moisDiff = (anneeActuel - anneeInscription) * 12 + (moisActuel - moisInscription);
-        
+
         if (moisDiff >= 0 && moisDiff < 12) {
           const index = 11 - moisDiff;
-          
+
           if (etudiant.code_redoublement === 'N') {
             // Nouvel inscrit
             dataParMois.inscriptions[index]++;
@@ -101,7 +100,7 @@ function Dashboard() {
         }
       }
     });
-    
+
     return dataParMois;
   };
 
@@ -112,18 +111,18 @@ function Dashboard() {
       .filter(e => e.created_at)
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
       .slice(0, 6); // Prendre les 6 plus récents
-    
+
     const activitesReelles = etudiantsTries.map((etudiant, index) => {
       const dateInscription = new Date(etudiant.created_at);
       const maintenant = new Date();
       const difference = maintenant - dateInscription;
-      
+
       // Calculer le temps écoulé de manière lisible
       let tempsEcoule = '';
       const minutes = Math.floor(difference / (1000 * 60));
       const heures = Math.floor(minutes / 60);
       const jours = Math.floor(heures / 24);
-      
+
       if (jours > 0) {
         tempsEcoule = `Il y a ${jours} jour${jours > 1 ? 's' : ''}`;
       } else if (heures > 0) {
@@ -131,12 +130,12 @@ function Dashboard() {
       } else {
         tempsEcoule = `Il y a ${minutes} minute${minutes > 1 ? 's' : ''}`;
       }
-      
+
       // Déterminer le type d'inscription
       let typeInscription = '';
       let icon = null;
-      
-      switch(etudiant.code_redoublement) {
+
+      switch (etudiant.code_redoublement) {
         case 'N':
           typeInscription = 'Nouvel étudiant inscrit';
           icon = <FaUserPlus className="text-success" />;
@@ -153,7 +152,7 @@ function Dashboard() {
           typeInscription = 'Étudiant inscrit';
           icon = <FaUserGraduate className="text-info" />;
       }
-      
+
       return {
         id: etudiant.id || index + 1,
         action: typeInscription,
@@ -165,7 +164,7 @@ function Dashboard() {
         niveau: etudiant.niveau || 'Non spécifié'
       };
     });
-    
+
     setActivites(activitesReelles);
   };
 
@@ -174,18 +173,18 @@ function Dashboard() {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        
+
         // 1. Récupérer les statistiques globales
         const statsResponse = await etudiantApi.getStats();
         let apiStats = {};
         if (statsResponse.data) {
           apiStats = statsResponse.data;
         }
-        
+
         // 2. Récupérer la liste des étudiants pour les graphiques
         const etudiantsResponse = await etudiantApi.getEtudiants({ page_size: 1000 });
         let etudiants = [];
-        
+
         if (etudiantsResponse.data) {
           if (Array.isArray(etudiantsResponse.data.results)) {
             etudiants = etudiantsResponse.data.results;
@@ -193,11 +192,11 @@ function Dashboard() {
             etudiants = etudiantsResponse.data;
           }
         }
-        
+
         if (Array.isArray(etudiants) && etudiants.length > 0) {
           // ANALYSE DES DONNÉES RÉELLES
           const inscriptionsParMois = analyserInscriptionsParMois(etudiants);
-          
+
           // Calculer les statistiques réelles
           let totalEtudiants = etudiants.length;
           let inscritsCount = 0;
@@ -205,7 +204,7 @@ function Dashboard() {
           let triplantsCount = 0;
           let boursiersCount = 0;
           let montantTotalBourses = 0;
-          
+
           // Répartition par niveau
           const parNiveau = {
             'Licence 1': 0,
@@ -216,10 +215,10 @@ function Dashboard() {
             'Doctorat': 0,
             'Autre': 0
           };
-          
+
           etudiants.forEach(etudiant => {
             // Type d'inscription
-            switch(etudiant.code_redoublement) {
+            switch (etudiant.code_redoublement) {
               case 'N':
                 inscritsCount++;
                 break;
@@ -230,13 +229,13 @@ function Dashboard() {
                 triplantsCount++;
                 break;
             }
-            
+
             // Boursiers
             if (etudiant.boursier === 'OUI') {
               boursiersCount++;
               montantTotalBourses += parseFloat(etudiant.bourse || 0);
             }
-            
+
             // Répartition par niveau
             if (etudiant.niveau) {
               const niveau = etudiant.niveau.toLowerCase();
@@ -251,10 +250,10 @@ function Dashboard() {
               parNiveau['Autre']++;
             }
           });
-          
+
           // Calculer le taux de boursiers
           const tauxBoursiers = totalEtudiants > 0 ? (boursiersCount / totalEtudiants * 100) : 0;
-          
+
           // Mettre à jour les statistiques
           setStats({
             totalEtudiants,
@@ -276,7 +275,7 @@ function Dashboard() {
             boursiersData: [boursiersCount, totalEtudiants - boursiersCount],
             parMois: inscriptionsParMois
           });
-          
+
           // Générer les activités réelles
           genererActivitesReelles(etudiants);
         } else {
@@ -294,7 +293,7 @@ function Dashboard() {
             }));
           }
         }
-        
+
         setLoading(false);
       } catch (err) {
         console.error("Erreur lors du chargement du dashboard:", err);
@@ -302,7 +301,7 @@ function Dashboard() {
         setLoading(false);
       }
     };
-    
+
     fetchDashboardData();
   }, []);
 
@@ -480,19 +479,6 @@ function Dashboard() {
           <p className="text-muted">
             Bienvenue, <span className="fw-bold">{user}</span> - Vue d'ensemble du système
           </p>
-          <div className="text-muted">
-            <FaCalendarAlt className="me-1" />
-            {new Date().toLocaleDateString('fr-FR', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            })}
-            <span className="ms-3">
-              <FaClock className="me-1" />
-              Données mises à jour en temps réel
-            </span>
-          </div>
         </div>
       </div>
 
@@ -567,7 +553,7 @@ function Dashboard() {
                   </div>
                   <div className="mt-2 mb-0 text-muted">
                     <small>
-                      Moyenne: {stats.totalBoursiers > 0 ? 
+                      Moyenne: {stats.totalBoursiers > 0 ?
                         formatMontant(Math.round(stats.montantTotalBourses / stats.totalBoursiers)) : 0} MGA/étudiant
                     </small>
                   </div>

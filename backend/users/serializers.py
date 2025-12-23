@@ -5,6 +5,19 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.tokens import default_token_generator
 
 
+class ChangePasswordSerializer(serializers.Serializer):
+    old_password = serializers.CharField(required=True, write_only=True)
+    new_password = serializers.CharField(required=True, write_only=True, min_length=6)
+    confirm_password = serializers.CharField(required=True, write_only=True, min_length=6)
+    
+    def validate(self, attrs):
+        # Vérifier que les nouveaux mots de passe correspondent
+        if attrs['new_password'] != attrs['confirm_password']:
+            raise serializers.ValidationError({
+                "confirm_password": "Les mots de passe ne correspondent pas."
+            })
+        return attrs
+
 # Serializer pour afficher les utilisateurs
 class UserSerializer(serializers.ModelSerializer):
     class Meta:

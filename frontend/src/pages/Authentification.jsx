@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import {
-  FaUser, FaLock, FaEye, FaEyeSlash, FaSignInAlt, FaUserPlus,
+  FaUser, FaLock, FaEye, FaEyeSlash, FaUserPlus,
   FaUsers, FaEdit, FaTrash, FaCheck, FaTimes, FaKey, FaEnvelope,
-  FaUserShield, FaUserCheck, FaUserTimes, FaCalendarAlt, FaPhone,
-  FaSearch, FaExclamationTriangle, FaSpinner, FaSync
+  FaUserShield, FaUserCheck,
+  FaSearch, FaExclamationTriangle, FaSync
 } from "react-icons/fa";
 import Modal from 'react-bootstrap/Modal';
 import Button from 'react-bootstrap/Button';
@@ -14,8 +14,10 @@ import Alert from 'react-bootstrap/Alert';
 import InputGroup from 'react-bootstrap/InputGroup';
 import Card from 'react-bootstrap/Card';
 import Spinner from 'react-bootstrap/Spinner';
+import Toast from 'react-bootstrap/Toast';
+import ToastContainer from 'react-bootstrap/ToastContainer';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import api from "../api"; // Utilisez votre instance api configurée
+import api from "../api";
 
 export default function Authentification() {
   // États pour les utilisateurs (CRUD)
@@ -24,6 +26,15 @@ export default function Authentification() {
   const [error, setError] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
+
+  // États pour les notifications Toast
+  const [showToast, setShowToast] = useState(false);
+  const [toastConfig, setToastConfig] = useState({
+    title: '',
+    message: '',
+    variant: 'success', // success, danger, warning, info
+    icon: null
+  });
 
   // États pour les modales
   const [showAddModal, setShowAddModal] = useState(false);
@@ -37,7 +48,7 @@ export default function Authentification() {
     email: "",
     password: "",
     confirmPassword: "",
-    role: "scolarite" // Valeur par défaut
+    role: "scolarite"
   });
 
   const [editingUser, setEditingUser] = useState(null);
@@ -53,7 +64,7 @@ export default function Authentification() {
   const [filterRole, setFilterRole] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  // Rôles disponibles (selon votre modèle Django)
+  // Rôles disponibles
   const roles = [
     { value: "administrateur", label: "Administrateur", color: "danger" },
     { value: "scolarite", label: "Scolarité", color: "warning" },
@@ -61,8 +72,42 @@ export default function Authentification() {
     { value: "finance", label: "Finance", color: "secondary" }
   ];
 
-  // Charger les utilisateurs depuis l'API
-  // Dans Authentification.js - ajoutez cette fonction avant le useEffect
+  // Fonction pour afficher une notification
+  const showNotification = (title, message, variant = 'success', icon = null) => {
+    setToastConfig({
+      title,
+      message,
+      variant,
+      icon
+    });
+    setShowToast(true);
+
+    // Auto-hide après 5 secondes
+    setTimeout(() => {
+      setShowToast(false);
+    }, 5000);
+  };
+
+  // Fonction pour afficher une erreur
+  const showError = (title, errors) => {
+    let message = '';
+    if (typeof errors === 'string') {
+      message = errors;
+    } else if (errors && typeof errors === 'object') {
+      // Traiter les erreurs d'API Django
+      for (const [field, errorMessages] of Object.entries(errors)) {
+        if (Array.isArray(errorMessages)) {
+          message += `${field}: ${errorMessages.join(', ')}\n`;
+        } else {
+          message += `${field}: ${errorMessages}\n`;
+        }
+      }
+    }
+
+    showNotification(title, message.trim(), 'danger', <FaExclamationTriangle />);
+  };
+
+  // Fonction pour décoder le JWT
   const decodeJWT = (token) => {
     try {
       if (!token) return null;
@@ -81,29 +126,20 @@ export default function Authentification() {
     }
   };
 
-  // Modifiez le useEffect
   useEffect(() => {
-    // Fonction pour obtenir les infos utilisateur
     const getUserInfo = () => {
-      // Vérifier d'abord si les données sont déjà dans localStorage
       const storedId = localStorage.getItem("user_id");
       const storedRole = localStorage.getItem("user_role");
       const storedUsername = localStorage.getItem("user_name");
 
-      // Si les données sont vides ou non définies, décoder depuis le token
       if (!storedId || !storedRole || !storedUsername) {
         const accessToken = localStorage.getItem("access_token");
         if (accessToken) {
           const decoded = decodeJWT(accessToken);
-          console.log("Token décodé:", decoded);
-
           if (decoded) {
-            // Mettre à jour localStorage avec les données du token
             localStorage.setItem("user_id", decoded.user_id || '');
             localStorage.setItem("user_name", decoded.username || '');
             localStorage.setItem("user_role", decoded.role || '');
-
-            // Retourner les nouvelles données
             return {
               id: decoded.user_id || '',
               username: decoded.username || '',
@@ -114,7 +150,6 @@ export default function Authentification() {
         }
       }
 
-      // Si les données étaient déjà présentes, les utiliser
       return {
         id: storedId || '',
         username: storedUsername || '',
@@ -124,11 +159,8 @@ export default function Authentification() {
     };
 
     const userInfo = getUserInfo();
-    console.log("Informations utilisateur finales:", userInfo);
-
     setUserRole(userInfo.role);
     setCurrentUserId(userInfo.id);
-
     fetchUsers();
   }, []);
 
@@ -137,19 +169,14 @@ export default function Authentification() {
     setLoading(true);
     setError(null);
     try {
-      // Utilisez votre instance api configurée qui gère automatiquement les tokens
       const response = await api.get('/auth/users/');
-
       if (response.data) {
         setUsers(response.data);
-        console.log("Utilisateurs chargés:", response.data);
       } else {
         throw new Error("Réponse invalide de l'API");
       }
     } catch (error) {
       console.error("Erreur lors du chargement des utilisateurs:", error);
-
-      // Messages d'erreur plus précis
       if (error.response) {
         switch (error.response.status) {
           case 401:
@@ -180,25 +207,24 @@ export default function Authentification() {
 
   // Fonction pour ajouter un nouvel utilisateur
   const handleAddUser = async () => {
-    // Vérifier que seul l'administrateur peut ajouter des utilisateurs
     if (!isAdmin) {
-      alert("Seul l'administrateur peut ajouter de nouveaux utilisateurs.");
+      showNotification("Permission refusée", "Seul l'administrateur peut ajouter de nouveaux utilisateurs.", 'warning');
       return;
     }
 
     // Validation des champs
     if (!newUser.username || !newUser.email || !newUser.password || !newUser.role) {
-      alert("Veuillez remplir tous les champs obligatoires");
+      showNotification("Validation", "Veuillez remplir tous les champs obligatoires", 'warning');
       return;
     }
 
     if (newUser.password !== newUser.confirmPassword) {
-      alert("Les mots de passe ne correspondent pas");
+      showNotification("Validation", "Les mots de passe ne correspondent pas", 'warning');
       return;
     }
 
     if (newUser.password.length < 6) {
-      alert("Le mot de passe doit contenir au moins 6 caractères");
+      showNotification("Validation", "Le mot de passe doit contenir au moins 6 caractères", 'warning');
       return;
     }
 
@@ -210,15 +236,10 @@ export default function Authentification() {
         role: newUser.role
       };
 
-      console.log("Données envoyées pour création:", userData);
-
       const response = await api.post('/auth/users/', userData);
 
       if (response.data) {
-        // Ajouter l'utilisateur à la liste locale
         setUsers([...users, response.data]);
-
-        // Réinitialiser le formulaire
         setNewUser({
           username: "",
           email: "",
@@ -226,52 +247,35 @@ export default function Authentification() {
           confirmPassword: "",
           role: "scolarite"
         });
-
         setShowAddModal(false);
-        alert("Utilisateur créé avec succès !");
+        showNotification("Succès", "Utilisateur créé avec succès !", 'success', <FaUserPlus />);
       }
     } catch (error) {
       console.error("Erreur lors de la création de l'utilisateur:", error);
-
-      if (error.response) {
-        const errorData = error.response.data;
-        let errorMessage = "Erreur lors de la création de l'utilisateur";
-
-        if (errorData.username) {
-          errorMessage = `Nom d'utilisateur: ${errorData.username[0]}`;
-        } else if (errorData.email) {
-          errorMessage = `Email: ${errorData.email[0]}`;
-        } else if (errorData.password) {
-          errorMessage = `Mot de passe: ${errorData.password[0]}`;
-        } else if (errorData.detail) {
-          errorMessage = errorData.detail;
-        }
-
-        alert(`Erreur: ${errorMessage}`);
+      if (error.response?.data) {
+        showError("Erreur de création", error.response.data);
       } else {
-        alert("Erreur réseau lors de la création de l'utilisateur");
+        showNotification("Erreur", "Erreur réseau lors de la création de l'utilisateur", 'danger');
       }
     }
   };
 
   // Fonction pour modifier un utilisateur
   const handleEditUser = async () => {
-    // Vérifier que seul l'administrateur peut modifier des utilisateurs
     if (!isAdmin) {
-      alert("Seul l'administrateur peut modifier les utilisateurs.");
+      showNotification("Permission refusée", "Seul l'administrateur peut modifier les utilisateurs.", 'warning');
       return;
     }
 
     if (!editingUser) return;
 
     if (!editingUser.username || !editingUser.email || !editingUser.role) {
-      alert("Veuillez remplir tous les champs obligatoires");
+      showNotification("Validation", "Veuillez remplir tous les champs obligatoires", 'warning');
       return;
     }
 
-    // Empêcher la modification de son propre rôle d'administrateur
     if (editingUser.id === currentUserId && editingUser.role !== "administrateur") {
-      alert("Vous ne pouvez pas modifier votre propre rôle d'administrateur.");
+      showNotification("Action non autorisée", "Vous ne pouvez pas modifier votre propre rôle d'administrateur.", 'warning');
       return;
     }
 
@@ -282,99 +286,75 @@ export default function Authentification() {
         role: editingUser.role
       };
 
-      console.log("Données envoyées pour modification:", userData);
-
       const response = await api.put(`/auth/users/${editingUser.id}/`, userData);
 
       if (response.data) {
-        // Mettre à jour l'utilisateur dans la liste locale
         setUsers(users.map(u => u.id === response.data.id ? response.data : u));
-
         setShowEditModal(false);
         setEditingUser(null);
-        alert("Utilisateur mis à jour avec succès !");
+        showNotification("Succès", "Utilisateur mis à jour avec succès !", 'success', <FaEdit />);
       }
     } catch (error) {
       console.error("Erreur lors de la mise à jour de l'utilisateur:", error);
-
-      if (error.response) {
-        const errorData = error.response.data;
-        let errorMessage = "Erreur lors de la mise à jour de l'utilisateur";
-
-        if (errorData.username) {
-          errorMessage = `Nom d'utilisateur: ${errorData.username[0]}`;
-        } else if (errorData.email) {
-          errorMessage = `Email: ${errorData.email[0]}`;
-        } else if (errorData.detail) {
-          errorMessage = errorData.detail;
-        }
-
-        alert(`Erreur: ${errorMessage}`);
+      if (error.response?.data) {
+        showError("Erreur de mise à jour", error.response.data);
       } else {
-        alert("Erreur réseau lors de la mise à jour de l'utilisateur");
+        showNotification("Erreur", "Erreur réseau lors de la mise à jour de l'utilisateur", 'danger');
       }
     }
   };
 
   // Fonction pour supprimer un utilisateur
   const handleDeleteUser = async () => {
-    // Vérifier que seul l'administrateur peut supprimer des utilisateurs
     if (!isAdmin) {
-      alert("Seul l'administrateur peut supprimer des utilisateurs.");
+      showNotification("Permission refusée", "Seul l'administrateur peut supprimer des utilisateurs.", 'warning');
       return;
     }
 
     if (!userToDelete) return;
 
-    // Empêcher la suppression de soi-même ou d'autres administrateurs
     if (userToDelete.id === currentUserId) {
-      alert("Vous ne pouvez pas supprimer votre propre compte.");
+      showNotification("Action non autorisée", "Vous ne pouvez pas supprimer votre propre compte.", 'warning');
       return;
     }
 
     if (userToDelete.role === "administrateur") {
-      alert("Vous ne pouvez pas supprimer un administrateur.");
+      showNotification("Action non autorisée", "Vous ne pouvez pas supprimer un administrateur.", 'warning');
       return;
     }
 
     try {
       await api.delete(`/auth/users/${userToDelete.id}/`);
-
-      // Supprimer l'utilisateur de la liste locale
       setUsers(users.filter(u => u.id !== userToDelete.id));
-
       setShowDeleteModal(false);
       setUserToDelete(null);
-      alert("Utilisateur supprimé avec succès !");
+      showNotification("Succès", "Utilisateur supprimé avec succès !", 'success', <FaTrash />);
     } catch (error) {
       console.error("Erreur lors de la suppression de l'utilisateur:", error);
-
-      if (error.response) {
-        if (error.response.status === 403) {
-          alert("Erreur: Vous n'avez pas la permission de supprimer cet utilisateur.");
-        } else {
-          alert(`Erreur serveur (${error.response.status}): ${error.response.data?.detail || 'Erreur inconnue'}`);
-        }
+      if (error.response?.status === 403) {
+        showNotification("Permission refusée", "Vous n'avez pas la permission de supprimer cet utilisateur.", 'warning');
+      } else if (error.response?.data) {
+        showError("Erreur de suppression", error.response.data);
       } else {
-        alert("Erreur réseau lors de la suppression de l'utilisateur");
+        showNotification("Erreur", "Erreur réseau lors de la suppression de l'utilisateur", 'danger');
       }
     }
   };
 
-  // Fonction pour changer le mot de passe (uniquement pour l'utilisateur connecté)
+  // Fonction pour changer le mot de passe
   const handleChangePassword = async () => {
     if (!passwordData.oldPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
-      alert("Veuillez remplir tous les champs");
+      showNotification("Validation", "Veuillez remplir tous les champs", 'warning');
       return;
     }
 
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      alert("Les nouveaux mots de passe ne correspondent pas");
+      showNotification("Validation", "Les nouveaux mots de passe ne correspondent pas", 'warning');
       return;
     }
 
     if (passwordData.newPassword.length < 6) {
-      alert("Le mot de passe doit contenir au moins 6 caractères");
+      showNotification("Validation", "Le mot de passe doit contenir au moins 6 caractères", 'warning');
       return;
     }
 
@@ -385,62 +365,61 @@ export default function Authentification() {
         confirm_password: passwordData.confirmPassword
       });
 
-      if (response.status === 200) {
-        setPasswordData({
-          oldPassword: "",
-          newPassword: "",
-          confirmPassword: ""
-        });
+      setPasswordData({
+        oldPassword: "",
+        newPassword: "",
+        confirmPassword: ""
+      });
 
-        setShowChangePasswordModal(false);
-        alert("Mot de passe changé avec succès !");
-      }
+      setShowChangePasswordModal(false);
+      showNotification("Succès", "Mot de passe changé avec succès !", 'success', <FaKey />);
     } catch (error) {
       console.error("Erreur lors du changement de mot de passe:", error);
-
-      if (error.response) {
-        const errorData = error.response.data;
-        let errorMessage = "Erreur lors du changement de mot de passe";
-
-        if (errorData.old_password) {
-          errorMessage = `Ancien mot de passe: ${errorData.old_password[0]}`;
-        } else if (errorData.new_password) {
-          errorMessage = `Nouveau mot de passe: ${errorData.new_password[0]}`;
-        } else if (errorData.detail) {
-          errorMessage = errorData.detail;
-        }
-
-        alert(`Erreur: ${errorMessage}`);
+      if (error.response?.data) {
+        showError("Erreur de changement de mot de passe", error.response.data);
       } else {
-        alert("Erreur réseau lors du changement de mot de passe");
+        showNotification("Erreur", "Erreur réseau lors du changement de mot de passe", 'danger');
       }
     }
   };
 
-  // Filtrer les utilisateurs localement
+  // Filtrer les utilisateurs
   const filteredUsers = users.filter(user => {
     const matchesSearch =
       (user.username && user.username.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase()));
-
     const matchesRole = filterRole ? user.role === filterRole : true;
-
     return matchesSearch && matchesRole;
   });
 
-  // Rafraîchir les données
   const refreshData = () => {
     fetchUsers();
   };
 
-  // Vérifier si l'utilisateur est administrateur
   const isAdmin = userRole === 'administrateur';
-
-  // Vérifier si l'utilisateur a un accès limité (pas administrateur)
-  const isLimitedAccess = !isAdmin;
 
   return (
     <div className="container-fluid py-4">
+      {/* Notifications Toast */}
+      <ToastContainer position="top-end" className="p-3" style={{ zIndex: 1056 }}>
+        <Toast
+          show={showToast}
+          onClose={() => setShowToast(false)}
+          delay={5000}
+          autohide
+          bg={toastConfig.variant}
+          className="text-white"
+        >
+          <Toast.Header closeButton className={`bg-${toastConfig.variant} text-white`}>
+            {toastConfig.icon && <span className="me-2">{toastConfig.icon}</span>}
+            <strong className="me-auto">{toastConfig.title}</strong>
+          </Toast.Header>
+          <Toast.Body className="text-white">
+            {toastConfig.message}
+          </Toast.Body>
+        </Toast>
+      </ToastContainer>
+
       {/* En-tête */}
       <div className="row mb-4">
         <div className="col">

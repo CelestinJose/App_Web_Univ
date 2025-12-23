@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { FaSearch, FaCheck, FaFileExport, FaPrint, FaEye, FaEdit, FaMoneyBillWave, FaSync, FaExclamationTriangle } from "react-icons/fa";
+import React, { useState, useEffect, useRef } from "react";
+import { FaSearch, FaCheck, FaFileExport, FaEye, FaEdit, FaMoneyBillWave, FaExclamationTriangle, FaFilePdf } from "react-icons/fa";
 import Modal from 'react-bootstrap/Modal';
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
@@ -13,6 +13,10 @@ import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import api, { etudiantApi, bourseApi } from '../api'; // IMPORT MODIFIÉ
+
+// Import pour le PDF
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 export default function Bourses() {
   // État pour les données
@@ -59,6 +63,9 @@ export default function Bourses() {
     annee_academique: "",
     conditions: ""
   });
+
+  // Référence pour le contenu PDF
+  const pdfRef = useRef(null);
 
   // Statuts de bourse (selon votre modèle Django)
   const statutsBourse = [
@@ -186,6 +193,344 @@ export default function Bourses() {
   
   // Statuts disponibles pour filtre
   const statutsDisponibles = [...new Set(etudiants.map(e => getBourseStatus(e).label))];
+
+  // Calculer les statistiques
+  const stats = {
+    total: etudiants.length,
+    boursiers: etudiants.filter(e => e.boursier === "OUI").length,
+    nonBoursiers: etudiants.filter(e => e.boursier === "NON").length,
+    montantTotal: bourses.reduce((sum, b) => sum + parseFloat(b.montant || 0), 0),
+    enAttente: bourses.filter(b => b.status === "EN_ATTENTE").length,
+    acceptees: bourses.filter(b => b.status === "ACCEPTEE").length,
+    rejetees: bourses.filter(b => b.status === "REJETEE").length,
+    suspendues: bourses.filter(b => b.status === "SUSPENDUE").length
+  };
+
+  // Générer un rapport PDF des statistiques de bourses
+  const generatePDF = async () => {
+    try {
+      setToastMessage("Génération du PDF en cours...");
+      setToastVariant("info");
+      setShowToast(true);
+      
+      const pdf = new jsPDF('portrait', 'mm', 'a4');
+      const currentDate = new Date().toLocaleDateString('fr-FR');
+      const currentTime = new Date().toLocaleTimeString('fr-FR');
+      
+      // Titre principal
+      pdf.setFontSize(20);
+      pdf.setTextColor(0, 51, 102); // Bleu foncé
+      pdf.text('Rapport des Bourses', 105, 20, { align: 'center' });
+      
+      pdf.setFontSize(12);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text(`Université - Service des Bourses`, 105, 28, { align: 'center' });
+      pdf.text(`Généré le ${currentDate} à ${currentTime}`, 105, 34, { align: 'center' });
+      
+      // Ligne séparatrice
+      pdf.setDrawColor(0, 51, 102);
+      pdf.setLineWidth(0.5);
+      pdf.line(20, 40, 190, 40);
+      
+      // Section Statistiques Générales
+      pdf.setFontSize(16);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text('I. Statistiques Générales', 20, 50);
+      
+      pdf.setFontSize(10);
+      let yPosition = 60;
+      
+      // Tableau des statistiques
+      const statsData = [
+        ['Total étudiants', stats.total.toString()],
+        ['Étudiants boursiers', `${stats.boursiers} (${(stats.boursiers / stats.total * 100).toFixed(1)}%)`],
+        ['Étudiants non boursiers', `${stats.nonBoursiers} (${(stats.nonBoursiers / stats.total * 100).toFixed(1)}%)`],
+        ['Montant total des bourses', `${formatMontant(stats.montantTotal)} MGA`],
+        ['Bourses en attente', stats.enAttente.toString()],
+        ['Bourses acceptées', stats.acceptees.toString()],
+        ['Bourses rejetées', stats.rejetees.toString()],
+        ['Bourses suspendues', stats.suspendues.toString()]
+      ];
+      
+      // Dessiner le tableau des statistiques
+      pdf.setLineWidth(0.2);
+      pdf.setDrawColor(200, 200, 200);
+      
+      statsData.forEach((row, index) => {
+        pdf.setFillColor(index % 2 === 0 ? 245 : 255);
+        pdf.rect(20, yPosition - 5, 170, 8, 'F');
+        
+        pdf.setTextColor(0, 0, 0);
+        pdf.text(row[0], 25, yPosition);
+        
+        pdf.setTextColor(0, 51, 102);
+        pdf.text(row[1], 150, yPosition);
+        
+        yPosition += 10;
+      });
+      
+      yPosition += 10;
+      
+      // Section Répartition par Statut
+      pdf.setFontSize(16);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text('II. Répartition par Statut de Bourse', 20, yPosition);
+      yPosition += 15;
+      
+      // Diagramme simple de répartition
+      const totalBourses = stats.enAttente + stats.acceptees + stats.rejetees + stats.suspendues;
+      
+      if (totalBourses > 0) {
+        const statutsData = [
+          { label: 'En attente', count: stats.enAttente, color: [255, 193, 7] }, // Jaune
+          { label: 'Acceptées', count: stats.acceptees, color: [13, 110, 253] }, // Bleu
+          { label: 'Rejetées', count: stats.rejetees, color: [220, 53, 69] }, // Rouge
+          { label: 'Suspendues', count: stats.suspendues, color: [108, 117, 125] } // Gris
+        ];
+        
+        statutsData.forEach((statut, index) => {
+          const percentage = (statut.count / totalBourses * 100).toFixed(1);
+          const barWidth = (statut.count / totalBourses) * 100;
+          
+          // Légende couleur
+          pdf.setFillColor(statut.color[0], statut.color[1], statut.color[2]);
+          pdf.rect(25, yPosition - 3, 5, 5, 'F');
+          
+          // Texte
+          pdf.setTextColor(0, 0, 0);
+          pdf.text(`${statut.label}: ${statut.count} (${percentage}%)`, 35, yPosition);
+          
+          // Barre de progression
+          pdf.setDrawColor(statut.color[0], statut.color[1], statut.color[2]);
+          pdf.setFillColor(statut.color[0], statut.color[1], statut.color[2]);
+          pdf.rect(100, yPosition - 3, barWidth * 0.8, 5, 'FD');
+          
+          yPosition += 10;
+        });
+      }
+      
+      yPosition += 10;
+      
+      // Section Liste des Boursiers
+      if (filteredEtudiants.length > 0) {
+        pdf.setFontSize(16);
+        pdf.setTextColor(0, 0, 0);
+        pdf.text('III. Liste des Boursiers', 20, yPosition);
+        yPosition += 10;
+        
+        pdf.setFontSize(8);
+        pdf.setTextColor(100, 100, 100);
+        pdf.text(`Filtrée sur ${filteredEtudiants.length} étudiant(s)`, 20, yPosition);
+        yPosition += 15;
+        
+        // En-têtes du tableau
+        pdf.setFillColor(0, 51, 102);
+        pdf.rect(20, yPosition - 5, 170, 8, 'F');
+        
+        pdf.setTextColor(255, 255, 255);
+        pdf.text('Étudiant', 25, yPosition);
+        pdf.text('Niveau', 80, yPosition);
+        pdf.text('Montant', 120, yPosition);
+        pdf.text('Statut', 150, yPosition);
+        
+        yPosition += 10;
+        
+        // Données des étudiants
+        pdf.setFontSize(9);
+        let rowCount = 0;
+        
+        for (let i = 0; i < Math.min(filteredEtudiants.length, 20); i++) {
+          const etudiant = filteredEtudiants[i];
+          const bourse = findBourseForEtudiant(etudiant.id);
+          
+          if (etudiant.boursier === 'OUI') {
+            rowCount++;
+            
+            pdf.setFillColor(rowCount % 2 === 0 ? 245 : 255);
+            pdf.rect(20, yPosition - 5, 170, 8, 'F');
+            
+            pdf.setTextColor(0, 0, 0);
+            pdf.text(getFullName(etudiant).substring(0, 30), 25, yPosition);
+            pdf.text(etudiant.niveau || '-', 80, yPosition);
+            pdf.text(bourse ? formatMontant(bourse.montant) + ' MGA' : '-', 120, yPosition);
+            
+            // Couleur du statut
+            const statut = getBourseStatus(etudiant);
+            pdf.setTextColor(0, 51, 102);
+            pdf.text(statut.label, 150, yPosition);
+            
+            yPosition += 10;
+            
+            // Vérifier si on dépasse la page
+            if (yPosition > 270) {
+              pdf.addPage();
+              yPosition = 20;
+            }
+          }
+        }
+        
+        if (filteredEtudiants.length > 20) {
+          pdf.setTextColor(100, 100, 100);
+          pdf.text(`... et ${filteredEtudiants.length - 20} autres étudiants`, 20, yPosition + 5);
+        }
+      }
+      
+      // Pied de page
+      const pageCount = pdf.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        pdf.setPage(i);
+        pdf.setFontSize(8);
+        pdf.setTextColor(150, 150, 150);
+        pdf.text(`Page ${i}/${pageCount}`, 105, 287, { align: 'center' });
+        pdf.text('Service des Bourses - Université', 105, 292, { align: 'center' });
+      }
+      
+      // Sauvegarder le PDF
+      pdf.save(`rapport_bourses_${currentDate.replace(/\//g, '-')}.pdf`);
+      
+      setToastMessage("PDF généré avec succès !");
+      setToastVariant("success");
+      setShowToast(true);
+      
+    } catch (error) {
+      console.error("Erreur lors de la génération du PDF:", error);
+      setToastMessage("Erreur lors de la génération du PDF");
+      setToastVariant("danger");
+      setShowToast(true);
+    }
+  };
+
+  // Générer un PDF détaillé pour un étudiant spécifique
+  const generateStudentPDF = async (etudiant) => {
+    try {
+      const bourse = findBourseForEtudiant(etudiant.id);
+      const pdf = new jsPDF('portrait', 'mm', 'a4');
+      const currentDate = new Date().toLocaleDateString('fr-FR');
+      
+      // Titre
+      pdf.setFontSize(18);
+      pdf.setTextColor(0, 51, 102);
+      pdf.text('FICHE BOURSE ÉTUDIANT', 105, 20, { align: 'center' });
+      
+      pdf.setFontSize(12);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text(`Étudiant: ${getFullName(etudiant)}`, 105, 30, { align: 'center' });
+      pdf.text(`Généré le ${currentDate}`, 105, 36, { align: 'center' });
+      
+      // Ligne séparatrice
+      pdf.setDrawColor(0, 51, 102);
+      pdf.setLineWidth(0.5);
+      pdf.line(20, 45, 190, 45);
+      
+      let yPosition = 55;
+      
+      // Informations étudiant
+      pdf.setFontSize(14);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text('INFORMATIONS ÉTUDIANT', 20, yPosition);
+      yPosition += 10;
+      
+      pdf.setFontSize(10);
+      const studentInfo = [
+        ['Numéro d\'inscription', etudiant.numero_inscription || '-'],
+        ['Matricule', etudiant.matricule || '-'],
+        ['Nom complet', getFullName(etudiant)],
+        ['Niveau', etudiant.niveau || '-'],
+        ['Faculté', etudiant.faculte || '-'],
+        ['Domaine', etudiant.domaine || '-'],
+        ['Code redoublement', etudiant.code_redoublement || '-'],
+        ['Statut boursier', etudiant.boursier === 'OUI' ? 'BOURSIER' : 'NON BOURSIER']
+      ];
+      
+      studentInfo.forEach((info, index) => {
+        pdf.setFillColor(index % 2 === 0 ? 245 : 255);
+        pdf.rect(20, yPosition - 5, 170, 8, 'F');
+        
+        pdf.setTextColor(0, 0, 0);
+        pdf.text(info[0], 25, yPosition);
+        
+        pdf.setTextColor(0, 51, 102);
+        pdf.text(info[1], 100, yPosition);
+        
+        yPosition += 10;
+      });
+      
+      yPosition += 10;
+      
+      // Informations bourse
+      if (bourse) {
+        pdf.setFontSize(14);
+        pdf.setTextColor(0, 0, 0);
+        pdf.text('INFORMATIONS BOURSE', 20, yPosition);
+        yPosition += 10;
+        
+        pdf.setFontSize(10);
+        const bourseInfo = [
+          ['Montant attribué', `${formatMontant(bourse.montant)} MGA`],
+          ['Statut', bourse.status],
+          ['Date début', formatDate(bourse.date_debut)],
+          ['Date fin', formatDate(bourse.date_fin)],
+          ['Année académique', bourse.annee_academique || '-'],
+          ['Date demande', formatDate(bourse.date_demande)],
+          ['Date décision', formatDate(bourse.date_decision) || '-']
+        ];
+        
+        bourseInfo.forEach((info, index) => {
+          pdf.setFillColor(index % 2 === 0 ? 245 : 255);
+          pdf.rect(20, yPosition - 5, 170, 8, 'F');
+          
+          pdf.setTextColor(0, 0, 0);
+          pdf.text(info[0], 25, yPosition);
+          
+          pdf.setTextColor(0, 51, 102);
+          pdf.text(info[1], 100, yPosition);
+          
+          yPosition += 10;
+        });
+        
+        // Conditions
+        if (bourse.conditions) {
+          yPosition += 5;
+          pdf.setFontSize(11);
+          pdf.setTextColor(0, 0, 0);
+          pdf.text('Conditions spéciales:', 20, yPosition);
+          yPosition += 8;
+          
+          pdf.setFontSize(9);
+          pdf.setTextColor(80, 80, 80);
+          
+          // Gestion du texte multiligne
+          const conditions = pdf.splitTextToSize(bourse.conditions, 160);
+          conditions.forEach(line => {
+            pdf.text(line, 25, yPosition);
+            yPosition += 6;
+          });
+        }
+      } else {
+        pdf.setFontSize(12);
+        pdf.setTextColor(220, 53, 69);
+        pdf.text('AUCUNE BOURSE ATTRIBUÉE', 105, yPosition, { align: 'center' });
+      }
+      
+      // Pied de page
+      pdf.setFontSize(8);
+      pdf.setTextColor(150, 150, 150);
+      pdf.text('Service des Bourses - Université', 105, 287, { align: 'center' });
+      pdf.text('Document officiel', 105, 292, { align: 'center' });
+      
+      pdf.save(`bourse_${etudiant.numero_inscription || etudiant.matricule}_${currentDate.replace(/\//g, '-')}.pdf`);
+      
+      setToastMessage("Fiche étudiant générée !");
+      setToastVariant("success");
+      setShowToast(true);
+      
+    } catch (error) {
+      console.error("Erreur lors de la génération de la fiche étudiant:", error);
+      setToastMessage("Erreur lors de la génération du PDF");
+      setToastVariant("danger");
+      setShowToast(true);
+    }
+  };
 
   // Ouvrir modal de détail
   const openDetailModal = (etudiant) => {
@@ -413,17 +758,6 @@ export default function Bourses() {
       setToastVariant("danger");
       setShowToast(true);
     }
-  };
-
-  // Calculer les statistiques
-  const stats = {
-    total: etudiants.length,
-    boursiers: etudiants.filter(e => e.boursier === "OUI").length,
-    nonBoursiers: etudiants.filter(e => e.boursier === "NON").length,
-    montantTotal: bourses.reduce((sum, b) => sum + parseFloat(b.montant || 0), 0),
-    enAttente: bourses.filter(b => b.status === "EN_ATTENTE").length,
-    acceptees: bourses.filter(b => b.status === "ACCEPTEE").length,
-    rejetees: bourses.filter(b => b.status === "REJETEE").length
   };
 
   // Formater la date
@@ -683,10 +1017,11 @@ export default function Bourses() {
                   <FaFileExport className="me-2" /> Exporter CSV
                 </Button>
                 <Button 
-                  variant="outline-secondary"
-                  onClick={() => window.print()}
+                  variant="outline-danger"
+                  onClick={generatePDF}
+                  disabled={etudiants.length === 0}
                 >
-                  <FaPrint className="me-2" /> Imprimer
+                  <FaFilePdf className="me-2" /> Générer PDF
                 </Button>
               </div>
             </div>
@@ -716,7 +1051,6 @@ export default function Bourses() {
             </div>
           ) : filteredEtudiants.length === 0 ? (
             <div className="text-center py-5">
-              {/* <FaSearch className="text-muted mb-3" size={48} /> */}
               <p className="text-muted">Aucun étudiant trouvé</p>
               {etudiants.length === 0 ? (
                 <p className="text-danger">
@@ -813,14 +1147,24 @@ export default function Bourses() {
                                 <FaCheck />
                               </Button>
                             ) : (
-                              <Button
-                                variant="outline-warning"
-                                onClick={() => openEditBourseModal(etudiant)}
-                                title="Modifier la bourse"
-                                size="sm"
-                              >
-                                <FaEdit />
-                              </Button>
+                              <>
+                                <Button
+                                  variant="outline-warning"
+                                  onClick={() => openEditBourseModal(etudiant)}
+                                  title="Modifier la bourse"
+                                  size="sm"
+                                >
+                                  <FaEdit />
+                                </Button>
+                                <Button
+                                  variant="outline-danger"
+                                  onClick={() => generateStudentPDF(etudiant)}
+                                  title="Générer PDF"
+                                  size="sm"
+                                >
+                                  <FaFilePdf />
+                                </Button>
+                              </>
                             )}
                           </div>
                         </td>
@@ -955,20 +1299,30 @@ export default function Bourses() {
           )}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowDetailModal(false)}>
-            Fermer
-          </Button>
-          {selectedEtudiant && selectedEtudiant.boursier === "OUI" && (
-            <Button variant="warning" onClick={() => {
-              setShowDetailModal(false);
-              openEditBourseModal(selectedEtudiant);
-            }}>
-              Modifier la bourse
+          <div className="d-flex justify-content-between w-100">
+            <Button variant="secondary" onClick={() => setShowDetailModal(false)}>
+              Fermer
             </Button>
-          )}
+            <div>
+              {selectedEtudiant && selectedBourse && (
+                <Button variant="danger" onClick={() => generateStudentPDF(selectedEtudiant)} className="me-2">
+                  <FaFilePdf className="me-1" /> PDF Étudiant
+                </Button>
+              )}
+              {selectedEtudiant && selectedEtudiant.boursier === "OUI" && (
+                <Button variant="warning" onClick={() => {
+                  setShowDetailModal(false);
+                  openEditBourseModal(selectedEtudiant);
+                }}>
+                  Modifier la bourse
+                </Button>
+              )}
+            </div>
+          </div>
         </Modal.Footer>
       </Modal>
       
+      {/* Les autres modales restent inchangées */}
       {/* Modal Modification de bourse */}
       <Modal show={showEditBourseModal} onHide={() => setShowEditBourseModal(false)} size="lg">
         <Modal.Header closeButton className="bg-warning text-dark">
@@ -1069,7 +1423,6 @@ export default function Bourses() {
                 />
               </Form.Group>
               
-              {/* Différence entre inscrit et réinscrit */}
               <Alert variant={selectedEtudiant.code_redoublement === 'N' ? 'success' : 'warning'}>
                 <strong>Note :</strong> Cet étudiant est 
                 <strong> {selectedEtudiant.code_redoublement === 'N' ? 'INSCRIT (N)' : 'RÉINSCRIT (R)'}</strong>.
@@ -1196,7 +1549,6 @@ export default function Bourses() {
                 />
               </Form.Group>
               
-              {/* Note spéciale pour les réinscrits */}
               {selectedEtudiant.code_redoublement === 'R' && (
                 <Alert variant="warning">
                   <strong>Note pour les réinscrits :</strong> 

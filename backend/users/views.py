@@ -15,6 +15,55 @@ from .serializers import (
     PasswordResetRequestSerializer,
     PasswordResetConfirmSerializer
 )
+from django.contrib.auth import update_session_auth_hash
+from .serializers import ChangePasswordSerializer
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    """
+    Vue pour changer le mot de passe de l'utilisateur connecté
+    """
+    print("=== CHANGE PASSWORD REQUEST ===")
+    print("User:", request.user.username)
+    print("Data received:", request.data)
+    
+    serializer = ChangePasswordSerializer(data=request.data, context={'request': request})
+    
+    if not serializer.is_valid():
+        print("Serializer invalid. Errors:", serializer.errors)
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Récupérer l'utilisateur connecté
+    user = request.user
+    
+    # Vérifier l'ancien mot de passe
+    old_password = serializer.validated_data['old_password']
+    if not user.check_password(old_password):
+        print("Old password incorrect for user:", user.username)
+        return Response(
+            {"old_password": ["Ancien mot de passe incorrect."]},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Changer le mot de passe
+    new_password = serializer.validated_data['new_password']
+    user.set_password(new_password)
+    user.save()
+    
+    # Mettre à jour la session pour éviter la déconnexion
+    update_session_auth_hash(request, user)
+    
+    print("Password changed successfully for user:", user.username)
+    return Response(
+        {"message": "Mot de passe changé avec succès."},
+        status=status.HTTP_200_OK
+    )   
+
+
 # Vue pour JWT login
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer
