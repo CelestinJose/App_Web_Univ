@@ -11,6 +11,7 @@ const Navbar = () => {
   const [showDrop2, setShowDrop2] = useState(false); // Réinscription
   const [showDrop3, setShowDrop3] = useState(false); // Étudiant
   const [showDrop4, setShowDrop4] = useState(false); // Doublon
+  const [showDropImpression, setShowDropImpression] = useState(false); // Doublon
   const [showDrop5, setShowDrop5] = useState(false); // Paramètres Académiques (Nouveau)
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [userInfo, setUserInfo] = useState({
@@ -234,6 +235,7 @@ const Navbar = () => {
 
             {showDrop1 && (
               <>
+                {/* Nouvelle inscription */}
                 <div className="sidebar-submenu">
                   <Link
                     to="/inscription"
@@ -243,16 +245,42 @@ const Navbar = () => {
                   </Link>
                 </div>
 
-                <div className="sidebar-submenu">
-                  <Link
-                    to="/impression"
-                    className={`sidebar-link ${isActive('/impression')}`}
-                  >
-                    Impression
-                  </Link>
+                {/* Impression (menu déroulant) */}
+                <div
+                  onClick={() => setShowDropImpression(!showDropImpression)}
+                  className="sidebar-link flex justify-between items-center cursor-pointer"
+                >
+                  <span>Impression</span>
+                  <i
+                    className={`fas fa-chevron-down transition-transform ${showDropImpression ? 'rotate-180' : ''
+                      }`}
+                  ></i>
                 </div>
+
+                {showDropImpression && (
+                  <>
+                    <div className="sidebar-submenu pl-4">
+                      <Link
+                        to="/impression"
+                        className={`sidebar-link ${isActive('/impression')}`}
+                      >
+                        Liste des étudiants
+                      </Link>
+                    </div>
+
+                    <div className="sidebar-submenu pl-4">
+                      <Link
+                        to="/list-etudiants"
+                        className={`sidebar-link ${isActive('/list-etudiants')}`}
+                      >
+                        Carte & Certificat
+                      </Link>
+                    </div>
+                  </>
+                )}
               </>
             )}
+
           </div>
         )}
 
@@ -272,7 +300,7 @@ const Navbar = () => {
         )}
 
         {/* Service Étudiant */}
-        {permissions.showEtudiant && (
+        {/* {permissions.showEtudiant && (
           <div>
             <div onClick={() => setShowDrop3(!showDrop3)} className="sidebar-link flex justify-between items-center">
               <span><i className="fas fa-user-graduate mr-2"></i>Service Étudiant</span>
@@ -280,11 +308,11 @@ const Navbar = () => {
             </div>
             {showDrop3 && (
               <div className="sidebar-submenu">
-                <Link to="/list-etudiants" className={`sidebar-link ${isActive('/list-etudiants')}`}>Liste Étudiants</Link>
+                <Link to="/list-etudiants" className={`sidebar-link ${isActive('/list-etudiants')}`}>Carte & Certificat</Link>
               </div>
             )}
           </div>
-        )}
+        )} */}
 
         {/* Détection Doublons */}
         {permissions.showDoublon && (
