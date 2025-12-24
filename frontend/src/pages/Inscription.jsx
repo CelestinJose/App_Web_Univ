@@ -23,13 +23,17 @@ export default function Inscription() {
   // État pour les données
   // Ajoutez cet état avec vos autres états
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [importData, setImportData] = useState(null); // Pour stocker les données d'importation
+  const [importData, setImportData] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
   const [duplicateErrors, setDuplicateErrors] = useState([]);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importFile, setImportFile] = useState(null);
   const [importProgress, setImportProgress] = useState(0);
   const [importStatus, setImportStatus] = useState(null);
   const [ignoreDuplicates, setIgnoreDuplicates] = useState(true);
+  const [userInfo, setUserInfo] = useState({
+    role: ''
+  });
   const [importResults, setImportResults] = useState({
     total: 0,
     success: 0,
@@ -74,7 +78,8 @@ export default function Inscription() {
     mention: "",
     nom_pere: "",
     nom_mere: "",
-    bourse: 0 // Ce champ existe déjà dans le modèle
+    bourse: 0,
+    photo: null
   });
 
   const [editId, setEditId] = useState(null);
@@ -89,6 +94,25 @@ export default function Inscription() {
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+
+  const fetchUserInfo = async () => {
+    try {
+      // Utilisez votre API pour récupérer les infos utilisateur
+      const response = await etudiantApi.getCurrentUser();
+      if (response.data) {
+        setUserInfo({
+          role: response.data.role || ''
+        });
+      }
+    } catch (err) {
+      console.error("Erreur lors de la récupération des informations utilisateur:", err);
+      // Fallback: récupérer depuis localStorage
+      const storedRole = localStorage.getItem("user_role");
+      setUserInfo({
+        role: storedRole || ''
+      });
+    }
+  };
 
   // Structure des données des facultés
   const facultesData = {
@@ -273,9 +297,15 @@ export default function Inscription() {
 
   // Charger les données
   useEffect(() => {
+    fetchUserInfo();
     fetchEtudiants();
     fetchStats();
   }, [fetchEtudiants, fetchStats]);
+
+  const isAdmin = () => {
+    return userInfo.role === 'administrateur';
+  };
+
 
   // Ouvrir la modale d'importation
   const openImportModal = () => {
@@ -1029,14 +1059,30 @@ export default function Inscription() {
                               >
                                 <FaEdit />
                               </Button>
-                              <Button
-                                variant="outline-danger"
-                                onClick={() => openDeleteModal(etudiant)}
-                                title="Supprimer"
-                                size="sm"
-                              >
-                                <FaTrash />
-                              </Button>
+
+                              {/* Afficher le bouton suppression seulement pour admin */}
+                              {isAdmin() && (
+                                <Button
+                                  variant="outline-danger"
+                                  onClick={() => openDeleteModal(etudiant)}
+                                  title="Supprimer"
+                                  size="sm"
+                                >
+                                  <FaTrash />
+                                </Button>
+                              )}
+
+                              {/* Ou si l'utilisateur n'est pas admin, afficher un bouton désactivé ou rien */}
+                              {!isAdmin() && (
+                                <Button
+                                  variant="outline-secondary"
+                                  title="Suppression réservée à l'administrateur"
+                                  size="sm"
+                                  disabled
+                                >
+                                  <FaTrash />
+                                </Button>
+                              )}
                             </div>
                           </td>
                         </tr>

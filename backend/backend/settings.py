@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from datetime import timedelta
 
@@ -6,6 +7,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-r6_ia^s)1c652ryadj+)&=z%t_s-fv5qzj@zjw$#535ztzdnhl'
 DEBUG = True
 ALLOWED_HOSTS = ['localhost', '127.0.0.1']  # Ajout des hosts
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
