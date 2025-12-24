@@ -7,7 +7,7 @@ from .views import (
     PasswordResetRequestView,
     PasswordResetConfirmView,
     change_password,
-    get_current_user  # Ajoutez cette importation
+    get_current_user
 )
 from rest_framework_simplejwt.views import TokenRefreshView
 
@@ -19,7 +19,7 @@ urlpatterns = [
     path('login/', MyTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('login/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('change-password/', change_password, name='change_password'),
-    path('current-user/', get_current_user, name='current_user'),  # Nouvelle route
+    path('current-user/', get_current_user, name='current_user'),
     path('reset-password/', PasswordResetRequestView.as_view(), name='password_reset'),
     path('reset-password-confirm/<uidb64>/<token>/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
 ]

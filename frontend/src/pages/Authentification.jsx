@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react";
 import {
   FaUser, FaLock, FaEye, FaEyeSlash, FaUserPlus,
   FaUsers, FaEdit, FaTrash, FaCheck, FaTimes, FaKey, FaEnvelope,
-  FaUserShield, FaUserCheck,
-  FaSearch, FaExclamationTriangle, FaSync
+  FaUserShield, FaUserCheck, FaCircle, FaClock, FaInfoCircle,
+  FaSearch, FaExclamationTriangle, FaSync, FaPlug
 } from "react-icons/fa";
 import Modal from 'react-bootstrap/Modal';
 import Button from 'react-bootstrap/Button';
@@ -26,6 +26,10 @@ export default function Authentification() {
   const [error, setError] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
+
+  // États pour les utilisateurs connectés
+  const [onlineUsers, setOnlineUsers] = useState([]);
+  const [onlineCount, setOnlineCount] = useState(0);
 
   // États pour les notifications Toast
   const [showToast, setShowToast] = useState(false);
@@ -126,6 +130,34 @@ export default function Authentification() {
     }
   };
 
+  // Fonction pour mettre à jour le statut "dernière vue"
+  const updateLastSeen = async () => {
+    try {
+      await api.post('/auth/users/update_last_seen/');
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour de last_seen:", error);
+    }
+  };
+
+  // Fonction pour récupérer les utilisateurs en ligne
+  const fetchOnlineUsers = async () => {
+    if (!isAdmin) return; // Seul l'admin peut voir les utilisateurs en ligne
+    
+    try {
+      const response = await api.get('/auth/users/online/');
+      if (response.data) {
+        setOnlineUsers(response.data);
+        setOnlineCount(response.data.length);
+      }
+    } catch (error) {
+      console.error("Erreur lors du chargement des utilisateurs en ligne:", error);
+      // Ne pas afficher d'erreur si c'est juste que l'utilisateur n'est pas admin
+      if (error.response?.status !== 403) {
+        console.log("Erreur détaillée:", error.response?.data);
+      }
+    }
+  };
+
   useEffect(() => {
     const getUserInfo = () => {
       const storedId = localStorage.getItem("user_id");
@@ -162,6 +194,24 @@ export default function Authentification() {
     setUserRole(userInfo.role);
     setCurrentUserId(userInfo.id);
     fetchUsers();
+    
+    // Mettre à jour le statut de dernière activité immédiatement
+    updateLastSeen();
+
+    // Mettre à jour toutes les 30 secondes
+    const updateInterval = setInterval(updateLastSeen, 30000);
+    
+    // Mettre à jour la liste des utilisateurs en ligne toutes les 10 secondes (admin seulement)
+    let onlineInterval;
+    if (userInfo.role === 'administrateur') {
+      fetchOnlineUsers();
+      onlineInterval = setInterval(fetchOnlineUsers, 10000);
+    }
+
+    return () => {
+      clearInterval(updateInterval);
+      if (onlineInterval) clearInterval(onlineInterval);
+    };
   }, []);
 
   // Fonction pour charger les utilisateurs depuis l'API
@@ -172,6 +222,13 @@ export default function Authentification() {
       const response = await api.get('/auth/users/');
       if (response.data) {
         setUsers(response.data);
+        
+        // Mettre à jour les utilisateurs en ligne si admin
+        if (isAdmin) {
+          const online = response.data.filter(user => user.is_online && user.id !== parseInt(currentUserId));
+          setOnlineUsers(online);
+          setOnlineCount(online.length);
+        }
       } else {
         throw new Error("Réponse invalide de l'API");
       }
@@ -249,6 +306,11 @@ export default function Authentification() {
         });
         setShowAddModal(false);
         showNotification("Succès", "Utilisateur créé avec succès !", 'success', <FaUserPlus />);
+        
+        // Rafraîchir la liste des utilisateurs en ligne
+        if (isAdmin) {
+          fetchOnlineUsers();
+        }
       }
     } catch (error) {
       console.error("Erreur lors de la création de l'utilisateur:", error);
@@ -293,6 +355,11 @@ export default function Authentification() {
         setShowEditModal(false);
         setEditingUser(null);
         showNotification("Succès", "Utilisateur mis à jour avec succès !", 'success', <FaEdit />);
+        
+        // Rafraîchir la liste des utilisateurs en ligne
+        if (isAdmin) {
+          fetchOnlineUsers();
+        }
       }
     } catch (error) {
       console.error("Erreur lors de la mise à jour de l'utilisateur:", error);
@@ -329,6 +396,11 @@ export default function Authentification() {
       setShowDeleteModal(false);
       setUserToDelete(null);
       showNotification("Succès", "Utilisateur supprimé avec succès !", 'success', <FaTrash />);
+      
+      // Rafraîchir la liste des utilisateurs en ligne
+      if (isAdmin) {
+        fetchOnlineUsers();
+      }
     } catch (error) {
       console.error("Erreur lors de la suppression de l'utilisateur:", error);
       if (error.response?.status === 403) {
@@ -394,6 +466,9 @@ export default function Authentification() {
 
   const refreshData = () => {
     fetchUsers();
+    if (isAdmin) {
+      fetchOnlineUsers();
+    }
   };
 
   const isAdmin = userRole === 'administrateur';
@@ -456,6 +531,85 @@ export default function Authentification() {
           </div>
         </div>
       </div>
+
+      {/* Section utilisateurs connectés (visible seulement pour admin) */}
+      {isAdmin && (
+        <div className="row mb-4">
+          <div className="col-12">
+            <Card className="border-primary">
+              <Card.Header className="bg-primary text-white d-flex justify-content-between align-items-center">
+                <div>
+                  <FaPlug className="me-2" />
+                  <strong>Utilisateurs actuellement connectés</strong>
+                </div>
+                <Badge bg="light" text="dark">
+                  <FaCircle className="text-success me-1" />
+                  {onlineCount} en ligne
+                </Badge>
+              </Card.Header>
+              <Card.Body>
+                {onlineUsers.length === 0 ? (
+                  <div className="text-center py-4">
+                    <FaUsers className="text-muted mb-3" size={48} />
+                    <p className="text-muted">Aucun utilisateur connecté</p>
+                  </div>
+                ) : (
+                  <div className="row">
+                    {onlineUsers.map(user => {
+                      const role = roles.find(r => r.value === user.role);
+                      return (
+                        <div key={user.id} className="col-md-3 mb-3">
+                          <Card className="h-100 border-success">
+                            <Card.Body className="text-center">
+                              <div className="mb-3">
+                                <div className="position-relative d-inline-block">
+                                  <FaUser 
+                                    className="text-success" 
+                                    size={40} 
+                                  />
+                                  <span className="position-absolute top-0 start-100 translate-middle p-1 bg-success border border-light rounded-circle">
+                                    <span className="visually-hidden">En ligne</span>
+                                  </span>
+                                </div>
+                              </div>
+                              <Card.Title className="h6 mb-1">
+                                {user.username}
+                              </Card.Title>
+                              <Card.Text className="mb-1">
+                                {role ? (
+                                  <Badge bg={role.color} className="mb-2">
+                                    {role.label}
+                                  </Badge>
+                                ) : (
+                                  <Badge bg="secondary">{user.role}</Badge>
+                                )}
+                              </Card.Text>
+                              <Card.Text className="text-muted small">
+                                <FaClock className="me-1" />
+                                {user.last_seen_human || 'Dernière activité'}
+                              </Card.Text>
+                              {user.email && (
+                                <Card.Text className="small">
+                                  <FaEnvelope className="me-1" />
+                                  {user.email}
+                                </Card.Text>
+                              )}
+                            </Card.Body>
+                          </Card>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </Card.Body>
+              <Card.Footer className="text-muted small">
+                <FaInfoCircle className="me-1" />
+                Section réservée à l'administrateur. Statut mis à jour toutes les 10 secondes.
+              </Card.Footer>
+            </Card>
+          </div>
+        </div>
+      )}
 
       {/* Statistiques */}
       <div className="row mb-4">
@@ -565,6 +719,12 @@ export default function Authentification() {
                   {!isAdmin && (
                     <Badge bg="warning" className="ms-2">Lecture seule</Badge>
                   )}
+                  {isAdmin && onlineCount > 0 && (
+                    <Badge bg="success" className="ms-2">
+                      <FaCircle className="me-1" style={{ fontSize: '0.6rem' }} />
+                      {onlineCount} en ligne
+                    </Badge>
+                  )}
                 </div>
                 <div className="text-muted">
                   Connecté en tant que : {userRole || "Non défini"}
@@ -602,7 +762,7 @@ export default function Authentification() {
                     <th>#</th>
                     <th>Nom d'utilisateur</th>
                     <th>Email</th>
-                    <th>Rôle</th>
+                    <th>Rôle et Statut</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -621,6 +781,7 @@ export default function Authentification() {
                     filteredUsers.map((user, index) => {
                       const role = roles.find(r => r.value === user.role);
                       const isCurrentUser = user.id === parseInt(currentUserId);
+                      const isOnline = user.is_online;
 
                       return (
                         <tr key={user.id}>
@@ -638,10 +799,24 @@ export default function Authentification() {
                             </div>
                           </td>
                           <td>
-                            {role ? (
-                              <Badge bg={role.color}>{role.label}</Badge>
-                            ) : (
-                              <Badge bg="secondary">{user.role}</Badge>
+                            <div className="d-flex align-items-center">
+                              {role ? (
+                                <Badge bg={role.color}>{role.label}</Badge>
+                              ) : (
+                                <Badge bg="secondary">{user.role}</Badge>
+                              )}
+                              {isOnline && (
+                                <Badge bg="success" className="ms-2" pill>
+                                  <FaCircle className="me-1" style={{ fontSize: '0.6rem' }} />
+                                  En ligne
+                                </Badge>
+                              )}
+                            </div>
+                            {user.last_seen_human && (
+                              <div className="text-muted small mt-1">
+                                <FaClock className="me-1" />
+                                {user.last_seen_human}
+                              </div>
                             )}
                           </td>
                           <td>
@@ -1013,6 +1188,13 @@ export default function Authentification() {
               <small>
                 Système de gestion des utilisateurs - Université de Toliara<br />
                 {isAdmin ? "Mode administrateur" : "Mode consultation"}
+                {isAdmin && onlineCount > 0 && (
+                  <>
+                    <br />
+                    <FaCircle className="text-success me-1" />
+                    {onlineCount} utilisateur(s) en ligne
+                  </>
+                )}
               </small>
             </p>
           </div>
