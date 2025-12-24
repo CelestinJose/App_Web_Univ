@@ -221,7 +221,7 @@ const Navbar = () => {
               onClick={() => setShowDrop1(!showDrop1)}
               className="sidebar-link flex justify-between items-center"
             >
-              <span><i className="fas fa-user-plus mr-2"></i>Service Inscription</span>
+              <span><i className="fas fa-user mr-2"></i>Service Inscription</span>
               <i className={`fas fa-chevron-down transition-transform ${showDrop1 ? 'rotate-180' : 'rotate-0'}`}></i>
             </div>
 
@@ -232,7 +232,7 @@ const Navbar = () => {
                   to="/inscription"
                   className={`sidebar-link ${isActive('/inscription')}`}
                 >
-                  Nouvelle inscription
+                   <i className="fas fa-user-plus mr-2"></i> Nouvelle inscription
                 </Link>
 
                 {/* Deuxième ligne: Impression avec sous-menu */}
@@ -241,7 +241,8 @@ const Navbar = () => {
                     onClick={() => setShowDropImpression(!showDropImpression)}
                     className="sidebar-link flex justify-between items-center cursor-pointer"
                   >
-                    <span>Impression</span>
+                    <span>
+                        <i className="fas fa-print mr-2"></i>Impression</span>
                     <i
                       className={`fas fa-chevron-down transition-transform ${showDropImpression ? 'rotate-180' : ''}`}
                     ></i>
@@ -295,10 +296,10 @@ const Navbar = () => {
             {showDrop4 && (
               <div className="sidebar-submenu">
                 <Link to="/doublonsnom-prenom" className={`sidebar-link ${isActive('/doublonsnom-prenom')}`}>
-                  Doublon Identité
+                 <i className="fa fa-users mr-2"></i> Doublon Identité
                 </Link>
                 <Link to="/Doublonbourse" className={`sidebar-link ${isActive('/Doublonbourse')}`}>
-                  Doublon Bourse par Identité
+                    <i className="fa fa-university mr-2"></i>Doublon Bourse par Identité
                 </Link>
               </div>
             )}
@@ -345,7 +346,6 @@ const Navbar = () => {
                 <Link to="/bourses" className={`sidebar-link ${isActive('/bourses')}`}>
                   <i className="fas fa-hand-holding-usd mr-2"></i>
                   <span className="flex-1">Bourses</span>
-                  <span className="text-xs bg-green-500 px-1.5 py-0.5 rounded">24</span>
                 </Link>
 
                 {/* Section Impression avec sous-menu */}
@@ -365,17 +365,17 @@ const Navbar = () => {
                     <div className="sidebar-submenu-nested ml-4 mt-1">
                       {/* Impression - Bourses */}
                       <Link
-                        to="/impression-bourses"
-                        className={`sidebar-link ${isActive('/impression-bourses')}`}
+                        to="/accep-bourses"
+                        className={`sidebar-link ${isActive('/accep-bourses')}`}
                       >
                         <i className="fas fa-hand-holding-usd mr-2 text-xs"></i>
-                        <span>Bourses</span>
+                        <span>Bourses Acceptées</span>
                       </Link>
 
                       {/* Impression - Non bourses */}
                       <Link
-                        to="/impression-non-bourses"
-                        className={`sidebar-link ${isActive('/impression-non-bourses')}`}
+                        to="/non-bourses"
+                        className={`sidebar-link ${isActive('/non-bourses')}`}
                       >
                         <i className="fas fa-ban mr-2 text-xs"></i>
                         <span>Non bourses</span>

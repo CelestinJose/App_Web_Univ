@@ -53,7 +53,6 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activites, setActivites] = useState([]);
-  const user = localStorage.getItem("username") || "Administrateur";
 
   // Fonction pour analyser les inscriptions par mois basée sur created_at
   const analyserInscriptionsParMois = (etudiants) => {
@@ -477,7 +476,7 @@ function Dashboard() {
             Tableau de bord
           </h1>
           <p className="text-muted">
-            Bienvenue, <span className="fw-bold">{user}</span> - Vue d'ensemble du système
+            Bienvenue, - Vue d'ensemble du système
           </p>
         </div>
       </div>
@@ -642,9 +641,6 @@ function Dashboard() {
             <div className="card-header py-3">
               <h6 className="m-0 fw-bold text-primary">
                 Évolution des inscriptions sur 12 mois
-                <small className="text-muted ms-2">
-                  (Basé sur created_at)
-                </small>
               </h6>
             </div>
             <div className="card-body">

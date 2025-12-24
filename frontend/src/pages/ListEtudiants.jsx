@@ -1151,7 +1151,6 @@ const genererCarteEtudiantPDF = () => {
                 <div className="card mx-auto" style={{ width: '86mm', height: '54mm', border: '2px solid #0066cc' }}>
                   <div className="card-header bg-primary text-white py-1">
                     <h6 className="mb-0">UNIVERSITÉ DE TOLIARA</h6>
-                    <small>TOKYO - TUL</small>
                   </div>
                   <div className="card-body p-2">
                     <div className="row">

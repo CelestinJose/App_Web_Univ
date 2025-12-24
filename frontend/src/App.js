@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from "react-
 import Login from "./Login";
 import Navbar from './components/Navbar';
 import NotFound from "./pages/NotFound";
+import AccepBourses from "./pages/AccepBourses";
+import NonBourses from "./pages/NonBourses";
 import Dashboard from "./pages/Dashboard";
 import ListEtudiants from "./pages/ListEtudiants";
 import Bourses from "./pages/Bourses";
@@ -57,8 +59,10 @@ function App() {
           <Route path="doublonsnom-prenom" element={<DoublonNomPrenom />} />
           <Route path="Doublonbourse" element={<DoublonBourse />} />
           <Route path="facultes" element={<Facultes />} />
-          <Route path="/mentions" element={<Mentions />} />
+          <Route path="mentions" element={<Mentions />} />
           <Route path="domaines" element={<Domaines />} />
+          <Route path="accep-bourses" element={<AccepBourses />} />
+          <Route path="non-bourses" element={<NonBourses />} />
           <Route path="*" element={<NotFound />} />
         </Route>
 

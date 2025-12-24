@@ -11,7 +11,6 @@ class Bourse(models.Model):
         ('EN_ATTENTE', 'En attente de traitement'),
         ('ACCEPTEE', 'Acceptée'),
         ('REJETEE', 'Rejetée'),
-        ('SUSPENDUE', 'Suspendue'),
     ]
     
     etudiant = models.ForeignKey(Etudiant, on_delete=models.CASCADE, related_name='bourses')
