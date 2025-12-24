@@ -232,7 +232,7 @@ const Navbar = () => {
                   to="/inscription"
                   className={`sidebar-link ${isActive('/inscription')}`}
                 >
-                   <i className="fas fa-user-plus mr-2"></i> Nouvelle inscription
+                  <i className="fas fa-user-plus mr-2"></i> Nouvelle inscription
                 </Link>
 
                 {/* Deuxième ligne: Impression avec sous-menu */}
@@ -242,7 +242,7 @@ const Navbar = () => {
                     className="sidebar-link flex justify-between items-center cursor-pointer"
                   >
                     <span>
-                        <i className="fas fa-print mr-2"></i>Impression</span>
+                      <i className="fas fa-print mr-2"></i>Impression</span>
                     <i
                       className={`fas fa-chevron-down transition-transform ${showDropImpression ? 'rotate-180' : ''}`}
                     ></i>
@@ -296,10 +296,10 @@ const Navbar = () => {
             {showDrop4 && (
               <div className="sidebar-submenu">
                 <Link to="/doublonsnom-prenom" className={`sidebar-link ${isActive('/doublonsnom-prenom')}`}>
-                 <i className="fa fa-users mr-2"></i> Doublon Identité
+                  <i className="fa fa-users mr-2"></i> Doublon Identité
                 </Link>
                 <Link to="/Doublonbourse" className={`sidebar-link ${isActive('/Doublonbourse')}`}>
-                    <i className="fa fa-university mr-2"></i>Doublon Bourse par Identité
+                  <i className="fa fa-university mr-2"></i>Doublon Bourse par Identité
                 </Link>
               </div>
             )}
