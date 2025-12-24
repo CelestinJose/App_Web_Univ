@@ -4,7 +4,7 @@ import {
   FaCheck, FaTimes, FaSearch, FaFilter, FaDownload,
   FaPrint, FaEnvelope, FaUserCheck, FaMoneyCheckAlt, FaExclamationTriangle,
   FaChartBar, FaCalendarAlt, FaUniversity, FaGraduationCap,
-  FaIdCard, FaFileExcel, FaEye, FaEdit, FaTrash, FaSync
+  FaIdCard, FaFileExcel, FaFilePdf, FaEye, FaEdit, FaTrash, FaSync
 } from 'react-icons/fa';
 import Modal from 'react-bootstrap/Modal';
 import Button from 'react-bootstrap/Button';
@@ -22,6 +22,8 @@ import ProgressBar from 'react-bootstrap/ProgressBar';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import api, { etudiantApi, bourseApi } from '../api';
 import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export default function AccepBourses() {
   // États pour les données
@@ -65,6 +67,8 @@ export default function AccepBourses() {
   // États pour l'exportation
   const [exportProgress, setExportProgress] = useState(0);
   const [exporting, setExporting] = useState(false);
+  const [exportingPDF, setExportingPDF] = useState(false);
+  const [exportError, setExportError] = useState(null);
   
   // États pour les statistiques
   const [stats, setStats] = useState({
@@ -338,6 +342,207 @@ export default function AccepBourses() {
     }
   };
   
+  // Fonction pour formater la date
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('fr-FR');
+    } catch (error) {
+      return dateString;
+    }
+  };
+  
+  // Exporter en PDF
+  const exportToPDF = () => {
+    setExportingPDF(true);
+    setExportError(null);
+
+    try {
+      // Récupérer les données filtrées
+      const filteredEtudiants = etudiants;
+      
+      // Créer un nouveau document PDF
+      const doc = new jsPDF('landscape'); // Orientation paysage pour plus d'espace
+      const date = new Date().toLocaleDateString('fr-FR');
+
+      // En-tête institutionnel
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("REPOBLIKAN'NY MADAGASIKARA", 145, 15, { align: 'center' });
+      doc.setFontSize(12);
+      doc.text("FITIAVANA - TANINDRAZANA - FANDROSOANA", 145, 22, { align: 'center' });
+
+      doc.setFontSize(11);
+      doc.text("MINISTERE DE L'ENSEIGNEMENT SUPERIEUR ET DE LA RECHERCHE SCIENTIFIQUE", 145, 30, { align: 'center' });
+      doc.text("UNIVERSITE DE TOLIARA", 145, 37, { align: 'center' });
+
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("LISTE DES BOURSES ACCEPTÉES", 145, 47, { align: 'center' });
+
+      // Informations générales
+      const firstStudent = filteredEtudiants[0] || {};
+      const currentDate = new Date().toLocaleDateString('fr-FR', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      
+      // Informations à gauche
+      doc.text(`Faculté: ${'Toutes facultés'}`, 15, 60);
+      doc.text(`Niveau: ${'Tous niveaux'}`, 15, 67);
+      doc.text(`Année académique: ${filterAnnee || 'Toutes années'}`, 15, 74);
+      
+      // Statistiques à droite
+      doc.text(`Nombre d'étudiants: ${filteredEtudiants.length}`, 240, 60, { align: 'right' });
+      doc.text(`Montant total: ${stats.montant_total.toLocaleString('fr-FR')} MGA`, 240, 67, { align: 'right' });
+      doc.text(`Date: ${currentDate}`, 240, 74, { align: 'right' });
+
+      // Tableau des bourses acceptées
+      const tableColumn = [
+        { header: "Matricule", dataKey: "matricule", width: 25 },
+        { header: "Nom et Prénoms", dataKey: "nom_complet", width: 50 },
+        { header: "Faculté", dataKey: "faculte", width: 40 },
+        { header: "Niveau", dataKey: "niveau", width: 25 },
+        { header: "Mention", dataKey: "mention", width: 40 },
+        { header: "Montant Bourse", dataKey: "montant", width: 25 },
+        { header: "Année Acad.", dataKey: "annee_academique", width: 20 },
+        { header: "Période", dataKey: "periode", width: 30 },
+      ];
+
+      const tableRows = filteredEtudiants.map((etudiant, index) => {
+        const bourse = etudiant.bourses[0]; // Prendre la première bourse acceptée
+        
+        // Formater le montant
+        let montantFormatted = '-';
+        if (bourse && bourse.montant > 0) {
+          const montantNum = parseFloat(bourse.montant);
+          montantFormatted = montantNum.toLocaleString('fr-FR', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+          }).replace(/\u202f/g, ' ');
+        }
+        
+        // Formater la période
+        let periode = '-';
+        if (bourse && bourse.date_debut && bourse.date_fin) {
+          periode = `${formatDate(bourse.date_debut)} - ${formatDate(bourse.date_fin)}`;
+        }
+        
+        return {
+          matricule: etudiant.matricule || '-',
+          nom_complet: `${etudiant.nom || ''} ${etudiant.prenom || ''}`.trim(),
+          faculte: etudiant.faculte || '-',
+          niveau: etudiant.niveau || '-',
+          mention: etudiant.mention || '-',
+          montant: montantFormatted + ' MGA',
+          annee_academique: bourse ? bourse.annee_academique || '-' : '-',
+          periode: periode,
+        };
+      });
+
+      const startY = 85;
+
+      autoTable(doc, {
+        columns: tableColumn,
+        body: tableRows,
+        startY: startY,
+        theme: 'grid',
+        headStyles: {
+          fillColor: [41, 128, 185], // Bleu pour l'en-tête
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 8,
+          halign: 'center'
+        },
+        bodyStyles: {
+          fontSize: 7,
+          cellPadding: 2,
+          overflow: 'linebreak',
+          halign: 'center'
+        },
+        columnStyles: {
+          numero: { halign: 'center', cellWidth: 12 },
+          montant: { halign: 'right', cellWidth: 25 },
+          periode: { halign: 'center', cellWidth: 35 },
+          nom_complet: { halign: 'left', cellWidth: 50 },
+          signature: { halign: 'center', cellWidth: 25 }
+        },
+        margin: { left: 10, right: 10 },
+        styles: {
+          overflow: 'linebreak',
+          cellWidth: 'wrap',
+          lineColor: [200, 200, 200],
+          lineWidth: 0.1
+        },
+        didDrawPage: function (data) {
+          // Pied de page avec numérotation
+          const pageCount = doc.internal.getNumberOfPages();
+          doc.setFontSize(8);
+          doc.text(
+            `Page ${data.pageNumber} sur ${pageCount}`,
+            doc.internal.pageSize.width / 2,
+            doc.internal.pageSize.height - 10,
+            { align: 'center' }
+          );
+
+          // Mention de bas de page
+          doc.setFontSize(8);
+          doc.setFont("helvetica", "italic");
+          doc.text(
+            "Bourses accordées par l'Université de Toliara - Service des Bourses",
+            doc.internal.pageSize.width / 2,
+            doc.internal.pageSize.height - 20,
+            { align: 'center' }
+          );
+
+          // Ligne de compte des bourses à la fin
+          if (data.pageNumber === pageCount) {
+            const totalY = doc.internal.pageSize.height - 30;
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(9);
+            doc.text(
+              `Arrêtée la présente liste au nombre de ${filteredEtudiants.length} étudiants boursiers acceptés`,
+              doc.internal.pageSize.width / 2,
+              totalY,
+              { align: 'center' }
+            );
+            
+            // Ajouter les signatures
+            const signatureY = doc.internal.pageSize.height - 50;
+            doc.setFontSize(8);
+            doc.setFont("helvetica", "normal");
+            doc.text("Chef de Service", 50, signatureY, { align: 'center' });
+            doc.text("Le Responsable des Bourses", 200, signatureY, { align: 'center' });
+            
+            // Lignes de signature
+            doc.line(40, signatureY + 5, 100, signatureY + 5);
+            doc.line(180, signatureY + 5, 220, signatureY + 5);
+          }
+        }
+      });
+
+      // Nom du fichier avec date et mention
+      const fileName = `Bourses_Acceptees_${filterFaculte?.replace(/\s+/g, '_') || firstStudent.faculte?.replace(/\s+/g, '_') || 'TUL'}_${filterAnnee || new Date().getFullYear()}_${new Date().toISOString().split('T')[0]}.pdf`;
+      doc.save(fileName);
+      
+      showNotification("Succès", "Exportation PDF terminée", 'success', <FaFilePdf />);
+
+    } catch (error) {
+      console.error("Erreur export PDF:", error);
+      setExportError("Erreur lors de l'export PDF : " + error.message);
+      showNotification("Erreur", "Erreur lors de l'export PDF", 'danger');
+    } finally {
+      setExportingPDF(false);
+      setShowExportModal(false);
+    }
+  };
+
   // Modifier une bourse
   const handleModifyBourse = async () => {
     if (!selectedBourse) return;
@@ -447,12 +652,19 @@ export default function AccepBourses() {
             </div>
             <div>
               <Button
+                variant="outline-danger"
+                onClick={() => setShowExportModal(true)}
+                className="me-2"
+              >
+                <FaFilePdf className="me-1" /> Exporter
+              </Button>
+              {/* <Button
                 variant="outline-success"
                 onClick={() => setShowExportModal(true)}
                 className="me-2"
               >
                 <FaFileExcel className="me-1" /> Exporter Excel
-              </Button>
+              </Button> */}
               <Button
                 variant="outline-primary"
                 onClick={fetchData}
@@ -691,7 +903,7 @@ export default function AccepBourses() {
                               {etudiant.date_naissance && (
                                 <div>
                                   <FaCalendarAlt className="me-1" />
-                                  {new Date(etudiant.date_naissance).toLocaleDateString('fr-FR')}
+                                  {formatDate(etudiant.date_naissance)}
                                 </div>
                               )}
                               {etudiant.telephone && (
@@ -730,11 +942,11 @@ export default function AccepBourses() {
                               <div className="small">
                                 <div>
                                   <FaCalendarAlt className="me-1" />
-                                  Début: {new Date(bourse.date_debut).toLocaleDateString('fr-FR')}
+                                  Début: {formatDate(bourse.date_debut)}
                                 </div>
                                 <div>
                                   <FaCalendarAlt className="me-1" />
-                                  Fin: {new Date(bourse.date_fin).toLocaleDateString('fr-FR')}
+                                  Fin: {formatDate(bourse.date_fin)}
                                 </div>
                               </div>
                             ) : (
@@ -751,7 +963,7 @@ export default function AccepBourses() {
                                 <FaEye />
                               </Button>
                               <Button
-                                variant="outline-warning"
+                                variant="outline-success"
                                 onClick={() => {
                                   setSelectedEtudiant(etudiant);
                                   setSelectedBourse(bourse);
@@ -851,10 +1063,7 @@ export default function AccepBourses() {
                     <tr>
                       <th>Date naissance:</th>
                       <td>
-                        {selectedEtudiant.date_naissance 
-                          ? new Date(selectedEtudiant.date_naissance).toLocaleDateString('fr-FR')
-                          : 'Non spécifié'
-                        }
+                        {formatDate(selectedEtudiant.date_naissance) || 'Non spécifié'}
                       </td>
                     </tr>
                     <tr>
@@ -886,13 +1095,13 @@ export default function AccepBourses() {
                     <tr>
                       <th>Date début:</th>
                       <td>
-                        {new Date(selectedBourse.date_debut).toLocaleDateString('fr-FR')}
+                        {formatDate(selectedBourse.date_debut)}
                       </td>
                     </tr>
                     <tr>
                       <th>Date fin:</th>
                       <td>
-                        {new Date(selectedBourse.date_fin).toLocaleDateString('fr-FR')}
+                        {formatDate(selectedBourse.date_fin)}
                       </td>
                     </tr>
                     <tr>
@@ -904,10 +1113,7 @@ export default function AccepBourses() {
                     <tr>
                       <th>Date décision:</th>
                       <td>
-                        {selectedBourse.date_decision
-                          ? new Date(selectedBourse.date_decision).toLocaleDateString('fr-FR')
-                          : 'Non spécifié'
-                        }
+                        {formatDate(selectedBourse.date_decision) || 'Non spécifié'}
                       </td>
                     </tr>
                   </tbody>
@@ -965,33 +1171,89 @@ export default function AccepBourses() {
       </Modal>
       
       {/* Modal Exportation */}
-      <Modal show={showExportModal} onHide={() => setShowExportModal(false)}>
-        <Modal.Header closeButton className="bg-success text-white">
+      <Modal show={showExportModal} onHide={() => setShowExportModal(false)} size="lg">
+        <Modal.Header closeButton className="bg-primary text-white">
           <Modal.Title>Exporter les données</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Alert variant="info">
-            <FaFileExcel className="me-2" />
-            Vous allez exporter {totalCount} étudiant(s) avec bourse(s) acceptée(s)
-          </Alert>
-          
-          {exporting ? (
-            <div className="text-center">
-              <Spinner animation="border" variant="success" className="mb-3" />
-              <p>Exportation en cours...</p>
-              <ProgressBar now={exportProgress} animated label={`${Math.round(exportProgress)}%`} />
+          <div className="row">
+            <div className="col-md-6">
+              <Card className="h-100 border-success">
+                <Card.Body className="text-center">
+                  <FaFileExcel className="text-success display-4 mb-3" />
+                  <Card.Title>Export Excel</Card.Title>
+                  <Card.Text>
+                    Exporter les données au format Excel (.xlsx) pour traitement et analyse.
+                  </Card.Text>
+                  <Alert variant="info" className="small">
+                    Inclut toutes les colonnes visibles dans le tableau
+                  </Alert>
+                </Card.Body>
+                <Card.Footer className="text-center">
+                  <Button 
+                    variant="success" 
+                    onClick={exportToExcel} 
+                    disabled={exporting || totalCount === 0}
+                    className="w-100"
+                  >
+                    <FaFileExcel className="me-2" />
+                    Exporter vers Excel
+                  </Button>
+                </Card.Footer>
+              </Card>
             </div>
-          ) : (
-            <p>Cliquez sur le bouton ci-dessous pour télécharger le fichier Excel.</p>
+            
+            <div className="col-md-6">
+              <Card className="h-100 border-danger">
+                <Card.Body className="text-center">
+                  <FaFilePdf className="text-danger display-4 mb-3" />
+                  <Card.Title>Export PDF</Card.Title>
+                  <Card.Text>
+                    Générer un document PDF formatté avec en-tête institutionnel.
+                  </Card.Text>
+                  <Alert variant="info" className="small">
+                    Format officiel avec en-tête, statistiques
+                  </Alert>
+                </Card.Body>
+                <Card.Footer className="text-center">
+                  <Button 
+                    variant="danger" 
+                    onClick={exportToPDF} 
+                    disabled={exportingPDF || totalCount === 0}
+                    className="w-100"
+                  >
+                    <FaFilePdf className="me-2" />
+                    Exporter vers PDF
+                  </Button>
+                </Card.Footer>
+              </Card>
+            </div>
+          </div>
+          
+          {exportError && (
+            <Alert variant="danger" className="mt-3">
+              <FaExclamationTriangle className="me-2" />
+              {exportError}
+            </Alert>
+          )}
+          
+          {(exporting || exportingPDF) && (
+            <div className="mt-3">
+              <ProgressBar 
+                animated 
+                now={exportProgress} 
+                label={`${Math.round(exportProgress)}%`} 
+                className="mb-2"
+              />
+              <p className="text-center text-muted small">
+                Préparation du fichier en cours...
+              </p>
+            </div>
           )}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowExportModal(false)} disabled={exporting}>
-            Annuler
-          </Button>
-          <Button variant="success" onClick={exportToExcel} disabled={exporting || totalCount === 0}>
-            <FaFileExcel className="me-2" />
-            Exporter vers Excel
+          <Button variant="secondary" onClick={() => setShowExportModal(false)}>
+            Fermer
           </Button>
         </Modal.Footer>
       </Modal>
@@ -1122,4 +1384,4 @@ export default function AccepBourses() {
       </Modal>
     </div>
   );
-}// AccepBourses.jsx
+}

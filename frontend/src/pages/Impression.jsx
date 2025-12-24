@@ -333,7 +333,6 @@ export default function Impression() {
     };
 
     // Fonction d'exportation PDF avec format de document spécifique
-    // Fonction d'exportation PDF avec format de document spécifique
     const exportToPDF = () => {
         setExportLoading(true);
         setExportError(null); // Réinitialiser les erreurs

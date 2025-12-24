@@ -791,11 +791,11 @@ export default function NonBourses() {
                 onClick={clearFilters}
                 className="me-2"
               >
-                <FaFilter className="me-1" /> Effacer filtres
+                <FaFilter className="me-1" /> Effacer
               </Button>
-              <Badge bg={activeTab === 'rejetees' ? 'danger' : 'secondary'} className="align-middle py-2">
+              {/* <Badge bg={activeTab === 'rejetees' ? 'danger' : 'secondary'} className="align-middle py-2">
                 {totalCount} étudiant(s) trouvé(s)
-              </Badge>
+              </Badge> */}
             </div>
           </div>
         </div>
