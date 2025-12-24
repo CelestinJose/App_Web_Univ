@@ -1052,7 +1052,7 @@ export default function Inscription() {
                           <td className="text-center">
                             <div className="btn-group btn-group-sm" role="group">
                               <Button
-                                variant="outline-warning"
+                                variant="outline-success"
                                 onClick={() => openEditModal(etudiant)}
                                 title="Modifier"
                                 size="sm"

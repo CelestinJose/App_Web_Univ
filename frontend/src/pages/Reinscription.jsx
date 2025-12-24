@@ -26,13 +26,16 @@ export default function Reinscription() {
     total_bourses: 0,
     non_boursiers: 0
   });
+  const [userInfo, setUserInfo] = useState({
+    role: ''
+  });
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
   // États pour les modales
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showPromotionModal, setShowPromotionModal] = useState(false);
-  
+
   // États pour les formulaires
   const [form, setForm] = useState({
     matricule: "",
@@ -68,6 +71,25 @@ export default function Reinscription() {
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+
+  const fetchUserInfo = async () => {
+    try {
+      // Utilisez votre API pour récupérer les infos utilisateur
+      const response = await etudiantApi.getCurrentUser();
+      if (response.data) {
+        setUserInfo({
+          role: response.data.role || ''
+        });
+      }
+    } catch (err) {
+      console.error("Erreur lors de la récupération des informations utilisateur:", err);
+      // Fallback: récupérer depuis localStorage
+      const storedRole = localStorage.getItem("user_role");
+      setUserInfo({
+        role: storedRole || ''
+      });
+    }
+  };
 
   // Structure des données des facultés
   const facultesData = {
@@ -144,22 +166,22 @@ export default function Reinscription() {
   // Fonction pour calculer la bourse selon les règles du backend (avec code T)
   const calculateBourse = (niveau, codeRedoublement, boursier) => {
     let montant = 0.0;
-    
+
     if (boursier !== 'OUI') {
       return montant;
     }
-    
+
     // TRI PLANT : bourse à 0
     if (codeRedoublement === 'T') {
       return 0.0;
     }
-    
+
     const niveauUpper = niveau.toUpperCase();
-    
+
     // Master et Doctorat
-    if (niveauUpper.includes("M2") || niveauUpper.includes("M1") || 
-        niveauUpper.includes("MASTER") || niveauUpper.includes("DOCTORAT") || 
-        niveauUpper.includes("DOT")) {
+    if (niveauUpper.includes("M2") || niveauUpper.includes("M1") ||
+      niveauUpper.includes("MASTER") || niveauUpper.includes("DOCTORAT") ||
+      niveauUpper.includes("DOT")) {
       if (codeRedoublement === 'N') {
         montant = 48400.00;
       } else if (codeRedoublement === 'R') {
@@ -190,21 +212,21 @@ export default function Reinscription() {
         montant = 24200.00 / 2; // Redoublant: moitié du montant
       }
     }
-    
+
     return montant;
   };
 
   // Fonctions pour gérer les changements de faculté
   const handleFaculteChange = (selectedFaculte) => {
     const faculteInfo = facultesData[selectedFaculte];
-    
+
     const updatedForm = {
       ...form,
       faculte: selectedFaculte,
       domaine: faculteInfo ? faculteInfo.domaine : "",
       mention: "" // Réinitialiser la mention quand on change de faculté
     };
-    
+
     setForm(updatedForm);
   };
 
@@ -264,9 +286,9 @@ export default function Reinscription() {
 
       const response = await etudiantApi.getEtudiants(params);
       const etudiantsData = formatEtudiantData(response.data);
-      
+
       setEtudiants(etudiantsData);
-      
+
       // Pour la pagination
       let count = etudiantsData.length;
       if (response.data && response.data.count) {
@@ -274,13 +296,13 @@ export default function Reinscription() {
       } else if (response.data && typeof response.data === 'object' && !Array.isArray(response.data)) {
         count = Object.keys(response.data).length;
       }
-      
+
       setTotalCount(count);
       setTotalPages(Math.ceil(count / itemsPerPage));
 
     } catch (err) {
       console.error("Erreur lors du fetch:", err);
-      
+
       let errorMessage = "Erreur lors du chargement des données";
       if (err.response) {
         errorMessage = `Erreur ${err.response.status}: ${err.response.statusText}`;
@@ -292,12 +314,12 @@ export default function Reinscription() {
       } else {
         errorMessage = `Erreur: ${err.message}`;
       }
-      
+
       setError(errorMessage);
       setEtudiants([]);
       setTotalCount(0);
       setTotalPages(1);
-      
+
       showToast(errorMessage, 'danger');
     } finally {
       setLoading(false);
@@ -308,7 +330,7 @@ export default function Reinscription() {
   const fetchStats = useCallback(async () => {
     try {
       const response = await etudiantApi.getStats();
-      
+
       if (response.data) {
         setStats(prevStats => ({
           ...prevStats,
@@ -322,6 +344,7 @@ export default function Reinscription() {
 
   // Charger les données
   useEffect(() => {
+    fetchUserInfo();
     fetchEtudiants();
     fetchStats();
   }, [fetchEtudiants, fetchStats]);
@@ -329,6 +352,10 @@ export default function Reinscription() {
   // Fonction pour montrer les toasts
   const showToast = (message, type = 'success') => {
     setToast({ show: true, message, type });
+  };
+
+  const isAdmin = () => {
+    return userInfo.role === 'administrateur';
   };
 
   // Ouvrir modal d'édition
@@ -360,7 +387,7 @@ export default function Reinscription() {
   const calculatePromotionDetails = (currentNiveau, decision, boursier) => {
     let nouveauNiveau = "";
     let codeRedoublement = "N";
-    
+
     if (decision === "passe") {
       if (currentNiveau.includes("Licence 1")) {
         nouveauNiveau = "Licence 2";
@@ -385,10 +412,10 @@ export default function Reinscription() {
       nouveauNiveau = currentNiveau;
       codeRedoublement = "T"; // Triplant (code T)
     }
-    
+
     // Calculer la bourse selon les règles
     const nouvelleBourse = calculateBourse(nouveauNiveau, codeRedoublement, boursier);
-    
+
     return { nouveauNiveau, codeRedoublement, nouvelleBourse };
   };
 
@@ -396,11 +423,11 @@ export default function Reinscription() {
   const openPromotionModal = (etudiant) => {
     setEtudiantForPromotion(etudiant);
     setPromotionDecision("passe");
-    
+
     // Calculer les détails initiaux
-    const { nouveauNiveau, codeRedoublement, nouvelleBourse } = 
+    const { nouveauNiveau, codeRedoublement, nouvelleBourse } =
       calculatePromotionDetails(etudiant.niveau, "passe", etudiant.boursier);
-    
+
     setNewNiveau(nouveauNiveau);
     setNewCodeRedoublement(codeRedoublement);
     setNewBourse(nouvelleBourse);
@@ -410,9 +437,9 @@ export default function Reinscription() {
   // Effet pour recalculer les détails quand la décision de promotion change
   useEffect(() => {
     if (etudiantForPromotion && showPromotionModal) {
-      const { nouveauNiveau, codeRedoublement, nouvelleBourse } = 
+      const { nouveauNiveau, codeRedoublement, nouvelleBourse } =
         calculatePromotionDetails(etudiantForPromotion.niveau, promotionDecision, etudiantForPromotion.boursier);
-      
+
       setNewNiveau(nouveauNiveau);
       setNewCodeRedoublement(codeRedoublement);
       setNewBourse(nouvelleBourse);
@@ -437,29 +464,29 @@ export default function Reinscription() {
 
     try {
       const dataToSend = { ...form };
-      
+
       // Nettoyer les données
       Object.keys(dataToSend).forEach(key => {
         if (typeof dataToSend[key] === 'string') {
           dataToSend[key] = dataToSend[key].trim();
         }
       });
-      
+
       // Calculer la bourse automatiquement selon les règles
       if (dataToSend.boursier === "OUI") {
         // Utiliser la fonction de calcul qui respecte les règles
         dataToSend.bourse = calculateBourse(
-          dataToSend.niveau, 
-          dataToSend.code_redoublement, 
+          dataToSend.niveau,
+          dataToSend.code_redoublement,
           dataToSend.boursier
         );
       } else {
         dataToSend.bourse = 0;
       }
-      
+
       await etudiantApi.updateEtudiant(editId, dataToSend);
       showToast("Étudiant modifié avec succès!", 'success');
-      
+
       setShowModal(false);
       fetchEtudiants();
       fetchStats();
@@ -470,7 +497,7 @@ export default function Reinscription() {
         err.response?.data?.message ||
         err.response?.data?.error ||
         "Erreur lors de la sauvegarde";
-      
+
       // Afficher les erreurs de validation détaillées
       if (err.response?.data) {
         const errors = [];
@@ -493,9 +520,9 @@ export default function Reinscription() {
     if (!etudiantForPromotion) return;
 
     try {
-      const { nouveauNiveau, codeRedoublement } = 
+      const { nouveauNiveau, codeRedoublement } =
         calculatePromotionDetails(etudiantForPromotion.niveau, promotionDecision, etudiantForPromotion.boursier);
-      
+
       // CRÉER UNE COPIE COMPLÈTE DES DONNÉES DE L'ÉTUDIANT
       const updatedData = {
         matricule: etudiantForPromotion.matricule,
@@ -514,9 +541,9 @@ export default function Reinscription() {
         mention: etudiantForPromotion.mention || "",
         bourse: newBourse
       };
-      
+
       console.log("Données envoyées pour promotion:", updatedData);
-      
+
       // Essayer d'abord avec patch (mise à jour partielle)
       try {
         const patchData = {
@@ -524,7 +551,7 @@ export default function Reinscription() {
           code_redoublement: codeRedoublement,
           bourse: newBourse
         };
-        
+
         console.log("Tentative avec PATCH:", patchData);
         await etudiantApi.patchEtudiant(etudiantForPromotion.id, patchData);
       } catch (patchError) {
@@ -532,7 +559,7 @@ export default function Reinscription() {
         // Si PATCH échoue, essayer avec PUT complet
         await etudiantApi.updateEtudiant(etudiantForPromotion.id, updatedData);
       }
-      
+
       // Afficher un message approprié
       let message = "";
       if (promotionDecision === "passe") {
@@ -542,19 +569,19 @@ export default function Reinscription() {
       } else {
         message = `Étudiant triplant maintenu en ${etudiantForPromotion.niveau} - Code: T - Bourse: 0 MGA`;
       }
-      
+
       showToast(message, 'success');
       setShowPromotionModal(false);
       setEtudiantForPromotion(null);
       fetchEtudiants();
       fetchStats();
-      
+
     } catch (err) {
       console.error("Erreur promotion:", err);
       const errorMsg = err.response?.data?.detail ||
         err.response?.data?.message ||
         "Erreur lors de la mise à jour";
-      
+
       // Afficher les erreurs de validation détaillées
       if (err.response?.data) {
         console.error("Données d'erreur:", err.response.data);
@@ -660,7 +687,7 @@ export default function Reinscription() {
 
   // Fonction pour obtenir la couleur du badge selon le code redoublement
   const getCodeBadgeColor = (code) => {
-    switch(code) {
+    switch (code) {
       case 'N': return 'success';
       case 'R': return 'danger';
       case 'T': return 'warning';
@@ -670,7 +697,7 @@ export default function Reinscription() {
 
   // Fonction pour obtenir le libellé du code redoublement
   const getCodeLabel = (code) => {
-    switch(code) {
+    switch (code) {
       case 'N': return 'Non redoublant';
       case 'R': return 'Redoublant';
       case 'T': return 'Triplant';
@@ -682,10 +709,10 @@ export default function Reinscription() {
     <div className="container-fluid py-4">
       {/* Toasts pour les notifications */}
       <ToastContainer position="top-end" className="p-3">
-        <Toast 
-          show={toast.show} 
-          onClose={() => setToast({...toast, show: false})}
-          delay={3000} 
+        <Toast
+          show={toast.show}
+          onClose={() => setToast({ ...toast, show: false })}
+          delay={3000}
           autohide
           bg={toast.type}
         >
@@ -739,7 +766,7 @@ export default function Reinscription() {
           </div>
         </div>
       </div>
-      
+
       <br />
 
       {/* Barre d'outils */}
@@ -759,8 +786,8 @@ export default function Reinscription() {
                       onChange={(e) => setSearchTerm(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
                     />
-                    <Button 
-                      variant="outline-secondary" 
+                    <Button
+                      variant="outline-secondary"
                       onClick={handleSearch}
                     >
                       Rechercher
@@ -914,8 +941,8 @@ export default function Reinscription() {
                           {/* <FaSearch className="text-muted mb-3" size={48} /> */}
                           <p className="text-muted">Aucun étudiant redoublant ou triplant trouvé</p>
                           {searchTerm && (
-                            <Button 
-                              variant="outline-primary" 
+                            <Button
+                              variant="outline-primary"
                               size="sm"
                               onClick={() => {
                                 setSearchTerm('');
@@ -974,7 +1001,7 @@ export default function Reinscription() {
                             </Badge>
                           </td>
                           <td>
-                            <small className="text-muted font-monospace text-wrap" style={{ 
+                            <small className="text-muted font-monospace text-wrap" style={{
                               wordBreak: "break-word",
                               whiteSpace: "normal"
                             }}>
@@ -1000,14 +1027,17 @@ export default function Reinscription() {
                           </td>
                           <td className="text-center">
                             <div className="btn-group btn-group-sm" role="group">
-                              <Button
-                                variant="outline-warning"
-                                onClick={() => openEditModal(etudiant)}
-                                title="Modifier"
-                                size="sm"
-                              >
-                                <FaEdit />
-                              </Button>
+                              {isAdmin() && (
+                                <Button
+                                  variant="outline-success"
+                                  onClick={() => openEditModal(etudiant)}
+                                  title="Modifier"
+                                  size="sm"
+                                >
+                                  <FaEdit />
+                                </Button>
+                              )}
+
                               <Button
                                 variant="outline-info"
                                 onClick={() => openPromotionModal(etudiant)}
@@ -1016,14 +1046,17 @@ export default function Reinscription() {
                               >
                                 <FaArrowUp />
                               </Button>
-                              <Button
-                                variant="outline-danger"
-                                onClick={() => openDeleteModal(etudiant)}
-                                title="Supprimer"
-                                size="sm"
-                              >
-                                <FaTrash />
-                              </Button>
+                              {isAdmin() && (
+                                <Button
+                                  variant="outline-danger"
+                                  onClick={() => openDeleteModal(etudiant)}
+                                  title="Supprimer"
+                                  size="sm"
+                                >
+                                  <FaTrash />
+                                </Button>
+                              )}
+
                             </div>
                           </td>
                         </tr>
@@ -1113,20 +1146,20 @@ export default function Reinscription() {
                   <Form.Control
                     type="text"
                     value={form.matricule}
-                    onChange={(e) => setForm({...form, matricule: e.target.value.toUpperCase()})}
+                    onChange={(e) => setForm({ ...form, matricule: e.target.value.toUpperCase() })}
                     placeholder="Ex: ETU001234"
                     required
                   />
                 </Form.Group>
               </div>
-              
+
               <div className="col-md-6 mb-3">
                 <Form.Group controlId="formCin">
                   <Form.Label>CIN</Form.Label>
                   <Form.Control
                     type="text"
                     value={form.cin}
-                    onChange={(e) => setForm({...form, cin: e.target.value.toUpperCase()})}
+                    onChange={(e) => setForm({ ...form, cin: e.target.value.toUpperCase() })}
                     placeholder="Ex: 102345678901"
                   />
                 </Form.Group>
@@ -1140,20 +1173,20 @@ export default function Reinscription() {
                   <Form.Control
                     type="text"
                     value={form.nom}
-                    onChange={(e) => setForm({...form, nom: e.target.value.toUpperCase()})}
+                    onChange={(e) => setForm({ ...form, nom: e.target.value.toUpperCase() })}
                     placeholder="Nom de famille"
                     required
                   />
                 </Form.Group>
               </div>
-              
+
               <div className="col-md-6 mb-3">
                 <Form.Group controlId="formPrenom">
                   <Form.Label>Prénom <span className="text-danger">*</span></Form.Label>
                   <Form.Control
                     type="text"
                     value={form.prenom}
-                    onChange={(e) => setForm({...form, prenom: e.target.value})}
+                    onChange={(e) => setForm({ ...form, prenom: e.target.value })}
                     placeholder="Prénom"
                     required
                   />
@@ -1168,18 +1201,18 @@ export default function Reinscription() {
                   <Form.Control
                     type="date"
                     value={form.date_naissance}
-                    onChange={(e) => setForm({...form, date_naissance: e.target.value})}
+                    onChange={(e) => setForm({ ...form, date_naissance: e.target.value })}
                   />
                 </Form.Group>
               </div>
-              
+
               <div className="col-md-6 mb-3">
                 <Form.Group controlId="formTelephone">
                   <Form.Label>Téléphone</Form.Label>
                   <Form.Control
                     type="tel"
                     value={form.telephone}
-                    onChange={(e) => setForm({...form, telephone: e.target.value})}
+                    onChange={(e) => setForm({ ...form, telephone: e.target.value })}
                     placeholder="Ex: 0341234567"
                   />
                 </Form.Group>
@@ -1193,19 +1226,19 @@ export default function Reinscription() {
                   <Form.Control
                     type="text"
                     value={form.nationalite}
-                    onChange={(e) => setForm({...form, nationalite: e.target.value})}
+                    onChange={(e) => setForm({ ...form, nationalite: e.target.value })}
                     placeholder="Nationalité"
                   />
                 </Form.Group>
               </div>
-              
+
               <div className="col-md-6 mb-3">
                 <Form.Group controlId="formAnneeBacc">
                   <Form.Label>Année Bac</Form.Label>
                   <Form.Control
                     type="number"
                     value={form.annee_bacc}
-                    onChange={(e) => setForm({...form, annee_bacc: e.target.value})}
+                    onChange={(e) => setForm({ ...form, annee_bacc: e.target.value })}
                     placeholder="Ex: 2020"
                     min="1980"
                     max={new Date().getFullYear()}
@@ -1232,7 +1265,7 @@ export default function Reinscription() {
                   </Form.Select>
                 </Form.Group>
               </div>
-              
+
               <div className="col-md-6 mb-3">
                 <Form.Group controlId="formDomaine">
                   <Form.Label>Domaine</Form.Label>
@@ -1252,7 +1285,7 @@ export default function Reinscription() {
                   <Form.Label>Mention</Form.Label>
                   <Form.Select
                     value={form.mention}
-                    onChange={(e) => setForm({...form, mention: e.target.value})}
+                    onChange={(e) => setForm({ ...form, mention: e.target.value })}
                     disabled={!form.faculte}
                   >
                     <option value="">Sélectionner une mention</option>
@@ -1264,13 +1297,13 @@ export default function Reinscription() {
                   </Form.Select>
                 </Form.Group>
               </div>
-              
+
               <div className="col-md-6 mb-3">
                 <Form.Group controlId="formNiveau">
                   <Form.Label>Niveau <span className="text-danger">*</span></Form.Label>
                   <Form.Select
                     value={form.niveau}
-                    onChange={(e) => setForm({...form, niveau: e.target.value})}
+                    onChange={(e) => setForm({ ...form, niveau: e.target.value })}
                     required
                   >
                     {niveaux.map((niveau, index) => (
@@ -1287,14 +1320,14 @@ export default function Reinscription() {
                   <Form.Label>Statut boursier</Form.Label>
                   <Form.Select
                     value={form.boursier}
-                    onChange={(e) => setForm({...form, boursier: e.target.value})}
+                    onChange={(e) => setForm({ ...form, boursier: e.target.value })}
                   >
-                  <option value="OUI">Boursier</option>
-                  <option value="NON">Non boursier</option>
+                    <option value="OUI">Boursier</option>
+                    <option value="NON">Non boursier</option>
                   </Form.Select>
                 </Form.Group>
               </div>
-              
+
               <div className="col-md-6 mb-3">
                 <Form.Group controlId="formCodeRedoublement">
                   <Form.Label>Code redoublement</Form.Label>
@@ -1318,15 +1351,15 @@ export default function Reinscription() {
                   <Alert variant="info" className="mb-0">
                     <Alert.Heading>Information Bourse</Alert.Heading>
                     <p>
-                      La bourse sera calculée automatiquement en fonction du niveau et du statut de redoublement:<br/>
-                      <strong>Licence 1 Non redoublant:</strong> 24,200 MGA<br/>
-                      <strong>Licence 1 Redoublant:</strong> 12,100 MGA<br/>
-                      <strong>Licence 2 Non redoublant:</strong> 30,250 MGA<br/>
-                      <strong>Licence 2 Redoublant:</strong> 15,125 MGA<br/>
-                      <strong>Licence 3 Non redoublant:</strong> 36,300 MGA<br/>
-                      <strong>Licence 3 Redoublant:</strong> 18,150 MGA<br/>
-                      <strong>Master 1/2 Non redoublant:</strong> 48,400 MGA<br/>
-                      <strong>Master 1/2 Redoublant:</strong> 24,200 MGA<br/>
+                      La bourse sera calculée automatiquement en fonction du niveau et du statut de redoublement:<br />
+                      <strong>Licence 1 Non redoublant:</strong> 24,200 MGA<br />
+                      <strong>Licence 1 Redoublant:</strong> 12,100 MGA<br />
+                      <strong>Licence 2 Non redoublant:</strong> 30,250 MGA<br />
+                      <strong>Licence 2 Redoublant:</strong> 15,125 MGA<br />
+                      <strong>Licence 3 Non redoublant:</strong> 36,300 MGA<br />
+                      <strong>Licence 3 Redoublant:</strong> 18,150 MGA<br />
+                      <strong>Master 1/2 Non redoublant:</strong> 48,400 MGA<br />
+                      <strong>Master 1/2 Redoublant:</strong> 24,200 MGA<br />
                       <strong>Triplant (T):</strong> 0 MGA
                     </p>
                   </Alert>
@@ -1339,8 +1372,8 @@ export default function Reinscription() {
           <Button variant="secondary" onClick={() => setShowModal(false)}>
             Annuler
           </Button>
-          <Button 
-            variant="warning" 
+          <Button
+            variant="warning"
             onClick={saveEtudiant}
           >
             Modifier
@@ -1358,10 +1391,10 @@ export default function Reinscription() {
             <>
               <p>Êtes-vous sûr de vouloir supprimer cet étudiant ?</p>
               <div className="alert alert-warning">
-                <strong>{etudiantToDelete.nom} {etudiantToDelete.prenom}</strong><br/>
-                Matricule: <code>{etudiantToDelete.matricule}</code><br/>
-                Niveau: {etudiantToDelete.niveau}<br/>
-                Code: {etudiantToDelete.code_redoublement} ({getCodeLabel(etudiantToDelete.code_redoublement)})<br/>
+                <strong>{etudiantToDelete.nom} {etudiantToDelete.prenom}</strong><br />
+                Matricule: <code>{etudiantToDelete.matricule}</code><br />
+                Niveau: {etudiantToDelete.niveau}<br />
+                Code: {etudiantToDelete.code_redoublement} ({getCodeLabel(etudiantToDelete.code_redoublement)})<br />
                 Faculté: {etudiantToDelete.faculte}
               </div>
               <p className="text-danger">
@@ -1391,12 +1424,12 @@ export default function Reinscription() {
               <div className="alert alert-info">
                 <h6 className="alert-heading">Étudiant concerné</h6>
                 <p className="mb-1">
-                  <strong>{etudiantForPromotion.nom} {etudiantForPromotion.prenom}</strong><br/>
-                  Matricule: <code>{etudiantForPromotion.matricule}</code><br/>
-                  Niveau actuel: <Badge bg="primary">{etudiantForPromotion.niveau}</Badge><br/>
+                  <strong>{etudiantForPromotion.nom} {etudiantForPromotion.prenom}</strong><br />
+                  Matricule: <code>{etudiantForPromotion.matricule}</code><br />
+                  Niveau actuel: <Badge bg="primary">{etudiantForPromotion.niveau}</Badge><br />
                   Code actuel: <Badge bg={getCodeBadgeColor(etudiantForPromotion.code_redoublement)}>
                     {etudiantForPromotion.code_redoublement} ({getCodeLabel(etudiantForPromotion.code_redoublement)})
-                  </Badge><br/>
+                  </Badge><br />
                   Bourse actuelle: <strong>{etudiantForPromotion.bourse ? etudiantForPromotion.bourse.toLocaleString() + ' MGA' : 'Non boursier'}</strong>
                 </p>
               </div>
@@ -1457,16 +1490,16 @@ export default function Reinscription() {
                     plaintext
                     className={
                       newCodeRedoublement === 'N' ? "text-success fw-bold" :
-                      newCodeRedoublement === 'R' ? "text-danger fw-bold" :
-                      "text-warning fw-bold"
+                        newCodeRedoublement === 'R' ? "text-danger fw-bold" :
+                          "text-warning fw-bold"
                     }
                   />
                   <Form.Text className="text-muted">
-                    {promotionDecision === "passe" 
+                    {promotionDecision === "passe"
                       ? "Après promotion, l'étudiant n'est plus considéré comme redoublant"
                       : promotionDecision === "redouble"
-                      ? "L'étudiant reste dans la liste des redoublants"
-                      : "L'étudiant est marqué comme triplant (pas de bourse)"}
+                        ? "L'étudiant reste dans la liste des redoublants"
+                        : "L'étudiant est marqué comme triplant (pas de bourse)"}
                   </Form.Text>
                 </Form.Group>
 
@@ -1486,11 +1519,11 @@ export default function Reinscription() {
                       <span className="input-group-text">MGA</span>
                     </div>
                     <Form.Text className="text-muted">
-                      {promotionDecision === "passe" 
+                      {promotionDecision === "passe"
                         ? "Montant plein pour non redoublant"
                         : promotionDecision === "redouble"
-                        ? "Montant réduit de moitié pour redoublant"
-                        : "Bourse supprimée pour triplant (0 MGA)"}
+                          ? "Montant réduit de moitié pour redoublant"
+                          : "Bourse supprimée pour triplant (0 MGA)"}
                     </Form.Text>
                   </Form.Group>
                 )}
