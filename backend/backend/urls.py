@@ -12,6 +12,8 @@ urlpatterns = [
     path('api/auth/', include('users.urls')),
     path('api/etudiants/', include('etudiants.urls')),
     path('api/paiements/', include('paiements.urls')),
+    path('api/echeanciers/', include('paiements.echeanciers_urls')),  # Ajoutez cette ligne
+    path('api/versements/', include('paiements.versements_urls')),    # Ajoutez cette ligne
     path('api/bourses/', include('bourses.urls')),
     path('api/facultes/', include('facultes.urls')),
     path('api/domaines/', include('facultes.domaine_urls')),
