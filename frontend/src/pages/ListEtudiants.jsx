@@ -174,178 +174,332 @@ export default function ListEtudiants() {
     setShowCertificatModal(true);
   };
 
- // Générer la carte étudiante en PDF
-const genererCarteEtudiantPDF = () => {
+// Générer la carte étudiante en PDF
+const genererCarteEtudiantPDF = async () => {
   if (!selectedEtudiant) return;
 
   const doc = new jsPDF({
     orientation: 'landscape',
     unit: 'mm',
-    format: [86, 54]
+    format: [86, 54] // Format carte de crédit standard
   });
 
   // Dimensions utiles
   const cardWidth = 86;
   const cardHeight = 54;
   const margin = 2; // Marge générale
+  
+  // Zone de la photo
   const photoWidth = 20; // Largeur de la photo
   const photoHeight = 25; // Hauteur de la photo
   const photoX = margin + 2; // Position X de la photo
-  const photoY = 18; // Position Y de la photo
+  const photoY = 16; // Position Y de la photo
+  
+  // Zone des informations - AUGMENTÉE pour noms longs
   const infoX = photoX + photoWidth + 3; // Position X des informations
-  const infoWidth = cardWidth - infoX - margin; // Largeur disponible pour les infos
+  const infoWidth = 38; // Largeur augmentée pour les informations
+  
+  // Zone QR code - RÉDUITE pour compenser
+  const qrSize = 16; // Taille du QR code réduite
+  const qrX = infoX + infoWidth + 2; // Position X du QR code
+  const qrY = photoY + 2; // Position Y du QR code
 
-  // Couleurs de l'université
-  doc.setFillColor(0, 102, 204); // Bleu universitaire
+  // 1. FOND DE LA CARTE - Dégradé bleu
+  doc.setFillColor(230, 240, 255);
   doc.rect(0, 0, cardWidth, cardHeight, 'F');
+  
+  // Bande supérieure (bleu foncé)
+  doc.setFillColor(0, 51, 102);
+  doc.rect(0, 0, cardWidth, 10, 'F');
+  
+  // Bande inférieure (bleu moyen)
+  doc.setFillColor(0, 102, 204);
+  doc.rect(0, cardHeight - 8, cardWidth, 8, 'F');
 
-  // Bandeau supérieur
-  doc.setFillColor(0, 51, 102); // Bleu plus foncé pour le bandeau
-  doc.rect(0, 0, cardWidth, 12, 'F');
+  // 2. LOGO UNIVERSITÉ - dans le bandeau supérieur
+  try {
+    // Logo université à gauche
+    const logoUnivWidth = 15;
+    const logoUnivHeight = 8;
+    const logoUnivX = margin + 2;
+    const logoUnivY = 1;
+    
+    if (logoUnivToliara) {
+      doc.addImage(logoUnivToliara, 'PNG', logoUnivX, logoUnivY, logoUnivWidth, logoUnivHeight);
+    }
+  } catch (error) {
+    console.warn("Logo université non chargé:", error);
+  }
 
-  // Logo/En-tête
-  doc.setFontSize(9);
+  // 3. NOM DE L'UNIVERSITÉ
+  doc.setFontSize(7);
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.text("UNIVERSITÉ DE TOLIARA", cardWidth / 2, 6, { align: 'center' });
 
-  // Photo
-  doc.setFillColor(255, 255, 255);
-  doc.rect(photoX, photoY, photoWidth, photoHeight, 'F');
-  doc.setFillColor(240, 240, 240); // Fond gris clair pour la zone photo
-  doc.rect(photoX + 1, photoY + 1, photoWidth - 2, photoHeight - 2, 'F');
-  doc.setFontSize(6);
-  doc.setTextColor(150, 150, 150);
-  doc.setFont('helvetica', 'normal');
-  doc.text("PHOTO", photoX + photoWidth / 2, photoY + photoHeight / 2, { align: 'center' });
+  // 4. LOGO DE LA FACULTÉ - dans le bandeau supérieur à droite
+  try {
+    const logoFaculte = getLogoFaculte(selectedEtudiant.faculte);
+    if (logoFaculte) {
+      const logoFaculteWidth = 12;
+      const logoFaculteHeight = 8;
+      const logoFaculteX = cardWidth - margin - 2 - logoFaculteWidth;
+      const logoFaculteY = 1;
+      doc.addImage(logoFaculte, 'PNG', logoFaculteX, logoFaculteY, logoFaculteWidth, logoFaculteHeight);
+    }
+  } catch (error) {
+    console.warn("Logo faculté non chargé:", error);
+  }
 
-  // Zone des informations (fond blanc)
+  // 5. CADRE PHOTO AVEC EFFET 3D
   doc.setFillColor(255, 255, 255);
-  doc.rect(infoX - 1, photoY - 2, infoWidth + 1, photoHeight + 4, 'F');
+  doc.roundedRect(photoX, photoY, photoWidth, photoHeight, 1, 1, 'F');
+  
+  doc.setFillColor(220, 220, 220);
+  doc.roundedRect(photoX + 0.5, photoY + 0.5, photoWidth, photoHeight, 1, 1, 'F');
+  
+  doc.setFillColor(255, 255, 255);
+  doc.roundedRect(photoX, photoY, photoWidth, photoHeight, 1, 1, 'F');
+  
+  doc.setDrawColor(0, 102, 204);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(photoX + 1, photoY + 1, photoWidth - 2, photoHeight - 2, 0.5, 0.5);
+  
+  doc.setFontSize(5);
+  doc.setTextColor(150, 150, 150);
+  doc.setFont('helvetica', 'italic');
+  doc.text("PHOTO", photoX + photoWidth / 2, photoY + photoHeight - 2, { align: 'center' });
+
+  // 6. ZONE DES INFORMATIONS - AGRANDIE
+  doc.setFillColor(255, 255, 255, 230);
+  doc.roundedRect(infoX - 1, photoY - 1, infoWidth + 2, photoHeight + 2, 2, 2, 'F');
+  
+  doc.setDrawColor(0, 102, 204);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(infoX - 1, photoY - 1, infoWidth + 2, photoHeight + 2, 2, 2);
 
   // Titre de la carte
-  doc.setFontSize(8);
-  doc.setTextColor(0, 102, 204); // Bleu universitaire
+  doc.setFontSize(6);
+  doc.setTextColor(0, 51, 102);
   doc.setFont('helvetica', 'bold');
-  doc.text("CARTE D'ÉTUDIANT", infoX + infoWidth / 2, photoY + 1, { align: 'center' });
+  doc.text("CARTE ÉTUDIANTE", infoX + infoWidth / 2, photoY + 2, { align: 'center' });
+
+  // Ligne de séparation
+  doc.setDrawColor(0, 102, 204);
+  doc.setLineWidth(0.2);
+  doc.line(infoX, photoY + 4, infoX + infoWidth, photoY + 4);
 
   // Informations de l'étudiant
-  doc.setFontSize(6);
-  doc.setTextColor(0, 0, 0); // Noir pour le texte
+  doc.setFontSize(5);
+  doc.setTextColor(0, 0, 0);
   doc.setFont('helvetica', 'normal');
 
-  let currentY = photoY + 5;
+  let currentY = photoY + 7;
 
-  // Fonction pour tronquer le texte
-  const truncateText = (text, maxLength) => {
-    if (!text) return '';
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength - 3) + '...';
+  // FONCTION AMÉLIORÉE POUR LES NOMS LONGS
+  const wrapText = (text, maxWidth, x, y, lineHeight = 3.5) => {
+    if (!text) return y;
+    
+    const words = text.split(' ');
+    let line = '';
+    let currentY = y;
+    let isFirstLine = true;
+    
+    for (let i = 0; i < words.length; i++) {
+      const testLine = line + (line ? ' ' : '') + words[i];
+      const testWidth = doc.getTextWidth(testLine);
+      
+      if (testWidth > maxWidth && i > 0) {
+        // Écrire la ligne actuelle
+        doc.text(line, x, currentY);
+        currentY += lineHeight;
+        line = words[i];
+        isFirstLine = false;
+      } else {
+        line = testLine;
+      }
+    }
+    
+    // Écrire la dernière ligne
+    doc.text(line, x, currentY);
+    
+    // Retourner la prochaine position Y
+    return currentY + lineHeight;
   };
 
-  // 1. Nom complet
-  const nomComplet = `${selectedEtudiant.nom} ${selectedEtudiant.prenom}`;
-  const nomTruncated = truncateText(nomComplet, 25);
-  doc.setFont('helvetica', 'bold');
-  doc.text("Nom:", infoX, currentY);
-  doc.setFont('helvetica', 'normal');
-  doc.text(nomTruncated, infoX + 10, currentY);
-  currentY += 3.5;
+  // FONCTION POUR TRONQUER LES TEXTES TRÈS LONGS (sans couper les mots)
+  const truncateTextSmart = (text, maxChars) => {
+    if (!text) return '';
+    if (text.length <= maxChars) return text;
+    
+    // Tronquer aux maxChars, mais chercher le dernier espace
+    let truncated = text.substring(0, maxChars);
+    const lastSpace = truncated.lastIndexOf(' ');
+    
+    if (lastSpace > maxChars - 10) { // Si on a un espace proche de la fin
+      truncated = truncated.substring(0, lastSpace);
+    }
+    
+    return truncated + '...';
+  };
 
-  // 2. Matricule
+  // 1. NOM COMPLET - Gestion spéciale pour les noms longs
+  const nom = selectedEtudiant.nom?.toUpperCase() || '';
+  const prenom = selectedEtudiant.prenom || '';
+  
+  // STRATÉGIE : Afficher d'abord le nom en entier, puis le prénom tronqué si nécessaire
+  const maxCharsForLine = 28; // Augmenté pour les noms longs
+  
+  // Calculer la largeur disponible pour le texte
+  const labelWidth = 8; // "NOM:"
+  const textStartX = infoX + labelWidth;
+  const maxTextWidth = infoWidth - labelWidth - 2; // Largeur disponible pour le texte
+  
+  // Option 1: Nom seul (si très long)
+  let nomToDisplay = nom;
+  let nomWidth = doc.getTextWidth(nomToDisplay);
+  
+  // Option 2: Nom + initiale du prénom (pour économiser de la place)
+  if (nomWidth > maxTextWidth && prenom) {
+    const initiale = prenom.charAt(0).toUpperCase() + '.';
+    nomToDisplay = `${nom} ${initiale}`;
+    nomWidth = doc.getTextWidth(nomToDisplay);
+  }
+  
+  // Option 3: Tronquer intelligemment
+  if (nomWidth > maxTextWidth) {
+    nomToDisplay = truncateTextSmart(nomToDisplay, maxCharsForLine);
+  }
+  
   doc.setFont('helvetica', 'bold');
-  doc.text("Matricule:", infoX, currentY);
+  doc.text("NOM:", infoX, currentY);
+  doc.setFont('helvetica', 'normal');
+  
+  // Vérifier si le texte dépasse encore
+  const finalWidth = doc.getTextWidth(nomToDisplay);
+  if (finalWidth > maxTextWidth) {
+    // Utiliser wrapText pour les cas extrêmes
+    currentY = wrapText(nomToDisplay, maxTextWidth, textStartX, currentY, 3);
+  } else {
+    doc.text(nomToDisplay, textStartX, currentY);
+    currentY += 3.5;
+  }
+
+  // 2. PRÉNOM COMPLET (sur une ligne séparée si le nom est tronqué)
+  if (prenom && (nom.length > 15 || finalWidth > maxTextWidth - 5)) {
+    // Afficher le prénom sur une ligne séparée
+    const prenomTruncated = truncateTextSmart(prenom, 22);
+    doc.setFont('helvetica', 'bold');
+    doc.text("PRÉNOM:", infoX, currentY);
+    doc.setFont('helvetica', 'normal');
+    doc.text(prenomTruncated, infoX + 12, currentY);
+    currentY += 3.5;
+  }
+
+  // 3. MATRICULE
+  doc.setFont('helvetica', 'bold');
+  doc.text("MATRICULE:", infoX, currentY);
   doc.setFont('helvetica', 'normal');
   doc.text(selectedEtudiant.matricule || '-', infoX + 14, currentY);
   currentY += 3.5;
 
-  // 3. N° Inscription
+  // 4. NIVEAU - Taille de police réduite pour les noms longs
+  const levelFontSize = (nom.length > 20) ? 4.5 : 5;
+  doc.setFontSize(levelFontSize);
   doc.setFont('helvetica', 'bold');
-  doc.text("N° Inscription:", infoX, currentY);
-  doc.setFont('helvetica', 'normal');
-  doc.text(selectedEtudiant.numero_inscription || '-', infoX + 20, currentY);
-  currentY += 3.5;
-
-  // 4. Niveau
-  doc.setFont('helvetica', 'bold');
-  doc.text("Niveau:", infoX, currentY);
+  doc.text("NIVEAU:", infoX, currentY);
   doc.setFont('helvetica', 'normal');
   doc.text(selectedEtudiant.niveau || '-', infoX + 12, currentY);
   currentY += 3.5;
 
-  // 5. Faculté
+  // 5. FACULTÉ - Tronquer si nécessaire
   if (selectedEtudiant.faculte) {
-    const faculteTruncated = truncateText(selectedEtudiant.faculte, 22);
+    let faculteDisplay = selectedEtudiant.faculte;
+    const faculteWidth = doc.getTextWidth(faculteDisplay);
+    const maxFaculteWidth = infoWidth - 12 - 2; // Largeur disponible
+    
+    if (faculteWidth > maxFaculteWidth) {
+      faculteDisplay = truncateTextSmart(faculteDisplay, 20);
+    }
+    
     doc.setFont('helvetica', 'bold');
-    doc.text("Faculté:", infoX, currentY);
+    doc.text("FACULTÉ:", infoX, currentY);
     doc.setFont('helvetica', 'normal');
-    doc.text(faculteTruncated, infoX + 13, currentY);
+    doc.text(faculteDisplay, infoX + 12, currentY);
     currentY += 3.5;
   }
 
-  // 6. Mention (si disponible et si espace)
-  if (selectedEtudiant.mention && currentY < photoY + photoHeight - 3) {
-    const mentionTruncated = truncateText(selectedEtudiant.mention, 20);
-    doc.setFont('helvetica', 'bold');
-    doc.text("Mention:", infoX, currentY);
-    doc.setFont('helvetica', 'normal');
-    doc.text(mentionTruncated, infoX + 13, currentY);
-    currentY += 3.5;
-  }
-
-  // Code-barre simulé (en bas de la carte)
-  const barcodeY = cardHeight - 6;
-  const barcodeHeight = 4;
-  
-  // Fond du code-barre
-  doc.setFillColor(255, 255, 255);
-  doc.rect(margin, barcodeY, cardWidth - 2 * margin, barcodeHeight, 'F');
-  
-  // Barres du code-barre
-  doc.setFillColor(0, 0, 0);
-  const barCount = 30;
-  const barWidth = (cardWidth - 2 * margin) / barCount;
-  
-  for (let i = 0; i < barCount; i++) {
-    const barHeight = 1 + Math.random() * (barcodeHeight - 1);
-    doc.rect(
-      margin + i * barWidth, 
-      barcodeY + (barcodeHeight - barHeight) / 2, 
-      barWidth * 0.8, 
-      barHeight, 
-      'F'
-    );
-  }
-
-  // Numéro du code-barre (matricule)
-  doc.setFontSize(5);
-  doc.setTextColor(0, 0, 0);
+  // 6. ANNÉE ACADÉMIQUE
+  doc.setFont('helvetica', 'bold');
+  doc.text("ANNÉE:", infoX, currentY);
   doc.setFont('helvetica', 'normal');
-  doc.text(
-    selectedEtudiant.matricule || '000000', 
-    cardWidth / 2, 
-    barcodeY + barcodeHeight + 1.5, 
-    { align: 'center' }
-  );
+  doc.text("2024-2025", infoX + 10, currentY);
+  currentY += 3.5;
 
-  // Pied de page
-  doc.setFontSize(5);
-  doc.setTextColor(255, 255, 255); // Texte blanc sur fond bleu
+  // 7. CODE QR - Taille réduite pour compenser l'espace du nom
+  try {
+    const qrContent = JSON.stringify({
+      universite: "Université de Toliara",
+      numero_inscription: selectedEtudiant.numero_inscription,
+      matricule: selectedEtudiant.matricule,
+      nom: nom,
+      prenom: prenom,
+      date_emission: new Date().toISOString().split('T')[0]
+    });
+
+    const qrDataUrl = await QRCode.toDataURL(qrContent, {
+      width: qrSize * 4,
+      margin: 1,
+      color: {
+        dark: '#003366',
+        light: '#FFFFFF'
+      }
+    });
+
+    // Fond blanc pour le QR code
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(qrX - 1, qrY - 1, qrSize + 2, qrSize + 2, 1, 1, 'F');
+    
+    // Ajouter le QR code
+    doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+    
+    // Légende sous le QR code
+    doc.setFontSize(3.5);
+    doc.setTextColor(0, 51, 102);
+    doc.setFont('helvetica', 'italic');
+    doc.text("SCAN", qrX + qrSize / 2, qrY + qrSize + 1.5, { align: 'center' });
+
+  } catch (error) {
+    console.error("Erreur génération QR code:", error);
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(qrX, qrY, qrSize, qrSize, 1, 1, 'F');
+    doc.setFontSize(4);
+    doc.setTextColor(150, 150, 150);
+    doc.text("QR", qrX + qrSize / 2, qrY + qrSize / 2, { align: 'center' });
+  }
+  
+  // 8. INFORMATIONS DE CONTACT (en bas)
+  doc.setFontSize(4);
+  doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'italic');
-  doc.text(
-    "Valable pour l'année universitaire 2024-2025", 
-    cardWidth / 2, 
-    cardHeight - 1, 
-    { align: 'center' }
-  );
+  
+  // À gauche : site web
+  doc.text("www.univ-toliara.mg", margin + 5, cardHeight - 2.5);
+  
+  // À droite : email
+  doc.text("contact@univ-toliara.mg", cardWidth - margin - 5, cardHeight - 2.5, { align: 'right' });
 
-  // Bordure de la carte
+  // 9. BORDURE FINALE ET EFFETS
   doc.setDrawColor(255, 255, 255);
-  doc.setLineWidth(0.5);
+  doc.setLineWidth(0.3);
   doc.rect(0.5, 0.5, cardWidth - 1, cardHeight - 1);
+  
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.2);
+  doc.rect(0.7, 0.7, cardWidth - 1.4, cardHeight - 1.4);
 
   // Enregistrer le PDF
-  doc.save(`carte-etudiant-${selectedEtudiant.matricule}.pdf`);
+  doc.save(`carte-etudiant-${selectedEtudiant.matricule}-${new Date().getFullYear()}.pdf`);
 };
 
   // Fonction pour obtenir le logo de la faculté
@@ -412,265 +566,283 @@ const genererCarteEtudiantPDF = () => {
     return logoUnivToliara;
   };
 
-  // Générer le certificat de scolarité officiel en PDF
-  const genererCertificatScolaritePDF = async () => {
-    if (!selectedEtudiant) return;
+// Générer le certificat de scolarité officiel en PDF
+const genererCertificatScolaritePDF = async () => {
+  if (!selectedEtudiant) return;
 
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 15;
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 15;
 
-    // Logo de l'université - à remplacer par votre vrai logo
-    doc.addImage(logoUnivToliara, 'PNG', margin, margin, 30, 30);
+  // Logo de l'université - à remplacer par votre vrai logo
+  doc.addImage(logoUnivToliara, 'PNG', margin, margin, 30, 30);
 
-    // Logo de la faculté de l'étudiant - à droite
-    const logoFaculte = getLogoFaculte(selectedEtudiant.faculte);
-    if (logoFaculte) {
-      const logoFaculteWidth = 30;
-      const logoFaculteHeight = 30;
-      const logoFaculteX = pageWidth - margin - logoFaculteWidth;
-      const logoFaculteY = margin;
-      doc.addImage(logoFaculte, 'PNG', logoFaculteX, logoFaculteY, logoFaculteWidth, logoFaculteHeight);
-    }
+  // Logo de la faculté de l'étudiant - à droite
+  const logoFaculte = getLogoFaculte(selectedEtudiant.faculte);
+  if (logoFaculte) {
+    const logoFaculteWidth = 30;
+    const logoFaculteHeight = 30;
+    const logoFaculteX = pageWidth - margin - logoFaculteWidth;
+    const logoFaculteY = margin;
+    doc.addImage(logoFaculte, 'PNG', logoFaculteX, logoFaculteY, logoFaculteWidth, logoFaculteHeight);
+  }
 
-    // En-tête officiel
-    doc.setFontSize(12);
-    doc.setFont('times');
-    doc.setTextColor(0, 0, 0);
-    doc.text("REPOBLIKAN'I MADAGASIKARA", pageWidth / 2, margin + 5, { align: 'center' });
+  // CADRE SIMPLE POUR PHOTO 4x4 - en bas du logo de la faculté
+  const photoWidth = 25; // Largeur du cadre photo en mm
+  const photoHeight = 32; // Hauteur du cadre photo en mm
+  const photoX = pageWidth - margin - photoWidth; // Même alignement à droite que le logo
+  const photoY = margin + 35; // 5mm sous le logo (30mm + 5mm d'espace)
 
-    doc.setFontSize(9);
-    doc.setFont('times', 'normal');
-    doc.text("Fitiavana – Tanindrazana – Fandrosoana", pageWidth / 2, margin + 10, { align: 'center' });
+  // Dessiner le cadre simple de la photo
+  doc.setDrawColor(0, 0, 0); // Couleur noire
+  doc.setLineWidth(0.5); // Épaisseur moyenne
+  doc.rect(photoX, photoY, photoWidth, photoHeight); // Cadre simple
 
-    doc.setFontSize(8);
-    const asteriskLine1 = "* * * * * * * * * * * * * * * * * * * * * *";
-    doc.text(asteriskLine1, pageWidth / 2, margin + 13, { align: 'center' });
+  // Ajouter le texte "PHOTO 4x4" sous le cadre
+  doc.setFontSize(6);
+  doc.setFont('times', 'normal');
+  doc.setTextColor(100, 100, 100);
+  doc.text("PHOTO 4x4", photoX + photoWidth / 2, photoY + photoHeight + 3, { align: 'center' });
 
-    // Ligne 1 du ministère
-    doc.setFontSize(10);
-    doc.text("MINISTERE DE L'ENSEIGNEMENT SUPERIEUR ET DE LA", pageWidth / 2, margin + 18, { align: 'center' });
+  // En-tête officiel
+  doc.setFontSize(12);
+  doc.setFont('times');
+  doc.setTextColor(0, 0, 0);
+  doc.text("REPOBLIKAN'I MADAGASIKARA", pageWidth / 2, margin + 5, { align: 'center' });
 
-    // Ligne 2 du ministère
-    doc.text("RECHERCHE SCIENTIFIQUE", pageWidth / 2, margin + 24, { align: 'center' });
+  doc.setFontSize(9);
+  doc.setFont('times', 'normal');
+  doc.text("Fitiavana – Tanindrazana – Fandrosoana", pageWidth / 2, margin + 10, { align: 'center' });
 
-    // Université
-    doc.setFontSize(11);
-    doc.setFont('times');
-    doc.text("UNIVERSITE DE TOLIARA", pageWidth / 2, margin + 30, { align: 'center' });
+  doc.setFontSize(8);
+  const asteriskLine1 = "* * * * * * * * * * * * * * * * * * * * * *";
+  doc.text(asteriskLine1, pageWidth / 2, margin + 13, { align: 'center' });
 
-    // Direction
-    doc.setFontSize(9);
-    doc.setFont('times', 'normal');
-    doc.text("Direction des Systèmes d'Information et du Numérique", pageWidth / 2, margin + 35, { align: 'center' });
-    doc.text("Service de la Scolarité Centrale", pageWidth / 2, margin + 40, { align: 'center' });
+  // Ligne 1 du ministère
+  doc.setFontSize(10);
+  doc.text("MINISTERE DE L'ENSEIGNEMENT SUPERIEUR ET DE LA", pageWidth / 2, margin + 18, { align: 'center' });
 
-    // Titre principal
-    doc.setFontSize(14);
-    doc.setFont('times', 'bold');
-    doc.text("CERTIFICAT DE LA SCOLARITE", pageWidth / 2, margin + 53, { align: 'center' });
+  // Ligne 2 du ministère
+  doc.text("RECHERCHE SCIENTIFIQUE", pageWidth / 2, margin + 24, { align: 'center' });
 
-    // Référence - CORRECTION: placé au centre en dessous du titre
-    doc.setFontSize(9);
-    doc.setFont('times', 'normal');
-    const currentYear = new Date().getFullYear();
-    const refText = `Ref :                    /${currentYear}/MEsupRes/U.U/DSIN/Sco.Cent`;
-    doc.text(refText, pageWidth / 2, margin + 61, { align: 'center' });
+  // Université
+  doc.setFontSize(11);
+  doc.setFont('times');
+  doc.text("UNIVERSITE DE TOLIARA", pageWidth / 2, margin + 30, { align: 'center' });
 
-    // Texte d'introduction - CORRECTION: position ajustée
-    doc.setFontSize(10);
-    doc.text("Le Directeur des Systèmes d'Information et du Numérique certifie par la présente que", margin, margin + 70);
+  // Direction
+  doc.setFontSize(9);
+  doc.setFont('times', 'normal');
+  doc.text("Direction des Systèmes d'Information et du Numérique", pageWidth / 2, margin + 35, { align: 'center' });
+  doc.text("Service de la Scolarité Centrale", pageWidth / 2, margin + 40, { align: 'center' });
 
-    // Informations de l'étudiant
-    let yPosition = margin + 80;
+  // Titre principal
+  doc.setFontSize(14);
+  doc.setFont('times', 'bold');
+  doc.text("CERTIFICAT DE LA SCOLARITE", pageWidth / 2, margin + 53, { align: 'center' });
 
-    // Mr/Mme/Mlle
-    doc.setFont('times');
-    let civilite = "Mr/Mme/Mlle";
-    if (selectedEtudiant.sexe === 'F') {
-      civilite = selectedEtudiant.statut_matrimonial === 'MARIÉ(E)' ? "Mme" : "Mlle";
-    } else if (selectedEtudiant.sexe === 'M') {
-      civilite = "Mr";
-    }
-    doc.text(`${civilite} :`, margin, yPosition);
-    doc.setFont('times', 'normal');
-    doc.text(`${selectedEtudiant.nom} ${selectedEtudiant.prenom}`, margin + 25, yPosition);
-    yPosition += 10;
+  // Référence - CORRECTION: placé au centre en dessous du titre
+  doc.setFontSize(9);
+  doc.setFont('times', 'normal');
+  const currentYear = new Date().getFullYear();
+  const refText = `Ref :                    /${currentYear}/MEsupRes/U.U/DSIN/Sco.Cent`;
+  doc.text(refText, pageWidth / 2, margin + 61, { align: 'center' });
 
-    // Date et lieu de naissance - SUR UNE LIGNE
-    const formatDateNaissance = (dateString) => {
-      if (!dateString) return "";
+  // Texte d'introduction - CORRECTION: position ajustée
+  doc.setFontSize(10);
+  doc.text("Le Directeur des Systèmes d'Information et du Numérique certifie par la présente que", margin, margin + 70);
 
-      try {
-        const date = new Date(dateString);
-        const jour = date.getDate();
-        const mois = date.toLocaleDateString('fr-FR', { month: 'long' });
-        const annee = date.getFullYear();
-        return `${jour} ${mois} ${annee}`;
-      } catch (error) {
-        console.error("Erreur de formatage de date:", error);
-        return dateString; // Retourne la date originale si erreur
-      }
-    };
+  // Informations de l'étudiant
+  let yPosition = margin + 80;
 
-    const dateNaissance = formatDateNaissance(selectedEtudiant.date_naissance);
-    const lieuNaissance = selectedEtudiant.lieu_naissance || "";
-    doc.setFont('times');
-    doc.text(`Date et lieu de naissance : ${dateNaissance} à ${lieuNaissance}`, margin, yPosition);
-    yPosition += 10;
+  // Mr/Mme/Mlle
+  doc.setFont('times');
+  let civilite = "Mr/Mme/Mlle";
+  if (selectedEtudiant.sexe === 'F') {
+    civilite = selectedEtudiant.statut_matrimonial === 'MARIÉ(E)' ? "Mme" : "Mlle";
+  } else if (selectedEtudiant.sexe === 'M') {
+    civilite = "Mr";
+  }
+  doc.text(`${civilite} :`, margin, yPosition);
+  doc.setFont('times', 'normal');
+  doc.text(`${selectedEtudiant.nom} ${selectedEtudiant.prenom}`, margin + 25, yPosition);
+  yPosition += 10;
 
-    // CN (CIN) - SUR UNE LIGNE
-    if (selectedEtudiant.cin) {
-      doc.setFont('times');
-      doc.text(`CN : ${selectedEtudiant.cin}`, margin, yPosition);
-      yPosition += 10;
-    }
-
-    // Parents - SUR UNE LIGNE
-    doc.setFont('times');
-    doc.text(`Fils/Fille de : ${selectedEtudiant.nom_pere || "[Nom du père]"}`, margin, yPosition);
-    yPosition += 10;
-
-    doc.setFont('times');
-    doc.text(`Et de : ${selectedEtudiant.nom_mere || "[Nom de la mère]"}`, margin, yPosition);
-    yPosition += 10;
-
-    // Information d'inscription
-    doc.text("Est inscrit(e) régulièrement au sein de l'Université de Toliara pour l'Année Universitaire 2024-2025", margin, yPosition);
-    yPosition += 10;
-
-    // Liste des informations académiques - Format une seule colonne
-    const infoAcademiques = [
-      { label: "Sous le numéro d'inscription :", value: selectedEtudiant.numero_inscription || 'N/A' },
-      { label: "Faculté/Ecole/Institut :", value: selectedEtudiant.faculte || 'N/A' },
-      { label: "Domaine :", value: selectedEtudiant.domaine || 'N/A' },
-      { label: "Mention :", value: selectedEtudiant.mention || 'N/A' },
-      { label: "Parcours :", value: selectedEtudiant.parcours || 'N/A' },
-      { label: "Grade :", value: selectedEtudiant.grade || 'N/A' },
-      { label: "Niveau :", value: selectedEtudiant.niveau || 'N/A' }
-    ];
-
-    let currentY = yPosition;
-
-    infoAcademiques.forEach((info) => {
-      // Texte complet sur une ligne : label + valeur
-      const fullText = `${info.label} ${info.value}`;
-
-      // Si le texte est trop long, diviser en plusieurs lignes
-      const maxWidth = pageWidth - 2 * margin;
-      const textWidth = doc.getTextWidth(fullText);
-
-      if (textWidth > maxWidth) {
-        // Diviser le texte
-        const words = fullText.split(' ');
-        let line = '';
-        let lineCount = 0;
-
-        for (const word of words) {
-          const testLine = line + (line ? ' ' : '') + word;
-          const testWidth = doc.getTextWidth(testLine);
-
-          if (testWidth <= maxWidth) {
-            line = testLine;
-          } else {
-            if (lineCount === 0) {
-              // Première ligne : label + début de la valeur
-              doc.text(line, margin, currentY);
-            } else {
-              // Lignes suivantes : continuation de la valeur
-              doc.text(line, margin + 20, currentY); // Indenter les lignes suivantes
-            }
-            line = word;
-            lineCount++;
-            currentY += 5;
-          }
-        }
-
-        if (line) {
-          if (lineCount === 0) {
-            doc.text(line, margin, currentY);
-          } else {
-            doc.text(line, margin + 20, currentY); // Indenter les lignes suivantes
-          }
-        }
-        currentY += 8;
-      } else {
-        // Texte tient sur une ligne
-        doc.text(fullText, margin, currentY);
-        currentY += 8;
-      }
-    });
-
-    // Ligne de signature
-    const signatureY = currentY + 2;
-    doc.text("En foi de quoi, le présent certificat est délivré pour servir et valoir ce que de droit.", margin, signatureY);
-
-    // Date et signature
-    const today = new Date();
-    const dateStr = today.toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
-    });
-
-    const dateSignatureY = signatureY + 10;
-    // Texte complet sur une seule ligne
-    doc.text(`Fait à Toliara, le ${dateStr}`, pageWidth - margin, dateSignatureY, { align: 'right' });
-
-    // 3. Code QR - Remplacer votre bloc actuel
-    const qrSize = 25;
-    const qrX = margin;
-    const qrY = dateSignatureY + 10; // Ajustez la position verticale si nécessaire
+  // Date et lieu de naissance - SUR UNE LIGNE
+  const formatDateNaissance = (dateString) => {
+    if (!dateString) return "";
 
     try {
-      // 1. Construisez la chaîne de données
-      const qrContent = JSON.stringify({
-        universite: "Université de Toliara",
-        numero_inscription: selectedEtudiant.numero_inscription,
-        matricule: selectedEtudiant.matricule,
-        nom: selectedEtudiant.nom,
-        prenom: selectedEtudiant.prenom,
-        date_emission: new Date().toISOString().split('T')[0]
-      });
-
-      // 2. Générez l'image du QR code en Data URL (base64)
-      const qrDataUrl = await QRCode.toDataURL(qrContent, {
-        width: qrSize * 4, // Taille en pixels pour une bonne résolution
-        margin: 1,
-        color: {
-          dark: '#000000', // Couleur des modules (noir)
-          light: '#FFFFFF' // Couleur de fond (blanc)
-        }
-      });
-
-      // 3. Ajoutez l'image au PDF
-      doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
-
-      // 4. Ajoutez une légende (optionnel)
-      doc.setFontSize(6);
-      doc.setTextColor(100, 100, 100);
-      doc.text("Code de vérification", qrX + qrSize / 2, qrY + qrSize + 5, { align: 'center' });
-
+      const date = new Date(dateString);
+      const jour = date.getDate();
+      const mois = date.toLocaleDateString('fr-FR', { month: 'long' });
+      const annee = date.getFullYear();
+      return `${jour} ${mois} ${annee}`;
     } catch (error) {
-      console.error("Erreur lors de la génération du QR Code :", error);
-      // Fallback simple en cas d'erreur
-      doc.setFillColor(255, 255, 255);
-      doc.rect(qrX, qrY, qrSize, qrSize, 'FD');
-      doc.setFontSize(8);
-      doc.setTextColor(0, 0, 0);
-      doc.text("QR", qrX + qrSize / 2, qrY + qrSize / 2, { align: 'center' });
+      console.error("Erreur de formatage de date:", error);
+      return dateString; // Retourne la date originale si erreur
     }
-    // Note de bas de page
-    doc.setFontSize(7);
-    doc.setFont('times', 'normal');
-    const noteY = pageHeight - margin;
-    doc.text("N.B : Un seul certificat de scolarité est délivré durant l'année universitaire en cours.", margin, noteY - 10);
-    doc.text("Faire autant de copies que nécessaires suivies des certifications conformes par les autorités compétentes.", margin, noteY - 5);
-
-    // Sauvegarder le PDF
-    doc.save(`certificat-scolarite-${selectedEtudiant.matricule || selectedEtudiant.numero_inscription}.pdf`);
   };
+
+  const dateNaissance = formatDateNaissance(selectedEtudiant.date_naissance);
+  const lieuNaissance = selectedEtudiant.lieu_naissance || "";
+  doc.setFont('times');
+  doc.text(`Date et lieu de naissance : ${dateNaissance} à ${lieuNaissance}`, margin, yPosition);
+  yPosition += 10;
+
+  // CN (CIN) - SUR UNE LIGNE
+  if (selectedEtudiant.cin) {
+    doc.setFont('times');
+    doc.text(`CN : ${selectedEtudiant.cin}`, margin, yPosition);
+    yPosition += 10;
+  }
+
+  // Parents - SUR UNE LIGNE
+  doc.setFont('times');
+  doc.text(`Fils/Fille de : ${selectedEtudiant.nom_pere || "[Nom du père]"}`, margin, yPosition);
+  yPosition += 10;
+
+  doc.setFont('times');
+  doc.text(`Et de : ${selectedEtudiant.nom_mere || "[Nom de la mère]"}`, margin, yPosition);
+  yPosition += 10;
+
+  // Information d'inscription
+  doc.text("Est inscrit(e) régulièrement au sein de l'Université de Toliara pour l'Année Universitaire 2024-2025", margin, yPosition);
+  yPosition += 10;
+
+  // Liste des informations académiques - Format une seule colonne
+  const infoAcademiques = [
+    { label: "Sous le numéro d'inscription :", value: selectedEtudiant.numero_inscription || 'N/A' },
+    { label: "Faculté/Ecole/Institut :", value: selectedEtudiant.faculte || 'N/A' },
+    { label: "Domaine :", value: selectedEtudiant.domaine || 'N/A' },
+    { label: "Mention :", value: selectedEtudiant.mention || 'N/A' },
+    { label: "Parcours :", value: selectedEtudiant.parcours || 'N/A' },
+    { label: "Grade :", value: selectedEtudiant.grade || 'N/A' },
+    { label: "Niveau :", value: selectedEtudiant.niveau || 'N/A' }
+  ];
+
+  let currentY = yPosition;
+
+  infoAcademiques.forEach((info) => {
+    // Texte complet sur une ligne : label + valeur
+    const fullText = `${info.label} ${info.value}`;
+
+    // Si le texte est trop long, diviser en plusieurs lignes
+    const maxWidth = pageWidth - 2 * margin;
+    const textWidth = doc.getTextWidth(fullText);
+
+    if (textWidth > maxWidth) {
+      // Diviser le texte
+      const words = fullText.split(' ');
+      let line = '';
+      let lineCount = 0;
+
+      for (const word of words) {
+        const testLine = line + (line ? ' ' : '') + word;
+        const testWidth = doc.getTextWidth(testLine);
+
+        if (testWidth <= maxWidth) {
+          line = testLine;
+        } else {
+          if (lineCount === 0) {
+            // Première ligne : label + début de la valeur
+            doc.text(line, margin, currentY);
+          } else {
+            // Lignes suivantes : continuation de la valeur
+            doc.text(line, margin + 20, currentY); // Indenter les lignes suivantes
+          }
+          line = word;
+          lineCount++;
+          currentY += 5;
+        }
+      }
+
+      if (line) {
+        if (lineCount === 0) {
+          doc.text(line, margin, currentY);
+        } else {
+          doc.text(line, margin + 20, currentY); // Indenter les lignes suivantes
+        }
+      }
+      currentY += 8;
+    } else {
+      // Texte tient sur une ligne
+      doc.text(fullText, margin, currentY);
+      currentY += 8;
+    }
+  });
+
+  // Ligne de signature
+  const signatureY = currentY + 2;
+  doc.text("En foi de quoi, le présent certificat est délivré pour servir et valoir ce que de droit.", margin, signatureY);
+
+  // Date et signature
+  const today = new Date();
+  const dateStr = today.toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
+
+  const dateSignatureY = signatureY + 10;
+  // Texte complet sur une seule ligne
+  doc.text(`Fait à Toliara, le ${dateStr}`, pageWidth - margin, dateSignatureY, { align: 'right' });
+
+  // Code QR
+  const qrSize = 25;
+  const qrX = margin;
+  const qrY = dateSignatureY + 10;
+
+  try {
+    // 1. Construisez la chaîne de données
+    const qrContent = JSON.stringify({
+      universite: "Université de Toliara",
+      numero_inscription: selectedEtudiant.numero_inscription,
+      matricule: selectedEtudiant.matricule,
+      nom: selectedEtudiant.nom,
+      prenom: selectedEtudiant.prenom,
+      date_emission: new Date().toISOString().split('T')[0]
+    });
+
+    // 2. Générez l'image du QR code en Data URL (base64)
+    const qrDataUrl = await QRCode.toDataURL(qrContent, {
+      width: qrSize * 4,
+      margin: 1,
+      color: {
+        dark: '#000000',
+        light: '#FFFFFF'
+      }
+    });
+
+    // 3. Ajoutez l'image au PDF
+    doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+
+    // 4. Ajoutez une légende (optionnel)
+    doc.setFontSize(6);
+    doc.setTextColor(100, 100, 100);
+    doc.text("Code de vérification", qrX + qrSize / 2, qrY + qrSize + 5, { align: 'center' });
+
+  } catch (error) {
+    console.error("Erreur lors de la génération du QR Code :", error);
+    // Fallback simple en cas d'erreur
+    doc.setFillColor(255, 255, 255);
+    doc.rect(qrX, qrY, qrSize, qrSize, 'FD');
+    doc.setFontSize(8);
+    doc.setTextColor(0, 0, 0);
+    doc.text("QR", qrX + qrSize / 2, qrY + qrSize / 2, { align: 'center' });
+  }
+  
+  // Note de bas de page
+  doc.setFontSize(7);
+  doc.setFont('times', 'normal');
+  const noteY = pageHeight - margin;
+  doc.text("N.B : Un seul certificat de scolarité est délivré durant l'année universitaire en cours.", margin, noteY - 10);
+  doc.text("Faire autant de copies que nécessaires suivies des certifications conformes par les autorités compétentes.", margin, noteY - 5);
+
+  // Sauvegarder le PDF
+  doc.save(`certificat-scolarite-${selectedEtudiant.matricule || selectedEtudiant.numero_inscription}.pdf`);
+};
 
   // Prévisualiser la carte étudiante
   const previewCarteEtudiant = () => {
