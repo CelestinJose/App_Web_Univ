@@ -12,7 +12,7 @@ import Spinner from 'react-bootstrap/Spinner';
 import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { etudiantApi } from '../api';
+import { etudiantApi, faculteApi, domaineApi, mentionApi } from '../api'; // Ajoutez les imports
 
 export default function Reinscription() {
   // États pour les données
@@ -36,6 +36,12 @@ export default function Reinscription() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showPromotionModal, setShowPromotionModal] = useState(false);
 
+  // États pour les données de référence
+  const [facultes, setFacultes] = useState([]);
+  const [domaines, setDomaines] = useState([]);
+  const [mentions, setMentions] = useState([]);
+  const [filteredMentions, setFilteredMentions] = useState([]);
+
   // États pour les formulaires
   const [form, setForm] = useState({
     matricule: "",
@@ -47,11 +53,11 @@ export default function Reinscription() {
     annee_bacc: new Date().getFullYear().toString(),
     code_redoublement: "R", // Par défaut R pour réinscription
     boursier: "OUI",
-    faculte: "",
-    domaine: "",
-    niveau: "Licence 2", // Par défaut Licence 2 car c'est une réinscription
+    faculte: "", // Maintenant c'est l'ID de la faculté
+    domaine: "", // Maintenant c'est l'ID du domaine
+    niveau: "Licence 2",
     nationalite: "Malagasy",
-    mention: "",
+    mention: "", // Maintenant c'est l'ID de la mention
   });
 
   const [editId, setEditId] = useState(null);
@@ -72,9 +78,46 @@ export default function Reinscription() {
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
+  // Fonctions pour récupérer les données de référence
+  const fetchFacultes = async () => {
+    try {
+      const response = await faculteApi.getFacultes();
+      setFacultes(response.data.results || response.data);
+    } catch (err) {
+      console.error("Erreur chargement facultés:", err);
+    }
+  };
+
+  const fetchDomaines = async () => {
+    try {
+      const response = await domaineApi.getDomaines();
+      setDomaines(response.data.results || response.data);
+    } catch (err) {
+      console.error("Erreur chargement domaines:", err);
+    }
+  };
+
+  const fetchMentions = async () => {
+    try {
+      const response = await mentionApi.getMentions();
+      setMentions(response.data.results || response.data);
+    } catch (err) {
+      console.error("Erreur chargement mentions:", err);
+    }
+  };
+
+  // Fonction pour filtrer les mentions par domaine
+  const filterMentionsByDomaine = (domaineId) => {
+    if (!domaineId) {
+      setFilteredMentions([]);
+      return;
+    }
+    const filtered = mentions.filter(mention => mention.domaine == domaineId);
+    setFilteredMentions(filtered);
+  };
+
   const fetchUserInfo = async () => {
     try {
-      // Utilisez votre API pour récupérer les infos utilisateur
       const response = await etudiantApi.getCurrentUser();
       if (response.data) {
         setUserInfo({
@@ -83,7 +126,6 @@ export default function Reinscription() {
       }
     } catch (err) {
       console.error("Erreur lors de la récupération des informations utilisateur:", err);
-      // Fallback: récupérer depuis localStorage
       const storedRole = localStorage.getItem("user_role");
       setUserInfo({
         role: storedRole || ''
@@ -91,79 +133,7 @@ export default function Reinscription() {
     }
   };
 
-  // Structure des données des facultés
-  const facultesData = {
-    "FACULTE DES SCIENCES - TUL": {
-      domaine: "Sciences et Technologies",
-      mentions: [
-        "TUL - L - FST - PHYSIQUE ET APPLICATION",
-        "TUL - M - FST - PHYSIQUE ET APPLICATION",
-        "TUL  - L - MATHEMATIQUES ET INFORMATIQUE",
-        "TUL - L - FST - SCIENCES DE LA TERRE",
-        "TUL - M - FST - Sciences de la Terre",
-        "TUL - L - FST - SCIENCES DE LA VIE",
-        "TUL - M - FST - Sciences de la Vie",
-        "TUL - L - FST - BIODIVERSITE ET ENVIRONNEMENT",
-        "TUL - M - FST - CHIMIE"
-      ]
-    },
-    "FACULTE DE MEDECINE - TUL": {
-      domaine: "Sciences de la Santé",
-      mentions: [
-        "TUL - L - FACMED - MEDECINE HUMAINE",
-        "TUL - M - FACMED - MEDECINE HUMAINE",
-        "TUL - D - FACMED - MEDECINE HUMAINE"
-      ]
-    },
-    "FACULTE DES LETTRES - TUL": {
-      domaine: "Arts, Lettres et Sciences Humaines",
-      mentions: [
-        "TUL - L - LETTRES - HISTOIRE",
-        "TUL - L - LETTRES - GEOGRAPHIE",
-        "TUL - L - LETTRES - PHILOSOPHIE",
-        "TUL - L - LETTRES - MALAGASY",
-        "TUL - L - LETTRES - ETUDES FRANCAISES ET FRANCOPHONES"
-      ]
-    },
-    "DEGS - TUL": {
-      domaine: "Sciences de la Société",
-      mentions: [
-        "TUL - L - DEGS - GESTION",
-        "TUL - L - DEGS - ECONOMIE",
-        "TUL - M - DEGS - ECONOMIE",
-        "TUL - L - DEGS - DROIT"
-      ]
-    },
-    "ENS - TUL": {
-      domaine: "Sciences de l'éducation",
-      mentions: [
-        "TUL - L - ENS - SCIENCES",
-        "TUL - M - ENS - SCIENCES",
-        "TUL - L - ENS - LETTRES",
-        "TUL - M - ENS - LETTRES"
-      ]
-    },
-    "IHSM - TUL": {
-      domaine: "Sciences et Technologies",
-      mentions: [
-        "TUL - L - IHSM - Sciences Marines et Halieutiques"
-      ]
-    },
-    "IES ANOSY - TUL": {
-      domaine: "Sciences et Technologies",
-      mentions: [
-        "TUL  - L - IES ANOSY - TECHNIQUE DE L'ENVIRONNEMENT MARIN ET TERRESTRE"
-      ]
-    },
-    "IES TOLIARA - TUL": {
-      domaine: "Sciences et Technologies",
-      mentions: [
-        "TUL - L - IES TUL - AGRONOMIE"
-      ]
-    }
-  };
-
-  // Fonction pour calculer la bourse selon les règles du backend (avec code T)
+  // Fonction pour calculer la bourse
   const calculateBourse = (niveau, codeRedoublement, boursier) => {
     let montant = 0.0;
 
@@ -171,76 +141,91 @@ export default function Reinscription() {
       return montant;
     }
 
-    // TRI PLANT : bourse à 0
     if (codeRedoublement === 'T') {
       return 0.0;
     }
 
     const niveauUpper = niveau.toUpperCase();
 
-    // Master et Doctorat
     if (niveauUpper.includes("M2") || niveauUpper.includes("M1") ||
       niveauUpper.includes("MASTER") || niveauUpper.includes("DOCTORAT") ||
       niveauUpper.includes("DOT")) {
       if (codeRedoublement === 'N') {
         montant = 48400.00;
       } else if (codeRedoublement === 'R') {
-        montant = 48400.00 / 2; // Redoublant: moitié du montant
+        montant = 48400.00 / 2;
       }
-    }
-    // Licence 3
-    else if (niveauUpper.includes("LICENCE 3") || niveauUpper.includes("L3")) {
+    } else if (niveauUpper.includes("LICENCE 3") || niveauUpper.includes("L3")) {
       if (codeRedoublement === 'N') {
         montant = 36300.00;
       } else if (codeRedoublement === 'R') {
-        montant = 36300.00 / 2; // Redoublant: moitié du montant
+        montant = 36300.00 / 2;
       }
-    }
-    // Licence 2
-    else if (niveauUpper.includes("LICENCE 2") || niveauUpper.includes("L2")) {
+    } else if (niveauUpper.includes("LICENCE 2") || niveauUpper.includes("L2")) {
       if (codeRedoublement === 'N') {
         montant = 30250.00;
       } else if (codeRedoublement === 'R') {
-        montant = 30250.00 / 2; // Redoublant: moitié du montant
+        montant = 30250.00 / 2;
       }
-    }
-    // Licence 1
-    else if (niveauUpper.includes("LICENCE 1") || niveauUpper.includes("L1")) {
+    } else if (niveauUpper.includes("LICENCE 1") || niveauUpper.includes("L1")) {
       if (codeRedoublement === 'N') {
         montant = 24200.00;
       } else if (codeRedoublement === 'R') {
-        montant = 24200.00 / 2; // Redoublant: moitié du montant
+        montant = 24200.00 / 2;
       }
     }
 
     return montant;
   };
 
-  // Fonctions pour gérer les changements de faculté
-  const handleFaculteChange = (selectedFaculte) => {
-    const faculteInfo = facultesData[selectedFaculte];
-
+  // Fonction pour gérer les changements de faculté
+  const handleFaculteChange = async (selectedFaculteId) => {
+    // Trouver la faculté sélectionnée
+    const faculte = facultes.find(f => f.id == selectedFaculteId);
+    
+    // Si on a changé de faculté, réinitialiser domaine et mention
     const updatedForm = {
       ...form,
-      faculte: selectedFaculte,
-      domaine: faculteInfo ? faculteInfo.domaine : "",
-      mention: "" // Réinitialiser la mention quand on change de faculté
+      faculte: selectedFaculteId,
+      domaine: "", // Réinitialiser le domaine
+      mention: "" // Réinitialiser la mention
     };
 
     setForm(updatedForm);
+
+    // Si on a sélectionné une faculté, charger ses domaines
+    if (selectedFaculteId) {
+      try {
+        const response = await domaineApi.getDomaines({ faculte: selectedFaculteId });
+        setDomaines(response.data.results || response.data);
+      } catch (err) {
+        console.error("Erreur chargement domaines:", err);
+      }
+    }
   };
 
-  const getMentionsForFaculte = (faculte) => {
-    if (!faculte) return [];
-    const faculteInfo = facultesData[faculte];
-    return faculteInfo ? faculteInfo.mentions : [];
+  // Fonction pour gérer les changements de domaine
+  const handleDomaineChange = (selectedDomaineId) => {
+    // Trouver le domaine sélectionné
+    const domaine = domaines.find(d => d.id == selectedDomaineId);
+    
+    const updatedForm = {
+      ...form,
+      domaine: selectedDomaineId,
+      mention: "" // Réinitialiser la mention quand on change de domaine
+    };
+
+    setForm(updatedForm);
+
+    // Filtrer les mentions par domaine
+    if (selectedDomaineId) {
+      filterMentionsByDomaine(selectedDomaineId);
+    } else {
+      setFilteredMentions([]);
+    }
   };
 
-  // Listes dérivées des données
-  const facultes = Object.keys(facultesData);
-  const domaines = [...new Set(Object.values(facultesData).map(f => f.domaine))];
-
-  // Fonction pour formater les données
+  // Formatage des données d'étudiants
   const formatEtudiantData = (data) => {
     if (!data) return [];
 
@@ -263,7 +248,7 @@ export default function Reinscription() {
     return [];
   };
 
-  // Charger les étudiants (seulement ceux avec code_redoublement = "R" ou "T")
+  // Charger les étudiants
   const fetchEtudiants = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -272,7 +257,6 @@ export default function Reinscription() {
       const params = {
         page: currentPage,
         page_size: itemsPerPage,
-        // Filtrer uniquement les redoublants (R) et triplants (T)
         code_redoublement__in: "R,T",
       };
 
@@ -289,7 +273,6 @@ export default function Reinscription() {
 
       setEtudiants(etudiantsData);
 
-      // Pour la pagination
       let count = etudiantsData.length;
       if (response.data && response.data.count) {
         count = response.data.count;
@@ -319,7 +302,6 @@ export default function Reinscription() {
       setEtudiants([]);
       setTotalCount(0);
       setTotalPages(1);
-
       showToast(errorMessage, 'danger');
     } finally {
       setLoading(false);
@@ -342,9 +324,12 @@ export default function Reinscription() {
     }
   }, []);
 
-  // Charger les données
+  // Charger toutes les données
   useEffect(() => {
     fetchUserInfo();
+    fetchFacultes();
+    fetchDomaines();
+    fetchMentions();
     fetchEtudiants();
     fetchStats();
   }, [fetchEtudiants, fetchStats]);
@@ -358,8 +343,43 @@ export default function Reinscription() {
     return userInfo.role === 'administrateur';
   };
 
+  // Fonction pour obtenir le nom d'une relation
+  const getRelationName = (relation, relationList) => {
+    if (!relation) return '-';
+    
+    // Si c'est un objet avec un champ 'nom'
+    if (typeof relation === 'object' && relation !== null) {
+      return relation.nom || relation.code || '-';
+    }
+    
+    // Si c'est un ID, trouver dans la liste
+    if (relationList) {
+      const found = relationList.find(item => item.id == relation);
+      return found ? found.nom || found.code : relation;
+    }
+    
+    return relation;
+  };
+
   // Ouvrir modal d'édition
-  const openEditModal = (etudiant) => {
+  const openEditModal = async (etudiant) => {
+    // Charger les domaines de la faculté de l'étudiant
+    if (etudiant.faculte) {
+      try {
+        const faculteId = typeof etudiant.faculte === 'object' ? etudiant.faculte.id : etudiant.faculte;
+        const response = await domaineApi.getDomaines({ faculte: faculteId });
+        setDomaines(response.data.results || response.data);
+      } catch (err) {
+        console.error("Erreur chargement domaines:", err);
+      }
+    }
+
+    // Charger les mentions du domaine de l'étudiant
+    if (etudiant.domaine) {
+      const domaineId = typeof etudiant.domaine === 'object' ? etudiant.domaine.id : etudiant.domaine;
+      filterMentionsByDomaine(domaineId);
+    }
+
     const formattedEtudiant = {
       matricule: etudiant.matricule || "",
       nom: etudiant.nom || "",
@@ -371,11 +391,11 @@ export default function Reinscription() {
       annee_bacc: etudiant.annee_bacc ? etudiant.annee_bacc.toString() : "",
       code_redoublement: etudiant.code_redoublement || "R",
       boursier: etudiant.boursier || "OUI",
-      faculte: etudiant.faculte || "",
-      domaine: etudiant.domaine || "",
+      faculte: typeof etudiant.faculte === 'object' ? etudiant.faculte.id : etudiant.faculte || "",
+      domaine: typeof etudiant.domaine === 'object' ? etudiant.domaine.id : etudiant.domaine || "",
       niveau: etudiant.niveau || "Licence 2",
       nationalite: etudiant.nationalite || "Malagasy",
-      mention: etudiant.mention || "",
+      mention: typeof etudiant.mention === 'object' ? etudiant.mention.id : etudiant.mention || "",
     };
 
     setForm(formattedEtudiant);
@@ -402,20 +422,16 @@ export default function Reinscription() {
       } else {
         nouveauNiveau = currentNiveau;
       }
-      codeRedoublement = "N"; // Admis = non redoublant
+      codeRedoublement = "N";
     } else if (decision === "redouble") {
-      // Redoublement : garde le même niveau
       nouveauNiveau = currentNiveau;
-      codeRedoublement = "R"; // Redoublant
+      codeRedoublement = "R";
     } else if (decision === "triplant") {
-      // Triplant : garde le même niveau
       nouveauNiveau = currentNiveau;
-      codeRedoublement = "T"; // Triplant (code T)
+      codeRedoublement = "T";
     }
 
-    // Calculer la bourse selon les règles
     const nouvelleBourse = calculateBourse(nouveauNiveau, codeRedoublement, boursier);
-
     return { nouveauNiveau, codeRedoublement, nouvelleBourse };
   };
 
@@ -424,7 +440,6 @@ export default function Reinscription() {
     setEtudiantForPromotion(etudiant);
     setPromotionDecision("passe");
 
-    // Calculer les détails initiaux
     const { nouveauNiveau, codeRedoublement, nouvelleBourse } =
       calculatePromotionDetails(etudiant.niveau, "passe", etudiant.boursier);
 
@@ -453,7 +468,6 @@ export default function Reinscription() {
       return;
     }
 
-    // Validation
     const requiredFields = ['matricule', 'nom', 'niveau', 'faculte'];
     const missingFields = requiredFields.filter(field => !form[field]?.trim());
 
@@ -465,16 +479,13 @@ export default function Reinscription() {
     try {
       const dataToSend = { ...form };
 
-      // Nettoyer les données
       Object.keys(dataToSend).forEach(key => {
         if (typeof dataToSend[key] === 'string') {
           dataToSend[key] = dataToSend[key].trim();
         }
       });
 
-      // Calculer la bourse automatiquement selon les règles
       if (dataToSend.boursier === "OUI") {
-        // Utiliser la fonction de calcul qui respecte les règles
         dataToSend.bourse = calculateBourse(
           dataToSend.niveau,
           dataToSend.code_redoublement,
@@ -498,7 +509,6 @@ export default function Reinscription() {
         err.response?.data?.error ||
         "Erreur lors de la sauvegarde";
 
-      // Afficher les erreurs de validation détaillées
       if (err.response?.data) {
         const errors = [];
         for (const [field, messages] of Object.entries(err.response.data)) {
@@ -515,90 +525,80 @@ export default function Reinscription() {
     }
   };
 
-  // Gérer la promotion
-  const handlePromotion = async () => {
-    if (!etudiantForPromotion) return;
+// Gérer la promotion
+const handlePromotion = async () => {
+  if (!etudiantForPromotion) return;
 
+  try {
+    const { nouveauNiveau, codeRedoublement } =
+      calculatePromotionDetails(etudiantForPromotion.niveau, promotionDecision, etudiantForPromotion.boursier);
+
+    // INCLURE TOUS LES CHAMPS OBLIGATOIRES DANS LE PATCH
+    const updatedData = {
+      matricule: etudiantForPromotion.matricule, // CHAMP OBLIGATOIRE
+      nom: etudiantForPromotion.nom, // CHAMP OBLIGATOIRE
+      prenom: etudiantForPromotion.prenom, // CHAMP OBLIGATOIRE
+      niveau: nouveauNiveau,
+      code_redoublement: codeRedoublement,
+      bourse: newBourse,
+      boursier: etudiantForPromotion.boursier || "OUI", // CHAMP OBLIGATOIRE
+      // Ajouter les autres champs obligatoires
+      faculte: typeof etudiantForPromotion.faculte === 'object' ? 
+        etudiantForPromotion.faculte.id : etudiantForPromotion.faculte,
+    };
+
+    console.log("Tentative avec PATCH:", updatedData);
+    
+    // Essayer d'abord avec PATCH
     try {
-      const { nouveauNiveau, codeRedoublement } =
-        calculatePromotionDetails(etudiantForPromotion.niveau, promotionDecision, etudiantForPromotion.boursier);
-
-      // CRÉER UNE COPIE COMPLÈTE DES DONNÉES DE L'ÉTUDIANT
-      const updatedData = {
-        matricule: etudiantForPromotion.matricule,
-        nom: etudiantForPromotion.nom,
-        prenom: etudiantForPromotion.prenom,
-        date_naissance: etudiantForPromotion.date_naissance,
-        telephone: etudiantForPromotion.telephone || "",
-        cin: etudiantForPromotion.cin || "",
-        annee_bacc: etudiantForPromotion.annee_bacc || new Date().getFullYear().toString(),
-        code_redoublement: codeRedoublement,
-        boursier: etudiantForPromotion.boursier || "OUI",
-        faculte: etudiantForPromotion.faculte,
-        domaine: etudiantForPromotion.domaine || "",
-        niveau: nouveauNiveau,
-        nationalite: etudiantForPromotion.nationalite || "Malagasy",
-        mention: etudiantForPromotion.mention || "",
-        bourse: newBourse
+      await etudiantApi.patchEtudiant(etudiantForPromotion.id, updatedData);
+    } catch (patchError) {
+      console.log("PATCH échoué, tentative avec PUT");
+      // Si PATCH échoue, utiliser PUT avec toutes les données
+      const putData = {
+        ...etudiantForPromotion,
+        ...updatedData
       };
-
-      console.log("Données envoyées pour promotion:", updatedData);
-
-      // Essayer d'abord avec patch (mise à jour partielle)
-      try {
-        const patchData = {
-          niveau: nouveauNiveau,
-          code_redoublement: codeRedoublement,
-          bourse: newBourse
-        };
-
-        console.log("Tentative avec PATCH:", patchData);
-        await etudiantApi.patchEtudiant(etudiantForPromotion.id, patchData);
-      } catch (patchError) {
-        console.log("PATCH échoué, tentative avec PUT complet");
-        // Si PATCH échoue, essayer avec PUT complet
-        await etudiantApi.updateEtudiant(etudiantForPromotion.id, updatedData);
-      }
-
-      // Afficher un message approprié
-      let message = "";
-      if (promotionDecision === "passe") {
-        message = `Étudiant promu de ${etudiantForPromotion.niveau} à ${nouveauNiveau} - Bourse: ${newBourse.toLocaleString()} MGA`;
-      } else if (promotionDecision === "redouble") {
-        message = `Étudiant redoublant maintenu en ${etudiantForPromotion.niveau} - Bourse: ${newBourse.toLocaleString()} MGA (moitié)`;
-      } else {
-        message = `Étudiant triplant maintenu en ${etudiantForPromotion.niveau} - Code: T - Bourse: 0 MGA`;
-      }
-
-      showToast(message, 'success');
-      setShowPromotionModal(false);
-      setEtudiantForPromotion(null);
-      fetchEtudiants();
-      fetchStats();
-
-    } catch (err) {
-      console.error("Erreur promotion:", err);
-      const errorMsg = err.response?.data?.detail ||
-        err.response?.data?.message ||
-        "Erreur lors de la mise à jour";
-
-      // Afficher les erreurs de validation détaillées
-      if (err.response?.data) {
-        console.error("Données d'erreur:", err.response.data);
-        const errors = [];
-        for (const [field, messages] of Object.entries(err.response.data)) {
-          if (Array.isArray(messages)) {
-            errors.push(`${field}: ${messages.join(', ')}`);
-          } else {
-            errors.push(`${field}: ${messages}`);
-          }
-        }
-        showToast(`Erreurs: ${errors.join('; ')}`, 'danger');
-      } else {
-        showToast(errorMsg, 'danger');
-      }
+      await etudiantApi.updateEtudiant(etudiantForPromotion.id, putData);
     }
-  };
+
+    let message = "";
+    if (promotionDecision === "passe") {
+      message = `Étudiant promu de ${etudiantForPromotion.niveau} à ${nouveauNiveau} - Bourse: ${newBourse.toLocaleString()} MGA`;
+    } else if (promotionDecision === "redouble") {
+      message = `Étudiant redoublant maintenu en ${etudiantForPromotion.niveau} - Bourse: ${newBourse.toLocaleString()} MGA (moitié)`;
+    } else {
+      message = `Étudiant triplant maintenu en ${etudiantForPromotion.niveau} - Code: T - Bourse: 0 MGA`;
+    }
+
+    showToast(message, 'success');
+    setShowPromotionModal(false);
+    setEtudiantForPromotion(null);
+    fetchEtudiants();
+    fetchStats();
+
+  } catch (err) {
+    console.error("Erreur promotion:", err);
+    const errorMsg = err.response?.data?.detail ||
+      err.response?.data?.message ||
+      "Erreur lors de la mise à jour";
+
+    if (err.response?.data) {
+      console.error("Données d'erreur:", err.response.data);
+      const errors = [];
+      for (const [field, messages] of Object.entries(err.response.data)) {
+        if (Array.isArray(messages)) {
+          errors.push(`${field}: ${messages.join(', ')}`);
+        } else {
+          errors.push(`${field}: ${messages}`);
+        }
+      }
+      showToast(`Erreurs: ${errors.join('; ')}`, 'danger');
+    } else {
+      showToast(errorMsg, 'danger');
+    }
+  }
+};
 
   // Ouvrir modal de suppression
   const openDeleteModal = (etudiant) => {
@@ -703,6 +703,21 @@ export default function Reinscription() {
       case 'T': return 'Triplant';
       default: return code;
     }
+  };
+
+  // Fonction utilitaire pour obtenir le nom d'une faculté
+  const getFaculteName = (faculte) => {
+    return getRelationName(faculte, facultes);
+  };
+
+  // Fonction utilitaire pour obtenir le nom d'un domaine
+  const getDomaineName = (domaine) => {
+    return getRelationName(domaine, domaines);
+  };
+
+  // Fonction utilitaire pour obtenir le nom d'une mention
+  const getMentionName = (mention) => {
+    return getRelationName(mention, mentions);
   };
 
   return (
@@ -938,7 +953,6 @@ export default function Reinscription() {
                     {etudiants.length === 0 ? (
                       <tr>
                         <td colSpan="12" className="text-center py-5">
-                          {/* <FaSearch className="text-muted mb-3" size={48} /> */}
                           <p className="text-muted">Aucun étudiant redoublant ou triplant trouvé</p>
                           {searchTerm && (
                             <Button
@@ -964,7 +978,7 @@ export default function Reinscription() {
                           <td>
                             <div className="fw-medium">{etudiant.nom} {etudiant.prenom}</div>
                             <small className="text-muted">
-                              {etudiant.faculte ? etudiant.faculte.split(" - ")[0] : ''}
+                              {getFaculteName(etudiant.faculte)}
                             </small>
                           </td>
                           <td className="font-monospace">
@@ -1005,7 +1019,7 @@ export default function Reinscription() {
                               wordBreak: "break-word",
                               whiteSpace: "normal"
                             }}>
-                              {etudiant.mention || '-'}
+                              {getMentionName(etudiant.mention)}
                             </small>
                           </td>
                           <td>
@@ -1257,9 +1271,9 @@ export default function Reinscription() {
                     required
                   >
                     <option value="">Sélectionner une faculté</option>
-                    {facultes.map((faculte, index) => (
-                      <option key={index} value={faculte}>
-                        {faculte}
+                    {facultes.map((faculte) => (
+                      <option key={faculte.id} value={faculte.id}>
+                        {faculte.code} - {faculte.nom}
                       </option>
                     ))}
                   </Form.Select>
@@ -1269,12 +1283,18 @@ export default function Reinscription() {
               <div className="col-md-6 mb-3">
                 <Form.Group controlId="formDomaine">
                   <Form.Label>Domaine</Form.Label>
-                  <Form.Control
-                    type="text"
+                  <Form.Select
                     value={form.domaine}
-                    readOnly
-                    plaintext
-                  />
+                    onChange={(e) => handleDomaineChange(e.target.value)}
+                    disabled={!form.faculte}
+                  >
+                    <option value="">Sélectionner un domaine</option>
+                    {domaines.map((domaine) => (
+                      <option key={domaine.id} value={domaine.id}>
+                        {domaine.code} - {domaine.nom}
+                      </option>
+                    ))}
+                  </Form.Select>
                 </Form.Group>
               </div>
             </div>
@@ -1286,12 +1306,12 @@ export default function Reinscription() {
                   <Form.Select
                     value={form.mention}
                     onChange={(e) => setForm({ ...form, mention: e.target.value })}
-                    disabled={!form.faculte}
+                    disabled={!form.domaine}
                   >
                     <option value="">Sélectionner une mention</option>
-                    {getMentionsForFaculte(form.faculte).map((mention, index) => (
-                      <option key={index} value={mention}>
-                        {mention}
+                    {filteredMentions.map((mention) => (
+                      <option key={mention.id} value={mention.id}>
+                        {mention.code} - {mention.nom}
                       </option>
                     ))}
                   </Form.Select>
@@ -1395,7 +1415,7 @@ export default function Reinscription() {
                 Matricule: <code>{etudiantToDelete.matricule}</code><br />
                 Niveau: {etudiantToDelete.niveau}<br />
                 Code: {etudiantToDelete.code_redoublement} ({getCodeLabel(etudiantToDelete.code_redoublement)})<br />
-                Faculté: {etudiantToDelete.faculte}
+                Faculté: {getFaculteName(etudiantToDelete.faculte)}
               </div>
               <p className="text-danger">
                 <strong>Attention :</strong> Cette action est irréversible !
@@ -1513,7 +1533,6 @@ export default function Reinscription() {
                         onChange={(e) => setNewBourse(parseInt(e.target.value) || 0)}
                         min="0"
                         step="100"
-                        // disabled={promotionDecision === "triplant"}
                         disabled
                       />
                       <span className="input-group-text">MGA</span>

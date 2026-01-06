@@ -39,14 +39,16 @@ export default function Inscription() {
     failed: 0,
     errors: []
   });
-  
+
   // États pour les données dynamiques
   const [etudiants, setEtudiants] = useState([]);
   const [facultes, setFacultes] = useState([]);
   const [domaines, setDomaines] = useState([]);
   const [mentions, setMentions] = useState([]);
   const [filteredMentions, setFilteredMentions] = useState([]);
-  
+  const [allDomaines, setAllDomaines] = useState([]);
+  const [allMentions, setAllMentions] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [loadingFacultes, setLoadingFacultes] = useState(false);
   const [error, setError] = useState(null);
@@ -60,6 +62,7 @@ export default function Inscription() {
     par_niveau: []
   });
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const [validationErrors, setValidationErrors] = useState({});
 
   // États pour les modales
   const [showModal, setShowModal] = useState(false);
@@ -111,6 +114,127 @@ export default function Inscription() {
   // Fonction pour montrer les toasts
   const showToast = (message, type = 'success') => {
     setToast({ show: true, message, type });
+  };
+
+  // Ajoutez ces fonctions de chargement
+  const fetchAllDomaines = useCallback(async () => {
+    try {
+      const response = await domaineApi.getDomaines(); // Sans paramètres
+      if (response.data && Array.isArray(response.data)) {
+        setAllDomaines(response.data);
+      } else if (response.data && Array.isArray(response.data.results)) {
+        setAllDomaines(response.data.results);
+      }
+    } catch (err) {
+      console.error("Erreur lors du chargement de tous les domaines:", err);
+    }
+  }, []);
+
+  const fetchAllMentions = useCallback(async () => {
+  try {
+    const response = await mentionApi.getMentions(); // Sans paramètres
+    if (response.data && Array.isArray(response.data)) {
+      setAllMentions(response.data);
+    } else if (response.data && Array.isArray(response.data.results)) {
+      setAllMentions(response.data.results);
+    }
+  } catch (err) {
+    console.error("Erreur lors du chargement de toutes les mentions:", err);
+  }
+}, []);
+
+  // Fonction de formatage du téléphone SANS espace
+  const formatTelephone = (value) => {
+    // Retirer tous les espaces et caractères non numériques
+    const numbers = value.replace(/\D/g, '');
+
+    // Retourner seulement les chiffres (sans espace)
+    // Limiter à 10 chiffres maximum (format téléphone Madagascar)
+    return numbers.slice(0, 10);
+  };
+
+  // Handler pour le champ téléphone
+  const handleTelephoneChange = (e) => {
+    const formattedValue = formatTelephone(e.target.value);
+    setForm({ ...form, telephone: formattedValue });
+  };
+
+  // Fonction de formatage du CIN SANS espace
+  const formatCIN = (value) => {
+    // Retirer tous les espaces et caractères non numériques
+    const numbers = value.replace(/\D/g, '');
+
+    // Retourner seulement les chiffres (sans espace)
+    // Limiter à 12 chiffres maximum (format CIN)
+    return numbers.slice(0, 12);
+  };
+
+  // Handler pour le champ CIN
+  const handleCINChange = (e) => {
+    const formattedValue = formatCIN(e.target.value);
+    setForm({ ...form, cin: formattedValue });
+  };
+
+  // Validation
+  const validateForm = () => {
+    const errors = {};
+
+    // Champs obligatoires
+    const requiredFields = [
+      'matricule', 'nom', 'prenom', 'date_naissance',
+      'telephone', 'cin', 'annee_bacc', 'faculte',
+      'domaine', 'mention', 'niveau', 'nationalite',
+      'lieu_naissance'
+    ];
+
+    requiredFields.forEach(field => {
+      if (!form[field]?.trim()) {
+        errors[field] = "Ce champ est obligatoire";
+      }
+    });
+
+    // Validation spécifique du téléphone (10 chiffres minimum)
+    const phoneDigits = form.telephone.replace(/\D/g, '');
+    if (phoneDigits.length < 10) {
+      errors.telephone = "Le numéro de téléphone doit contenir au moins 10 chiffres";
+    }
+
+    // Validation spécifique du CIN (12 chiffres)
+    const cinDigits = form.cin.replace(/\D/g, '');
+    if (cinDigits.length !== 12) {
+      errors.cin = "Le CIN doit contenir exactement 12 chiffres";
+    }
+
+    // Validation de l'année de bac
+    const currentYear = new Date().getFullYear();
+    const year = parseInt(form.annee_bacc);
+    if (isNaN(year) || year < 1980 || year > currentYear) {
+      errors.annee_bacc = `L'année doit être entre 1980 et ${currentYear}`;
+    }
+
+    // Validation de la date de naissance
+    if (form.date_naissance) {
+      const birthDate = new Date(form.date_naissance);
+      const today = new Date();
+      const minDate = new Date();
+      minDate.setFullYear(today.getFullYear() - 60);
+      const maxDate = new Date();
+      maxDate.setFullYear(today.getFullYear() - 15);
+
+      if (birthDate < minDate) {
+        errors.date_naissance = "L'étudiant doit avoir moins de 60 ans";
+      } else if (birthDate > maxDate) {
+        errors.date_naissance = "L'étudiant doit avoir au moins 15 ans";
+      }
+    }
+
+    // Validation de l'email si fourni
+    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      errors.email = "Adresse email invalide";
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   // Fonction pour gérer le téléchargement de photo
@@ -181,7 +305,7 @@ export default function Inscription() {
       } else if (response.data && Array.isArray(response.data.results)) {
         setDomaines(response.data.results);
       }
-      
+
       // Réinitialiser les mentions
       setMentions([]);
       setFilteredMentions([]);
@@ -208,20 +332,6 @@ export default function Inscription() {
       }
     } catch (err) {
       console.error("Erreur lors du chargement des mentions:", err);
-    }
-  }, []);
-
-  // Charger toutes les mentions (pour les filtres)
-  const fetchAllMentions = useCallback(async () => {
-    try {
-      const response = await mentionApi.getMentions();
-      if (response.data && Array.isArray(response.data)) {
-        setMentions(response.data);
-      } else if (response.data && Array.isArray(response.data.results)) {
-        setMentions(response.data.results);
-      }
-    } catch (err) {
-      console.error("Erreur lors du chargement de toutes les mentions:", err);
     }
   }, []);
 
@@ -298,14 +408,67 @@ export default function Inscription() {
     }
   }, []);
 
+  // Fonction pour obtenir le nom d'une faculté par ID
+  const getFaculteName = (faculteId) => {
+    if (!faculteId) return '-';
+
+    // Si c'est un objet avec un champ 'nom'
+    if (typeof faculteId === 'object' && faculteId !== null) {
+      return faculteId.nom || faculteId.code || '-';
+    }
+
+    // Si c'est un ID, chercher dans toutes les facultés
+    const faculte = facultes.find(f => f.id == faculteId);
+    return faculte ? faculte.nom : `Faculté #${faculteId}`;
+  };
+
+  // Fonction pour obtenir le nom d'un domaine par ID
+  const getDomaineName = (domaineId) => {
+    if (!domaineId) return '-';
+
+    // Si c'est un objet avec un champ 'nom'
+    if (typeof domaineId === 'object' && domaineId !== null) {
+      return domaineId.nom || domaineId.code || '-';
+    }
+
+    // Si c'est un ID, chercher d'abord dans allDomaines
+    let domaine = allDomaines.find(d => d.id == domaineId);
+    if (!domaine) {
+      // Si pas trouvé dans allDomaines, chercher dans domaines (filtrés)
+      domaine = domaines.find(d => d.id == domaineId);
+    }
+
+    return domaine ? domaine.nom : `Domaine #${domaineId}`;
+  };
+
+  // Fonction pour obtenir le nom d'une mention par ID
+  const getMentionName = (mentionId) => {
+    if (!mentionId) return '-';
+
+    // Si c'est un objet avec un champ 'nom'
+    if (typeof mentionId === 'object' && mentionId !== null) {
+      return mentionId.nom || mentionId.code || '-';
+    }
+
+    // Si c'est un ID, chercher d'abord dans allMentions
+    let mention = allMentions.find(m => m.id == mentionId);
+    if (!mention) {
+      // Si pas trouvé dans allMentions, chercher dans filteredMentions
+      mention = filteredMentions.find(m => m.id == mentionId);
+    }
+
+    return mention ? mention.nom : `Mention #${mentionId}`;
+  };
+
   // Charger les données au chargement du composant
   useEffect(() => {
     fetchUserInfo();
     fetchEtudiants();
     fetchStats();
     fetchFacultes();
+    fetchAllDomaines();  // AJOUTEZ CELUI-CI
     fetchAllMentions();
-  }, [fetchEtudiants, fetchStats, fetchFacultes, fetchAllMentions]);
+  }, [fetchEtudiants, fetchStats, fetchFacultes, fetchAllDomaines, fetchAllMentions]);
 
   // Effet pour charger les domaines quand la faculté change dans le formulaire
   useEffect(() => {
@@ -345,7 +508,7 @@ export default function Inscription() {
   // Gestionnaire de changement de faculté dans le formulaire
   const handleFaculteChange = (selectedFaculteId) => {
     const selectedFaculte = facultes.find(f => f.id == selectedFaculteId);
-    
+
     const updatedForm = {
       ...form,
       faculte: selectedFaculteId,
@@ -360,7 +523,7 @@ export default function Inscription() {
   // Gestionnaire de changement de domaine dans le formulaire
   const handleDomaineChange = (selectedDomaineId) => {
     const selectedDomaine = domaines.find(d => d.id == selectedDomaineId);
-    
+
     const updatedForm = {
       ...form,
       domaine: selectedDomaineId,
@@ -373,7 +536,7 @@ export default function Inscription() {
   // Gestionnaire de changement de mention dans le formulaire
   const handleMentionChange = (selectedMentionId) => {
     const selectedMention = filteredMentions.find(m => m.id == selectedMentionId);
-    
+
     const updatedForm = {
       ...form,
       mention: selectedMentionId
@@ -624,88 +787,138 @@ export default function Inscription() {
     setShowModal(true);
   };
 
-  // Ouvrir modal d'édition
-  const openEditModal = (etudiant) => {
-    const formattedEtudiant = {
-      matricule: etudiant.matricule || "",
-      nom: etudiant.nom || "",
-      prenom: etudiant.prenom || "",
-      date_naissance: etudiant.date_naissance ?
-        etudiant.date_naissance.split('T')[0] : "",
-      lieu_naissance: etudiant.lieu_naissance || "",
-      telephone: etudiant.telephone || "",
-      email: etudiant.email || "",
-      cin: etudiant.cin || "",
-      annee_bacc: etudiant.annee_bacc ? etudiant.annee_bacc.toString() : "",
-      code_redoublement: etudiant.code_redoublement || "N",
-      boursier: etudiant.boursier || "OUI",
-      faculte: etudiant.faculte || "",
-      domaine: etudiant.domaine || "",
-      niveau: etudiant.niveau || "Licence 1",
-      nationalite: etudiant.nationalite || "Malagasy",
-      mention: etudiant.mention || "",
-      nom_pere: etudiant.nom_pere || "",
-      nom_mere: etudiant.nom_mere || "",
-      bourse: etudiant.bourse || 0
-    };
-
-    setForm(formattedEtudiant);
-    setEditId(etudiant.id);
-    
-    // Charger les domaines et mentions si nécessaire
-    if (etudiant.faculte) {
-      fetchDomaines(etudiant.faculte).then(() => {
-        if (etudiant.domaine) {
-          fetchMentions(etudiant.domaine);
-        }
-      });
-    }
-    
-    setShowModal(true);
+// Ouvrir modal d'édition
+const openEditModal = async (etudiant) => {
+  const formattedEtudiant = {
+    matricule: etudiant.matricule || "",
+    nom: etudiant.nom || "",
+    prenom: etudiant.prenom || "",
+    date_naissance: etudiant.date_naissance ?
+      etudiant.date_naissance.split('T')[0] : "",
+    lieu_naissance: etudiant.lieu_naissance || "",
+    telephone: etudiant.telephone || "",
+    email: etudiant.email || "",
+    cin: etudiant.cin || "",
+    annee_bacc: etudiant.annee_bacc ? etudiant.annee_bacc.toString() : "",
+    code_redoublement: etudiant.code_redoublement || "N",
+    boursier: etudiant.boursier || "OUI",
+    faculte: etudiant.faculte || "",
+    domaine: etudiant.domaine || "",
+    niveau: etudiant.niveau || "Licence 1",
+    nationalite: etudiant.nationalite || "Malagasy",
+    mention: etudiant.mention || "",
+    nom_pere: etudiant.nom_pere || "",
+    nom_mere: etudiant.nom_mere || "",
+    bourse: etudiant.bourse || 0
   };
 
-  // Sauvegarder étudiant avec photo
-  const saveEtudiant = async () => {
-    const requiredFields = ['matricule', 'nom', 'prenom', 'niveau', 'faculte'];
-    const missingFields = requiredFields.filter(field => !form[field]?.trim());
+  setForm(formattedEtudiant);
+  setEditId(etudiant.id);
+  
+  // Afficher la modal immédiatement
+  setShowModal(true);
 
-    if (missingFields.length > 0) {
-      showToast(`Veuillez remplir les champs obligatoires: ${missingFields.join(', ')}`, 'warning');
-      return;
-    }
-
-    try {
-      const formData = new FormData();
-
-      Object.keys(form).forEach(key => {
-        if (key === 'photo' && form[key]) {
-          formData.append(key, form[key]);
-        } else if (form[key] !== null && form[key] !== undefined) {
-          formData.append(key, form[key]);
+  // Charger les domaines si l'étudiant a une faculté
+  if (etudiant.faculte) {
+    // Extraire l'ID de la faculté (peut être un objet ou un ID)
+    const faculteId = typeof etudiant.faculte === 'object' ? 
+                     etudiant.faculte.id : 
+                     etudiant.faculte;
+    
+    // Mettre à jour le form avec l'ID de faculté
+    setForm(prev => ({ ...prev, faculte: faculteId }));
+    
+    // Charger les domaines pour cette faculté
+    await fetchDomaines(faculteId);
+    
+    // Si l'étudiant a un domaine, charger les mentions
+    if (etudiant.domaine) {
+      // Extraire l'ID du domaine
+      const domaineId = typeof etudiant.domaine === 'object' ? 
+                       etudiant.domaine.id : 
+                       etudiant.domaine;
+      
+      // Mettre à jour le form avec l'ID de domaine
+      setForm(prev => ({ ...prev, domaine: domaineId }));
+      
+      // Attendre que les domaines soient chargés puis charger les mentions
+      setTimeout(async () => {
+        await fetchMentions(domaineId);
+        
+        // Mettre à jour le form avec l'ID de mention
+        if (etudiant.mention) {
+          const mentionId = typeof etudiant.mention === 'object' ? 
+                           etudiant.mention.id : 
+                           etudiant.mention;
+          setForm(prev => ({ ...prev, mention: mentionId }));
         }
-      });
+      }, 300); // Petit délai pour s'assurer que les domaines sont chargés
+    }
+  }
+};
 
-      if (editId) {
-        await etudiantApi.updateEtudiantWithPhoto(editId, formData);
-        showToast("Étudiant modifié avec succès!", 'success');
-      } else {
-        await etudiantApi.createEtudiantWithPhoto(formData);
-        showToast("Étudiant ajouté avec succès!", 'success');
+// Sauvegarder étudiant avec photo
+const saveEtudiant = async () => {
+  // Vérification des champs obligatoires avec une méthode plus robuste
+  const requiredFields = ['matricule', 'nom', 'prenom', 'niveau', 'faculte'];
+  const missingFields = requiredFields.filter(field => {
+    const value = form[field];
+    // Vérifier si la valeur existe et n'est pas vide
+    if (value === null || value === undefined) return true;
+    
+    // Pour les chaînes, vérifier si elles ne sont pas vides après trim
+    if (typeof value === 'string') {
+      return value.trim() === '';
+    }
+    
+    // Pour les nombres, vérifier si c'est 0 ou non défini
+    if (typeof value === 'number') {
+      return value === 0 || isNaN(value);
+    }
+    
+    // Pour les autres types, considérer comme manquant si falsy
+    return !value;
+  });
+
+  if (missingFields.length > 0) {
+    showToast(`Veuillez remplir les champs obligatoires: ${missingFields.join(', ')}`, 'warning');
+    return;
+  }
+
+  try {
+    const formData = new FormData();
+
+    Object.keys(form).forEach(key => {
+      if (key === 'photo' && form[key]) {
+        formData.append(key, form[key]);
+      } else if (form[key] !== null && form[key] !== undefined) {
+        // Convertir les valeurs en chaînes si nécessaire
+        const value = form[key];
+        formData.append(key, typeof value === 'string' ? value.trim() : value);
       }
+    });
 
-      setShowModal(false);
-      fetchEtudiants();
-      fetchStats();
-
-    } catch (err) {
-      console.error("Erreur sauvegarde:", err);
-      const errorMsg = err.response?.data?.detail ||
-        err.response?.data?.message ||
-        err.response?.data?.error ||
-        "Erreur lors de la sauvegarde";
-      showToast(errorMsg, 'danger');
+    if (editId) {
+      await etudiantApi.updateEtudiantWithPhoto(editId, formData);
+      showToast("Étudiant modifié avec succès!", 'success');
+    } else {
+      await etudiantApi.createEtudiantWithPhoto(formData);
+      showToast("Étudiant ajouté avec succès!", 'success');
     }
-  };
+
+    setShowModal(false);
+    fetchEtudiants();
+    fetchStats();
+
+  } catch (err) {
+    console.error("Erreur sauvegarde:", err);
+    const errorMsg = err.response?.data?.detail ||
+      err.response?.data?.message ||
+      err.response?.data?.error ||
+      "Erreur lors de la sauvegarde";
+    showToast(errorMsg, 'danger');
+  }
+};
 
   // Ouvrir modal de suppression
   const openDeleteModal = (etudiant) => {
@@ -793,24 +1006,6 @@ export default function Inscription() {
     } catch (e) {
       return dateString;
     }
-  };
-
-  // Fonction pour obtenir le nom d'une faculté par ID
-  const getFaculteName = (faculteId) => {
-    const faculte = facultes.find(f => f.id == faculteId);
-    return faculte ? faculte.nom : `Faculté #${faculteId}`;
-  };
-
-  // Fonction pour obtenir le nom d'un domaine par ID
-  const getDomaineName = (domaineId) => {
-    const domaine = domaines.find(d => d.id == domaineId);
-    return domaine ? domaine.nom : `Domaine #${domaineId}`;
-  };
-
-  // Fonction pour obtenir le nom d'une mention par ID
-  const getMentionName = (mentionId) => {
-    const mention = mentions.find(m => m.id == mentionId);
-    return mention ? mention.nom : `Mention #${mentionId}`;
   };
 
   return (
@@ -925,13 +1120,13 @@ export default function Inscription() {
               </div>
             </div>
             <div className="col-md-4 text-end">
-              <Button
+              {/* <Button
                 variant="success"
                 onClick={openImportModal}
                 className="d-inline-flex align-items-center me-2"
               >
                 <FaUpload className="me-2" /> Importer Excel
-              </Button>
+              </Button> */}
               <Button
                 variant="primary"
                 onClick={openAddModal}
@@ -947,19 +1142,6 @@ export default function Inscription() {
       {/* Tableau avec pagination */}
       <div className="card">
         <div className="card-body">
-          {error && (
-            <Alert variant="danger" onClose={() => setError(null)} dismissible>
-              <Alert.Heading>Erreur de connexion!</Alert.Heading>
-              <p>{error}</p>
-              <p className="mb-0">Vérifiez que :</p>
-              <ul className="mb-0">
-                <li>Le serveur Django est en marche</li>
-                <li>L'URL est correcte : http://127.0.0.1:8000/api</li>
-                <li>Les endpoints API existent</li>
-              </ul>
-            </Alert>
-          )}
-
           {loading ? (
             <div className="text-center py-5">
               <Spinner animation="border" role="status" variant="primary">
@@ -1278,7 +1460,11 @@ export default function Inscription() {
                     value={form.matricule}
                     onChange={(e) => setForm({ ...form, matricule: e.target.value })}
                     required
+                    isInvalid={!!validationErrors.matricule}
                   />
+                  <Form.Control.Feedback type="invalid">
+                    {validationErrors.matricule}
+                  </Form.Control.Feedback>
                 </Form.Group>
               </div>
               <div className="col-md-6">
@@ -1306,7 +1492,11 @@ export default function Inscription() {
                     value={form.nom}
                     onChange={(e) => setForm({ ...form, nom: e.target.value })}
                     required
+                    isInvalid={!!validationErrors.nom}
                   />
+                  <Form.Control.Feedback type="invalid">
+                    {validationErrors.nom}
+                  </Form.Control.Feedback>
                 </Form.Group>
               </div>
               <div className="col-md-6">
@@ -1317,7 +1507,11 @@ export default function Inscription() {
                     value={form.prenom}
                     onChange={(e) => setForm({ ...form, prenom: e.target.value })}
                     required
+                    isInvalid={!!validationErrors.prenom}
                   />
+                  <Form.Control.Feedback type="invalid">
+                    {validationErrors.prenom}
+                  </Form.Control.Feedback>
                 </Form.Group>
               </div>
             </div>
@@ -1341,7 +1535,11 @@ export default function Inscription() {
                     value={form.lieu_naissance}
                     onChange={(e) => setForm({ ...form, lieu_naissance: e.target.value })}
                     placeholder="Ex: Antananarivo, Madagascar"
+                    isInvalid={!!validationErrors.lieu_naissance}
                   />
+                  <Form.Control.Feedback type="invalid">
+                    {validationErrors.lieu_naissance}
+                  </Form.Control.Feedback>
                 </Form.Group>
               </div>
             </div>
@@ -1353,8 +1551,12 @@ export default function Inscription() {
                   <Form.Control
                     type="text"
                     value={form.telephone}
-                    onChange={(e) => setForm({ ...form, telephone: e.target.value })}
+                    onChange={handleTelephoneChange}
+                    isInvalid={!!validationErrors.telephone}
                   />
+                  <Form.Control.Feedback type="invalid">
+                    {validationErrors.telephone}
+                  </Form.Control.Feedback>
                 </Form.Group>
               </div>
               <div className="col-md-6">
@@ -1376,9 +1578,14 @@ export default function Inscription() {
                   <Form.Label>Numéro CIN</Form.Label>
                   <Form.Control
                     type="text"
+                    placeholder="501 011 084 358"
                     value={form.cin}
-                    onChange={(e) => setForm({ ...form, cin: e.target.value })}
+                    onChange={handleCINChange}
+                    isInvalid={!!validationErrors.cin}
                   />
+                  <Form.Control.Feedback type="invalid">
+                    {validationErrors.cin}
+                  </Form.Control.Feedback>
                 </Form.Group>
               </div>
               <div className="col-md-6">
