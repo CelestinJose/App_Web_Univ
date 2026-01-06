@@ -1,21 +1,17 @@
-from rest_framework import viewsets,permissions
-from .models import Paiement, EcheancierPaiement, VersementEcheance
-from .serializers import (
-    PaiementSerializer,
-    EcheancierPaiementSerializer,
-    VersementEcheanceSerializer,
-)
+from rest_framework import viewsets
+from .models import Paiement
+from .serializers import PaiementIndividuelSerializer, PaiementCollectifSerializer
 
-class PaiementViewSet(viewsets.ModelViewSet):
+class PaiementIndividuelSerializer(viewsets.ModelViewSet):
     queryset = Paiement.objects.all()
-    serializer_class = PaiementSerializer
+    serializer_class = PaiementIndividuelSerializer
 
 
-class EcheancierPaiementViewSet(viewsets.ModelViewSet):
-    queryset = EcheancierPaiement.objects.all()
-    serializer_class = EcheancierPaiementSerializer
+class PaiementCollectifViewSet(viewsets.GenericViewSet):
+    serializer_class = PaiementCollectifSerializer
 
-
-class VersementEcheanceViewSet(viewsets.ModelViewSet):
-    queryset = VersementEcheance.objects.all()
-    serializer_class = VersementEcheanceSerializer
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        paiements = serializer.save()
+        return Response({"message": f"{len(paiements)} paiements créés pour la faculté."})

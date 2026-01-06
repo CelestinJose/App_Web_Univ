@@ -89,11 +89,56 @@ export default function Inscription() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterNiveau, setFilterNiveau] = useState("");
 
+
   // États pour la pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+
+  // Fonction pour gérer le téléchargement de photo
+  const handlePhotoUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Vérifier le type de fichier
+      if (!file.type.startsWith('image/')) {
+        showToast('Veuillez sélectionner une image valide', 'warning');
+        return;
+      }
+
+      // Vérifier la taille (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        showToast('L\'image ne doit pas dépasser 5MB', 'warning');
+        return;
+      }
+
+      // Mettre à jour le formulaire
+      setForm({ ...form, photo: file });
+
+      // Créer une prévisualisation
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Fonction pour supprimer la photo
+  const handleRemovePhoto = () => {
+    setForm({ ...form, photo: null });
+    setPhotoPreview(null);
+  };
+
+  // Fonction pour convertir l'image en base64 (optionnel)
+  const convertImageToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = error => reject(error);
+    });
+  };
 
   const fetchUserInfo = async () => {
     try {
@@ -585,7 +630,7 @@ export default function Inscription() {
     setShowModal(true);
   };
 
-  // Sauvegarder étudiant
+  // Sauvegarder étudiant avec photo
   const saveEtudiant = async () => {
     // Validation
     const requiredFields = ['matricule', 'nom', 'prenom', 'niveau', 'faculte'];
@@ -597,20 +642,24 @@ export default function Inscription() {
     }
 
     try {
-      const dataToSend = { ...form };
+      // Créer FormData pour envoyer la photo
+      const formData = new FormData();
 
-      // Nettoyer les données
-      Object.keys(dataToSend).forEach(key => {
-        if (typeof dataToSend[key] === 'string') {
-          dataToSend[key] = dataToSend[key].trim();
+      // Ajouter tous les champs au FormData
+      Object.keys(form).forEach(key => {
+        if (key === 'photo' && form[key]) {
+          // Si c'est une photo (fichier), l'ajouter directement
+          formData.append(key, form[key]);
+        } else if (form[key] !== null && form[key] !== undefined) {
+          formData.append(key, form[key]);
         }
       });
 
       if (editId) {
-        await etudiantApi.updateEtudiant(editId, dataToSend);
+        await etudiantApi.updateEtudiantWithPhoto(editId, formData);
         showToast("Étudiant modifié avec succès!", 'success');
       } else {
-        await etudiantApi.createEtudiant(dataToSend);
+        await etudiantApi.createEtudiantWithPhoto(formData);
         showToast("Étudiant ajouté avec succès!", 'success');
       }
 
@@ -1317,6 +1366,63 @@ export default function Inscription() {
                     onChange={(e) => setForm({ ...form, nom_mere: e.target.value })}
                     placeholder="Nom complet de la mère"
                   />
+                </Form.Group>
+              </div>
+            </div>
+
+            {/* Section Photo */}
+            <h6 className="text-primary mt-4 mb-3">Photo d'identité</h6>
+            <div className="row">
+              <div className="col-md-12">
+                <Form.Group className="mb-3">
+                  <Form.Label>Photo de l'étudiant</Form.Label>
+
+                  {/* Prévisualisation de la photo */}
+                  {(photoPreview || (editId && form?.photo)) && (
+                    <div className="mb-3 text-center">
+                      <div className="border rounded p-2 d-inline-block">
+                        <img
+                          src={photoPreview || (form?.photo ? `${process.env.REACT_APP_API_URL}${form.photo}` : '')}
+                          alt="Prévisualisation"
+                          style={{
+                            maxWidth: '200px',
+                            maxHeight: '200px',
+                            objectFit: 'cover'
+                          }}
+                          className="img-thumbnail"
+                        />
+                      </div>
+                      <div className="mt-2">
+                        <Button
+                          variant="outline-danger"
+                          size="sm"
+                          onClick={handleRemovePhoto}
+                        >
+                          Supprimer la photo
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Bouton pour télécharger une photo */}
+                  <div className="input-group">
+                    <Form.Control
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoUpload}
+                      className="form-control"
+                    />
+                    <Button
+                      variant="outline-secondary"
+                      onClick={() => document.querySelector('input[type="file"]').click()}
+                    >
+                      Choisir une photo
+                    </Button>
+                  </div>
+
+                  <Form.Text className="text-muted">
+                    Formats acceptés : JPG, PNG, GIF (max 5MB). Taille recommandée : 200x200 pixels.
+                  </Form.Text>
                 </Form.Group>
               </div>
             </div>

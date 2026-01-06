@@ -106,6 +106,29 @@ export const etudiantApi = {
   patchEtudiant: (id, data) => api.patch(`/etudiants/${id}/`, data),
   deleteEtudiant: (id) => api.delete(`/etudiants/${id}/`),
   searchEtudiants: (params) => api.get('/etudiants/search/', { params }),
+
+   // Méthode pour créer un étudiant avec photo
+    createEtudiantWithPhoto: async (formData) => {
+        return api.post('/etudiants/', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+    },
+    
+    // Méthode pour mettre à jour un étudiant avec photo
+    updateEtudiantWithPhoto: async (id, formData) => {
+        return api.put(`/etudiants/${id}/`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+    },
+    
+    // Méthode pour récupérer la photo
+    getEtudiantPhoto: async (id) => {
+        return api.get(`/etudiants/${id}/photo/`);
+    }
 };
 
 // Endpoints bourses

@@ -8,8 +8,15 @@ SECRET_KEY = 'django-insecure-r6_ia^s)1c652ryadj+)&=z%t_s-fv5qzj@zjw$#535ztzdnhl
 DEBUG = True
 ALLOWED_HOSTS = ['localhost', '127.0.0.1']  # Ajout des hosts
 
+# Configurations pour les fichiers média
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# Assurez-vous que les dossiers existent
+if not os.path.exists(MEDIA_ROOT):
+    os.makedirs(MEDIA_ROOT)
+if not os.path.exists(os.path.join(MEDIA_ROOT, 'Etudiant')):
+    os.makedirs(os.path.join(MEDIA_ROOT, 'Etudiant'))
 
 INSTALLED_APPS = [
     'django.contrib.admin',

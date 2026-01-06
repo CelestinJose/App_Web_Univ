@@ -1,0 +1,12 @@
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import PaiementCollectifViewSet
+
+router = DefaultRouter()
+router.register(r'', PaiementCollectifViewSet, basename='paiement-collectif')
+# router.register(r'echeanciers', EcheancierPaiementViewSet, basename='echeanciers')
+# router.register(r'versements', VersementEcheanceViewSet, basename='versements')
+
+urlpatterns = [
+    path('', include(router.urls)),
+    ]
