@@ -3,37 +3,53 @@ from django.db import migrations
 def create_default_users(apps, schema_editor):
     CustomUser = apps.get_model('users', 'CustomUser')
 
-    # Créer l'admin s'il n'existe pas
+    # Admin
     if not CustomUser.objects.filter(username='admin').exists():
         CustomUser.objects.create_superuser(
-            username='admin', 
-            email='admin@test.com', 
-            password='admin123', 
+            username='admin',
+            email='admin@example.com',
+            password='admin123',
+            first_name='Admin',
+            last_name='System',
             role='administrateur'
         )
 
-    scolarites = {
-        'Informatique': 'info123',
-        'Medecine': 'med123',
-        'Droit': 'droit123',
-        'Economie': 'eco123'
-    }
+    users_data = [
+        {
+            'username': 'scolarite',
+            'email': 'scolarite@example.com',
+            'password': 'scolarite123',
+            'first_name': 'Service',
+            'last_name': 'Scolarité',
+            'role': 'scolarite'
+        },
+        {
+            'username': 'bourse',
+            'email': 'bourse@example.com',
+            'password': 'bourse123',
+            'first_name': 'Service',
+            'last_name': 'Bourse',
+            'role': 'bourse'
+        },
+        {
+            'username': 'finance',
+            'email': 'finance@example.com',
+            'password': 'finance123',
+            'first_name': 'Service',
+            'last_name': 'Finance',
+            'role': 'finance'
+        },
+    ]
 
-    for faculte, password in scolarites.items():
-        username = f'scolarite_{faculte.lower()}'
-        if not CustomUser.objects.filter(username=username).exists():
-            CustomUser.objects.create_user(
-                username=username,
-                password=password,
-                role='scolarite',
-                faculte=faculte  # Assure-toi que le champ faculte existe
-            )
+    for user_data in users_data:
+        if not CustomUser.objects.filter(username=user_data['username']).exists():
+            CustomUser.objects.create_user(**user_data)
 
-    # Les autres comptes fixes
-    if not CustomUser.objects.filter(username='bourse').exists():
-        CustomUser.objects.create_user(username='bourse', password='bourse123', role='bourse')
-    if not CustomUser.objects.filter(username='finance').exists():
-        CustomUser.objects.create_user(username='finance', password='finance123', role='finance')
+def reverse_create_default_users(apps, schema_editor):
+    CustomUser = apps.get_model('users', 'CustomUser')
+    CustomUser.objects.filter(
+        username__in=['admin', 'scolarite', 'bourse', 'finance']
+    ).delete()
 
 class Migration(migrations.Migration):
 
@@ -42,5 +58,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(create_default_users),
+        migrations.RunPython(create_default_users, reverse_create_default_users),
     ]

@@ -107,28 +107,89 @@ export const etudiantApi = {
   deleteEtudiant: (id) => api.delete(`/etudiants/${id}/`),
   searchEtudiants: (params) => api.get('/etudiants/search/', { params }),
 
-   // Méthode pour créer un étudiant avec photo
-    createEtudiantWithPhoto: async (formData) => {
-        return api.post('/etudiants/', formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            },
-        });
-    },
-    
-    // Méthode pour mettre à jour un étudiant avec photo
-    updateEtudiantWithPhoto: async (id, formData) => {
-        return api.put(`/etudiants/${id}/`, formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            },
-        });
-    },
-    
-    // Méthode pour récupérer la photo
-    getEtudiantPhoto: async (id) => {
-        return api.get(`/etudiants/${id}/photo/`);
+  // Méthode pour créer un étudiant avec photo
+  createEtudiantWithPhoto: async (formData) => {
+    return api.post('/etudiants/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+
+  // Méthode pour mettre à jour un étudiant avec photo
+  updateEtudiantWithPhoto: async (id, formData) => {
+    return api.put(`/etudiants/${id}/`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+
+  // Méthode pour récupérer la photo
+  getEtudiantPhoto: async (id) => {
+    return api.get(`/etudiants/${id}/photo/`);
+  }
+};
+
+// API pour les facultés, domaines et mentions
+export const faculteApi = {
+  getFacultes: async (params = {}) => {
+    try {
+      const response = await api.get('/facultes/', { params });
+      return response;
+    } catch (error) {
+      console.error("Erreur API getFacultes:", error);
+      throw error;
     }
+  },
+
+  getFaculte: (id) => api.get(`/facultes/${id}/`),
+
+  createFaculte: (data) => api.post('/facultes/', data),
+
+  updateFaculte: (id, data) => api.put(`/facultes/${id}/`, data),
+
+  deleteFaculte: (id) => api.delete(`/facultes/${id}/`),
+};
+
+export const domaineApi = {
+  getDomaines: async (params = {}) => {
+    try {
+      const response = await api.get('/domaines/', { params });
+      return response;
+    } catch (error) {
+      console.error("Erreur API getDomaines:", error);
+      throw error;
+    }
+  },
+
+  getDomaine: (id) => api.get(`/domaines/${id}/`),
+
+  createDomaine: (data) => api.post('/domaines/', data),
+
+  updateDomaine: (id, data) => api.put(`/domaines/${id}/`, data),
+
+  deleteDomaine: (id) => api.delete(`/domaines/${id}/`),
+};
+
+export const mentionApi = {
+  getMentions: async (params = {}) => {
+    try {
+      const response = await api.get('/mentions/', { params });
+      return response;
+    } catch (error) {
+      console.error("Erreur API getMentions:", error);
+      throw error;
+    }
+  },
+
+  getMention: (id) => api.get(`/mentions/${id}/`),
+
+  createMention: (data) => api.post('/mentions/', data),
+
+  updateMention: (id, data) => api.put(`/mentions/${id}/`, data),
+
+  deleteMention: (id) => api.delete(`/mentions/${id}/`),
 };
 
 // Endpoints bourses

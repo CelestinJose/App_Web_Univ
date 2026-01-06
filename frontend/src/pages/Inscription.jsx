@@ -14,14 +14,13 @@ import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer';
 import ProgressBar from 'react-bootstrap/ProgressBar';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { etudiantApi } from '../api';
+import { etudiantApi, faculteApi, domaineApi, mentionApi } from '../api';
 
 import { FaUpload, FaFileExcel, FaDownload } from "react-icons/fa";
 import * as XLSX from 'xlsx';
 
 export default function Inscription() {
   // État pour les données
-  // Ajoutez cet état avec vos autres états
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [importData, setImportData] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
@@ -40,8 +39,16 @@ export default function Inscription() {
     failed: 0,
     errors: []
   });
+  
+  // États pour les données dynamiques
   const [etudiants, setEtudiants] = useState([]);
+  const [facultes, setFacultes] = useState([]);
+  const [domaines, setDomaines] = useState([]);
+  const [mentions, setMentions] = useState([]);
+  const [filteredMentions, setFilteredMentions] = useState([]);
+  
   const [loading, setLoading] = useState(true);
+  const [loadingFacultes, setLoadingFacultes] = useState(false);
   const [error, setError] = useState(null);
   const [stats, setStats] = useState({
     total: 0,
@@ -58,7 +65,7 @@ export default function Inscription() {
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  // États pour le formulaire avec les nouveaux champs
+  // États pour le formulaire
   const [form, setForm] = useState({
     matricule: "",
     nom: "",
@@ -89,12 +96,22 @@ export default function Inscription() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterNiveau, setFilterNiveau] = useState("");
 
-
   // États pour la pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+
+  // Options pour les niveaux
+  const niveaux = [
+    "Licence 1", "Licence 2", "Licence 3",
+    "Master 1", "Master 2", "Doctorat 1"
+  ];
+
+  // Fonction pour montrer les toasts
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+  };
 
   // Fonction pour gérer le téléchargement de photo
   const handlePhotoUpload = (e) => {
@@ -130,141 +147,83 @@ export default function Inscription() {
     setPhotoPreview(null);
   };
 
-  // Fonction pour convertir l'image en base64 (optionnel)
-  const convertImageToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = error => reject(error);
-    });
-  };
-
-  const fetchUserInfo = async () => {
+  // Charger les facultés depuis l'API
+  const fetchFacultes = useCallback(async () => {
+    setLoadingFacultes(true);
     try {
-      // Utilisez votre API pour récupérer les infos utilisateur
-      const response = await etudiantApi.getCurrentUser();
-      if (response.data) {
-        setUserInfo({
-          role: response.data.role || ''
-        });
+      const response = await faculteApi.getFacultes();
+      if (response.data && Array.isArray(response.data)) {
+        setFacultes(response.data);
+      } else if (response.data && Array.isArray(response.data.results)) {
+        setFacultes(response.data.results);
       }
     } catch (err) {
-      console.error("Erreur lors de la récupération des informations utilisateur:", err);
-      // Fallback: récupérer depuis localStorage
-      const storedRole = localStorage.getItem("user_role");
-      setUserInfo({
-        role: storedRole || ''
-      });
+      console.error("Erreur lors du chargement des facultés:", err);
+      showToast("Erreur lors du chargement des facultés", "danger");
+    } finally {
+      setLoadingFacultes(false);
     }
-  };
+  }, []);
 
-  // Structure des données des facultés
-  const facultesData = {
-    "FACULTE DES SCIENCES - TUL": {
-      domaine: "Sciences et Technologies",
-      mentions: [
-        "TUL - L - FST - PHYSIQUE ET APPLICATION",
-        "TUL - M - FST - PHYSIQUE ET APPLICATION",
-        "TUL  - L - MATHEMATIQUES ET INFORMATIQUE",
-        "TUL - L - FST - SCIENCES DE LA TERRE",
-        "TUL - M - FST - Sciences de la Terre",
-        "TUL - L - FST - SCIENCES DE LA VIE",
-        "TUL - M - FST - Sciences de la Vie",
-        "TUL - L - FST - BIODIVERSITE ET ENVIRONNEMENT",
-        "TUL - M - FST - CHIMIE"
-      ]
-    },
-    "FACULTE DE MEDECINE - TUL": {
-      domaine: "Sciences de la Santé",
-      mentions: [
-        "TUL - L - FACMED - MEDECINE HUMAINE",
-        "TUL - M - FACMED - MEDECINE HUMAINE",
-        "TUL - D - FACMED - MEDECINE HUMAINE"
-      ]
-    },
-    "FACULTE DES LETTRES - TUL": {
-      domaine: "Arts, Lettres et Sciences Humaines",
-      mentions: [
-        "TUL - L - LETTRES - HISTOIRE",
-        "TUL - L - LETTRES - GEOGRAPHIE",
-        "TUL - L - LETTRES - PHILOSOPHIE",
-        "TUL - L - LETTRES - MALAGASY",
-        "TUL - L - LETTRES - ETUDES FRANCAISES ET FRANCOPHONES"
-      ]
-    },
-    "DEGS - TUL": {
-      domaine: "Sciences de la Société",
-      mentions: [
-        "TUL - L - DEGS - GESTION",
-        "TUL - L - DEGS - ECONOMIE",
-        "TUL - M - DEGS - ECONOMIE",
-        "TUL - L - DEGS - DROIT"
-      ]
-    },
-    "ENS - TUL": {
-      domaine: "Sciences de l'éducation",
-      mentions: [
-        "TUL - L - ENS - SCIENCES",
-        "TUL - M - ENS - SCIENCES",
-        "TUL - L - ENS - LETTRES",
-        "TUL - M - ENS - LETTRES"
-      ]
-    },
-    "IHSM - TUL": {
-      domaine: "Sciences et Technologies",
-      mentions: [
-        "TUL - L - IHSM - Sciences Marines et Halieutiques"
-      ]
-    },
-    "IES ANOSY - TUL": {
-      domaine: "Sciences et Technologies",
-      mentions: [
-        "TUL  - L - IES ANOSY - TECHNIQUE DE L'ENVIRONNEMENT MARIN ET TERRESTRE"
-      ]
-    },
-    "IES TOLIARA - TUL": {
-      domaine: "Sciences et Technologies",
-      mentions: [
-        "TUL - L - IES TUL - AGRONOMIE"
-      ]
+  // Charger les domaines selon la faculté sélectionnée
+  const fetchDomaines = useCallback(async (faculteId) => {
+    if (!faculteId) {
+      setDomaines([]);
+      setMentions([]);
+      setFilteredMentions([]);
+      return;
     }
-  };
 
-  // Fonctions pour gérer les changements de faculté
-  const handleFaculteChange = (selectedFaculte) => {
-    const faculteInfo = facultesData[selectedFaculte];
+    try {
+      const response = await domaineApi.getDomaines({ faculte: faculteId });
+      if (response.data && Array.isArray(response.data)) {
+        setDomaines(response.data);
+      } else if (response.data && Array.isArray(response.data.results)) {
+        setDomaines(response.data.results);
+      }
+      
+      // Réinitialiser les mentions
+      setMentions([]);
+      setFilteredMentions([]);
+      setForm(prev => ({ ...prev, domaine: "", mention: "" }));
+    } catch (err) {
+      console.error("Erreur lors du chargement des domaines:", err);
+    }
+  }, []);
 
-    const updatedForm = {
-      ...form,
-      faculte: selectedFaculte,
-      domaine: faculteInfo ? faculteInfo.domaine : "",
-      mention: "" // Réinitialiser la mention quand on change de faculté
-    };
+  // Charger les mentions selon le domaine sélectionné
+  const fetchMentions = useCallback(async (domaineId) => {
+    if (!domaineId) {
+      setFilteredMentions([]);
+      setForm(prev => ({ ...prev, mention: "" }));
+      return;
+    }
 
-    setForm(updatedForm);
-  };
+    try {
+      const response = await mentionApi.getMentions({ domaine: domaineId });
+      if (response.data && Array.isArray(response.data)) {
+        setFilteredMentions(response.data);
+      } else if (response.data && Array.isArray(response.data.results)) {
+        setFilteredMentions(response.data.results);
+      }
+    } catch (err) {
+      console.error("Erreur lors du chargement des mentions:", err);
+    }
+  }, []);
 
-  const getMentionsForFaculte = (faculte) => {
-    if (!faculte) return [];
-    const faculteInfo = facultesData[faculte];
-    return faculteInfo ? faculteInfo.mentions : [];
-  };
-
-  // Listes dérivées des données
-  const facultes = Object.keys(facultesData);
-  const domaines = [...new Set(Object.values(facultesData).map(f => f.domaine))];
-
-  // Options pour les niveaux
-  const niveaux = [
-    "Licence 1", "Licence 2", "Licence 3",
-    "Master 1", "Master 2", "Doctorat 1"
-  ];
-
-  // Fonction pour montrer les toasts
-  const showToast = (message, type = 'success') => {
-    setToast({ show: true, message, type });
-  };
+  // Charger toutes les mentions (pour les filtres)
+  const fetchAllMentions = useCallback(async () => {
+    try {
+      const response = await mentionApi.getMentions();
+      if (response.data && Array.isArray(response.data)) {
+        setMentions(response.data);
+      } else if (response.data && Array.isArray(response.data.results)) {
+        setMentions(response.data.results);
+      }
+    } catch (err) {
+      console.error("Erreur lors du chargement de toutes les mentions:", err);
+    }
+  }, []);
 
   // Charger les étudiants
   const fetchEtudiants = useCallback(async () => {
@@ -285,7 +244,6 @@ export default function Inscription() {
         params.search = searchTerm;
       }
 
-      console.log("Fetching étudiants avec params:", params);
       const response = await etudiantApi.getEtudiants(params);
 
       // Si la réponse contient des résultats
@@ -340,17 +298,89 @@ export default function Inscription() {
     }
   }, []);
 
-  // Charger les données
+  // Charger les données au chargement du composant
   useEffect(() => {
     fetchUserInfo();
     fetchEtudiants();
     fetchStats();
-  }, [fetchEtudiants, fetchStats]);
+    fetchFacultes();
+    fetchAllMentions();
+  }, [fetchEtudiants, fetchStats, fetchFacultes, fetchAllMentions]);
+
+  // Effet pour charger les domaines quand la faculté change dans le formulaire
+  useEffect(() => {
+    if (form.faculte) {
+      fetchDomaines(form.faculte);
+    }
+  }, [form.faculte, fetchDomaines]);
+
+  // Effet pour charger les mentions quand le domaine change dans le formulaire
+  useEffect(() => {
+    if (form.domaine) {
+      fetchMentions(form.domaine);
+    }
+  }, [form.domaine, fetchMentions]);
+
+  const fetchUserInfo = async () => {
+    try {
+      const response = await etudiantApi.getCurrentUser();
+      if (response.data) {
+        setUserInfo({
+          role: response.data.role || ''
+        });
+      }
+    } catch (err) {
+      console.error("Erreur lors de la récupération des informations utilisateur:", err);
+      const storedRole = localStorage.getItem("user_role");
+      setUserInfo({
+        role: storedRole || ''
+      });
+    }
+  };
 
   const isAdmin = () => {
     return userInfo.role === 'administrateur';
   };
 
+  // Gestionnaire de changement de faculté dans le formulaire
+  const handleFaculteChange = (selectedFaculteId) => {
+    const selectedFaculte = facultes.find(f => f.id == selectedFaculteId);
+    
+    const updatedForm = {
+      ...form,
+      faculte: selectedFaculteId,
+      domaine: "",
+      mention: "",
+      domaine_nom: selectedFaculte ? selectedFaculte.nom : ""
+    };
+
+    setForm(updatedForm);
+  };
+
+  // Gestionnaire de changement de domaine dans le formulaire
+  const handleDomaineChange = (selectedDomaineId) => {
+    const selectedDomaine = domaines.find(d => d.id == selectedDomaineId);
+    
+    const updatedForm = {
+      ...form,
+      domaine: selectedDomaineId,
+      mention: ""
+    };
+
+    setForm(updatedForm);
+  };
+
+  // Gestionnaire de changement de mention dans le formulaire
+  const handleMentionChange = (selectedMentionId) => {
+    const selectedMention = filteredMentions.find(m => m.id == selectedMentionId);
+    
+    const updatedForm = {
+      ...form,
+      mention: selectedMentionId
+    };
+
+    setForm(updatedForm);
+  };
 
   // Ouvrir la modale d'importation
   const openImportModal = () => {
@@ -389,7 +419,7 @@ export default function Inscription() {
     // Créer un workbook avec les colonnes attendues
     const ws = XLSX.utils.aoa_to_sheet([
       ['matricule', 'nom', 'prenom', 'date_naissance', 'lieu_naissance', 'telephone', 'email', 'cin', 'annee_bacc', 'code_redoublement', 'boursier', 'faculte', 'domaine', 'niveau', 'nationalite', 'mention', 'nom_pere', 'nom_mere'],
-      ['MAT001', 'RAKOTO', 'Jean', '1995-01-15', 'Antananarivo', '0341234567', 'jean.rakoto@email.com', '101123456789', '2013', 'N', 'OUI', 'FACULTE DES SCIENCES - TUL', 'Sciences et Technologies', 'Licence 1', 'Malagasy', 'TUL - L - FST - PHYSIQUE ET APPLICATION', 'RAKOTO Pierre', 'RASOA Marie']
+      ['MAT001', 'RAKOTO', 'Jean', '1995-01-15', 'Antananarivo', '0341234567', 'jean.rakoto@email.com', '101123456789', '2013', 'N', 'OUI', '1', '1', 'Licence 1', 'Malagasy', '1', 'RAKOTO Pierre', 'RASOA Marie']
     ]);
 
     const wb = XLSX.utils.book_new();
@@ -400,7 +430,6 @@ export default function Inscription() {
   };
 
   // Traiter l'importation Excel
-  // Fonction pour détecter les doublons
   const detectDuplicates = async (etudiantsData) => {
     const duplicates = [];
     const seenMatricules = new Set();
@@ -409,7 +438,6 @@ export default function Inscription() {
     for (let i = 0; i < etudiantsData.length; i++) {
       const etudiant = etudiantsData[i];
 
-      // Vérifier les doublons de matricule dans le fichier
       if (etudiant.matricule) {
         if (seenMatricules.has(etudiant.matricule)) {
           duplicates.push(`⚠️ Ligne ${i + 2}: Matricule en double: "${etudiant.matricule}"`);
@@ -418,7 +446,6 @@ export default function Inscription() {
         }
       }
 
-      // Vérifier les doublons de numéro d'inscription dans le fichier
       if (etudiant.numero_inscription) {
         if (seenInscriptions.has(etudiant.numero_inscription)) {
           duplicates.push(`⚠️ Ligne ${i + 2}: Numéro d'inscription en double: "${etudiant.numero_inscription}"`);
@@ -431,7 +458,6 @@ export default function Inscription() {
     return duplicates;
   };
 
-  // Modifiez votre fonction processImport pour utiliser la modale
   const processImport = async () => {
     if (!importFile) {
       showToast('Veuillez sélectionner un fichier Excel', 'warning');
@@ -460,7 +486,6 @@ export default function Inscription() {
 
           setImportProgress(30);
 
-          // Mapper les données
           const etudiantsData = [];
           const errors = [];
 
@@ -471,16 +496,19 @@ export default function Inscription() {
             try {
               const etudiant = {};
 
-              // Mapper chaque colonne
               headers.forEach((header, colIndex) => {
                 const value = row[colIndex]?.toString().trim() || '';
 
                 if (header && value) {
-                  etudiant[header] = value;
+                  // Convertir les IDs en nombres si nécessaire
+                  if (['faculte', 'domaine', 'mention'].includes(header)) {
+                    etudiant[header] = isNaN(value) ? value : parseInt(value);
+                  } else {
+                    etudiant[header] = value;
+                  }
                 }
               });
 
-              // Validation
               if (!etudiant.matricule || !etudiant.nom || !etudiant.prenom) {
                 throw new Error(`Champs obligatoires manquants (matricule, nom, prenom)`);
               }
@@ -494,11 +522,9 @@ export default function Inscription() {
 
           setImportProgress(50);
 
-          // Détecter les doublons
           const duplicates = await detectDuplicates(etudiantsData);
           const allErrors = [...errors, ...duplicates];
 
-          // Stocker les données pour la modale de confirmation
           setImportData({
             etudiantsData,
             total: etudiantsData.length,
@@ -511,14 +537,12 @@ export default function Inscription() {
             throw new Error('Aucune donnée valide trouvée dans le fichier');
           }
 
-          // Si des doublons sont détectés, afficher la modale de confirmation
           if (allErrors.length > 0) {
             setShowConfirmModal(true);
             setImportStatus('idle');
             return;
           }
 
-          // Sinon, continuer directement avec l'importation
           proceedWithImport(etudiantsData, allErrors);
 
         } catch (error) {
@@ -537,7 +561,6 @@ export default function Inscription() {
     }
   };
 
-  // Fonction pour procéder à l'importation
   const proceedWithImport = async (etudiantsData, errors) => {
     setImportStatus('processing');
     setImportProgress(70);
@@ -558,7 +581,6 @@ export default function Inscription() {
 
       showToast(`Importation terminée: ${results.success} succès, ${results.failed} échecs`, 'success');
 
-      // Rafraîchir les données
       fetchEtudiants();
       fetchStats();
 
@@ -594,8 +616,10 @@ export default function Inscription() {
       mention: "",
       nom_pere: "",
       nom_mere: "",
-      bourse: 0
+      bourse: 0,
+      photo: null
     });
+    setPhotoPreview(null);
     setEditId(null);
     setShowModal(true);
   };
@@ -627,12 +651,21 @@ export default function Inscription() {
 
     setForm(formattedEtudiant);
     setEditId(etudiant.id);
+    
+    // Charger les domaines et mentions si nécessaire
+    if (etudiant.faculte) {
+      fetchDomaines(etudiant.faculte).then(() => {
+        if (etudiant.domaine) {
+          fetchMentions(etudiant.domaine);
+        }
+      });
+    }
+    
     setShowModal(true);
   };
 
   // Sauvegarder étudiant avec photo
   const saveEtudiant = async () => {
-    // Validation
     const requiredFields = ['matricule', 'nom', 'prenom', 'niveau', 'faculte'];
     const missingFields = requiredFields.filter(field => !form[field]?.trim());
 
@@ -642,13 +675,10 @@ export default function Inscription() {
     }
 
     try {
-      // Créer FormData pour envoyer la photo
       const formData = new FormData();
 
-      // Ajouter tous les champs au FormData
       Object.keys(form).forEach(key => {
         if (key === 'photo' && form[key]) {
-          // Si c'est une photo (fichier), l'ajouter directement
           formData.append(key, form[key]);
         } else if (form[key] !== null && form[key] !== undefined) {
           formData.append(key, form[key]);
@@ -716,7 +746,6 @@ export default function Inscription() {
   const goToPrevPage = () => currentPage > 1 && setCurrentPage(currentPage - 1);
   const goToNextPage = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
 
-  // Générer les numéros de page
   const getPageNumbers = () => {
     const pageNumbers = [];
     const maxVisiblePages = 5;
@@ -766,9 +795,26 @@ export default function Inscription() {
     }
   };
 
+  // Fonction pour obtenir le nom d'une faculté par ID
+  const getFaculteName = (faculteId) => {
+    const faculte = facultes.find(f => f.id == faculteId);
+    return faculte ? faculte.nom : `Faculté #${faculteId}`;
+  };
+
+  // Fonction pour obtenir le nom d'un domaine par ID
+  const getDomaineName = (domaineId) => {
+    const domaine = domaines.find(d => d.id == domaineId);
+    return domaine ? domaine.nom : `Domaine #${domaineId}`;
+  };
+
+  // Fonction pour obtenir le nom d'une mention par ID
+  const getMentionName = (mentionId) => {
+    const mention = mentions.find(m => m.id == mentionId);
+    return mention ? mention.nom : `Mention #${mentionId}`;
+  };
+
   return (
     <div className="container-fluid py-4">
-      {/* Toasts pour les notifications */}
       <ToastContainer position="top-end" className="p-3">
         <Toast
           show={toast.show}
@@ -997,6 +1043,8 @@ export default function Inscription() {
                       <th>CIN</th>
                       <th>Code</th>
                       <th>Niveau</th>
+                      <th>Faculté</th>
+                      <th>Domaine</th>
                       <th>Mention</th>
                       <th>Boursier</th>
                       <th>Bourse</th>
@@ -1006,8 +1054,7 @@ export default function Inscription() {
                   <tbody>
                     {etudiants.length === 0 ? (
                       <tr>
-                        <td colSpan="14" className="text-center py-5">
-                          {/* <FaSearch className="text-muted mb-3" size={48} /> */}
+                        <td colSpan="16" className="text-center py-5">
                           <p className="text-muted">Aucun étudiant trouvé</p>
                           {searchTerm && (
                             <Button
@@ -1032,10 +1079,6 @@ export default function Inscription() {
                           <td className="font-monospace">{etudiant.matricule}</td>
                           <td>
                             <div className="fw-medium">{etudiant.nom} {etudiant.prenom}</div>
-                            <small className="text-muted" hidden>
-                              {etudiant.nom_pere && <div>Père: {etudiant.nom_pere}</div>}
-                              {etudiant.nom_mere && <div>Mère: {etudiant.nom_mere}</div>}
-                            </small>
                           </td>
                           <td className="font-monospace">
                             {formatDate(etudiant.date_naissance)}
@@ -1077,8 +1120,18 @@ export default function Inscription() {
                             </Badge>
                           </td>
                           <td>
-                            <small className="text-muted font-monospace text-wrap" style={{ wordBreak: "break-word" }}>
-                              {etudiant.mention || '-'}
+                            <small className="text-muted">
+                              {getFaculteName(etudiant.faculte)}
+                            </small>
+                          </td>
+                          <td>
+                            <small className="text-muted">
+                              {getDomaineName(etudiant.domaine)}
+                            </small>
+                          </td>
+                          <td>
+                            <small className="text-muted">
+                              {getMentionName(etudiant.mention)}
                             </small>
                           </td>
                           <td>
@@ -1109,7 +1162,6 @@ export default function Inscription() {
                                 <FaEdit />
                               </Button>
 
-                              {/* Afficher le bouton suppression seulement pour admin */}
                               {isAdmin() && (
                                 <Button
                                   variant="outline-danger"
@@ -1121,7 +1173,6 @@ export default function Inscription() {
                                 </Button>
                               )}
 
-                              {/* Ou si l'utilisateur n'est pas admin, afficher un bouton désactivé ou rien */}
                               {!isAdmin() && (
                                 <Button
                                   variant="outline-secondary"
@@ -1207,7 +1258,7 @@ export default function Inscription() {
         </div>
       </div>
 
-      {/* Modal Ajout/Modification avec les nouveaux champs */}
+      {/* Modal Ajout/Modification */}
       <Modal show={showModal} onHide={() => setShowModal(false)} size="lg" centered>
         <Modal.Header closeButton className={editId ? "bg-warning text-dark" : "bg-primary text-white"}>
           <Modal.Title>
@@ -1378,11 +1429,11 @@ export default function Inscription() {
                   <Form.Label>Photo de l'étudiant</Form.Label>
 
                   {/* Prévisualisation de la photo */}
-                  {(photoPreview || (editId && form?.photo)) && (
+                  {(photoPreview || form.photo) && (
                     <div className="mb-3 text-center">
                       <div className="border rounded p-2 d-inline-block">
                         <img
-                          src={photoPreview || (form?.photo ? `${process.env.REACT_APP_API_URL}${form.photo}` : '')}
+                          src={photoPreview || (form.photo && typeof form.photo === 'string' ? `${process.env.REACT_APP_API_URL}${form.photo}` : '')}
                           alt="Prévisualisation"
                           style={{
                             maxWidth: '200px',
@@ -1411,10 +1462,11 @@ export default function Inscription() {
                       accept="image/*"
                       onChange={handlePhotoUpload}
                       className="form-control"
+                      id="photo-upload"
                     />
                     <Button
                       variant="outline-secondary"
-                      onClick={() => document.querySelector('input[type="file"]').click()}
+                      onClick={() => document.getElementById('photo-upload').click()}
                     >
                       Choisir une photo
                     </Button>
@@ -1469,7 +1521,7 @@ export default function Inscription() {
                 </Form.Group>
               </div>
               <div className="col-md-6">
-                {/* Champ bourse est géré automatiquement par le backend avec default=0 */}
+                {/* Champ bourse est géré automatiquement par le backend */}
               </div>
             </div>
 
@@ -1477,27 +1529,39 @@ export default function Inscription() {
               <div className="col-md-6">
                 <Form.Group className="mb-3">
                   <Form.Label>Faculté *</Form.Label>
-                  <Form.Select
-                    value={form.faculte}
-                    onChange={(e) => handleFaculteChange(e.target.value)}
-                    required
-                  >
-                    <option value="">Sélectionner...</option>
-                    {facultes.map((fac, index) => (
-                      <option key={index} value={fac}>{fac}</option>
-                    ))}
-                  </Form.Select>
+                  {loadingFacultes ? (
+                    <Spinner animation="border" size="sm" />
+                  ) : (
+                    <Form.Select
+                      value={form.faculte}
+                      onChange={(e) => handleFaculteChange(e.target.value)}
+                      required
+                    >
+                      <option value="">Sélectionner une faculté...</option>
+                      {facultes.map((faculte) => (
+                        <option key={faculte.id} value={faculte.id}>
+                          {faculte.nom} ({faculte.code})
+                        </option>
+                      ))}
+                    </Form.Select>
+                  )}
                 </Form.Group>
               </div>
               <div className="col-md-6">
                 <Form.Group className="mb-3">
                   <Form.Label>Domaine</Form.Label>
-                  <Form.Control
-                    type="text"
+                  <Form.Select
                     value={form.domaine}
-                    readOnly
-                    className="bg-light"
-                  />
+                    onChange={(e) => handleDomaineChange(e.target.value)}
+                    disabled={!form.faculte}
+                  >
+                    <option value="">{form.faculte ? "Sélectionner un domaine..." : "Veuillez d'abord choisir une faculté"}</option>
+                    {domaines.map((domaine) => (
+                      <option key={domaine.id} value={domaine.id}>
+                        {domaine.nom} ({domaine.code})
+                      </option>
+                    ))}
+                  </Form.Select>
                 </Form.Group>
               </div>
             </div>
@@ -1508,19 +1572,16 @@ export default function Inscription() {
                   <Form.Label>Mention</Form.Label>
                   <Form.Select
                     value={form.mention}
-                    onChange={(e) => setForm({ ...form, mention: e.target.value })}
-                    disabled={!form.faculte}
+                    onChange={(e) => handleMentionChange(e.target.value)}
+                    disabled={!form.domaine}
                   >
-                    <option value="">{form.faculte ? "Sélectionner une mention" : "Veuillez d'abord choisir une faculté"}</option>
-                    {getMentionsForFaculte(form.faculte).map((mention, index) => (
-                      <option key={index} value={mention}>{mention}</option>
+                    <option value="">{form.domaine ? "Sélectionner une mention..." : "Veuillez d'abord choisir un domaine"}</option>
+                    {filteredMentions.map((mention) => (
+                      <option key={mention.id} value={mention.id}>
+                        {mention.nom} ({mention.code})
+                      </option>
                     ))}
                   </Form.Select>
-                  {!form.faculte && (
-                    <Form.Text className="text-warning">
-                      Vous devez d'abord sélectionner une faculté pour voir les mentions disponibles.
-                    </Form.Text>
-                  )}
                 </Form.Group>
               </div>
             </div>
@@ -1565,7 +1626,7 @@ export default function Inscription() {
                   <strong>Niveau :</strong> {etudiantToDelete.niveau}
                 </p>
                 <p className="mb-1">
-                  <strong>Faculté :</strong> {etudiantToDelete.faculte}
+                  <strong>Faculté :</strong> {getFaculteName(etudiantToDelete.faculte)}
                 </p>
               </div>
 
@@ -1601,6 +1662,7 @@ export default function Inscription() {
               <li>La première ligne doit contenir les en-têtes des colonnes</li>
               <li>Les colonnes obligatoires sont : matricule, nom, prenom</li>
               <li>Les dates doivent être au format YYYY-MM-DD</li>
+              <li>Pour faculté, domaine, mention : utiliser les IDs numériques</li>
               <li>Téléchargez le modèle pour voir le format attendu</li>
             </ul>
             <Button

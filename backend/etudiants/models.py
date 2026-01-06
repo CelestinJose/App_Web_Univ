@@ -1,5 +1,7 @@
 from django.db import models
 
+from facultes.models import Domaine, Faculte, Mention
+
 class Etudiant(models.Model):
     """Profil d'étudiant avec informations supplémentaires"""
     
@@ -26,15 +28,17 @@ class Etudiant(models.Model):
     # Champs avec valeurs par défaut
     bourse = models.FloatField(default=0)
     numero_inscription = models.CharField(max_length=50, unique=True, blank=True, null=True)
+
+    # Relations avec facultés, domaines, mentions
+    faculte = models.ForeignKey(Faculte, on_delete=models.SET_NULL, null=True, blank=True, related_name='etudiants')
+    domaine = models.ForeignKey(Domaine, on_delete=models.SET_NULL, null=True, blank=True, related_name='etudiants')
+    mention = models.ForeignKey(Mention, on_delete=models.SET_NULL, null=True, blank=True, related_name='etudiants')
     
     # Champs optionnels
     date_naissance = models.DateField(null=True, blank=True)
     telephone = models.CharField(max_length=20, blank=True, null=True)
     cin = models.CharField(max_length=12, blank=True, null=True)
     annee_bacc = models.CharField(max_length=4, blank=True, null=True)
-    faculte = models.CharField(max_length=50, blank=True, null=True)
-    domaine = models.CharField(max_length=50, blank=True, null=True)
-    mention = models.CharField(max_length=100, blank=True, null=True, help_text="Ex: Informatique, Mathématiques, Physique, etc.")
     nationalite = models.CharField(max_length=50, default='Malagasy')
     photo = models.ImageField(upload_to='Etudiant/', null=True, blank=True)
     
