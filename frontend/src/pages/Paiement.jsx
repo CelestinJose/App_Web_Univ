@@ -112,7 +112,7 @@ const paiementApi = {
 const echeancierApi = {
   getEcheanciers: async (params = {}) => {
     try {
-      const response = await api.get('/echeanciers/', { params });
+      const response = await api.get('/Echeance/', { params });
       return response;
     } catch (error) {
       console.error("Erreur API getEcheanciers:", error);

@@ -14,10 +14,11 @@
 
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import PaiementIndividuelViewSet
+from .views import PaiementIndividuelViewSet,EcheanceViewSet
 
 router = DefaultRouter()
-router.register(r'', PaiementIndividuelViewSet, basename='paiement-individuel') 
+router.register(r'', PaiementIndividuelViewSet, basename='paiement-individuel')
+router.register(r'', EcheanceViewSet, basename='Echeance')
 
 urlpatterns = [
     path('', include(router.urls)),

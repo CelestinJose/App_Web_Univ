@@ -19,6 +19,7 @@ class PaiementIndividuelSerializer(serializers.ModelSerializer):
             'status',
             'date_paiement',
             'notes',
+            
         ]
         read_only_fields = ['status', 'montant', 'montant_restant']
 
@@ -38,6 +39,12 @@ class PaiementIndividuelSerializer(serializers.ModelSerializer):
             notes="EN_ATTENTE",
             etudiant_id=etudiant.id
         )
+        # 🔹 Création de l'échéancier
+        EcheancierPaiement.objects.create(
+        etudiant=etudiant,  # passe l'objet étudiant
+        nombre_echeances=nombre_echeances,
+        montant_par_echeance=montant_total / int(nombre_echeances) if nombre_echeances > 0 else 0
+     )
 
         return paiement
 
@@ -87,3 +94,13 @@ class PaiementCollectifSerializer(serializers.Serializer):
             paiements.append(paiement)
 
         return paiements
+class EcheanceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EcheancierPaiement
+        fields = [
+            'id',
+            'etudiant',
+            'nombre_echeances',
+            'montant_par_echeance',
+            'created_at',
+        ]

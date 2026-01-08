@@ -1,8 +1,8 @@
 # views.py
 from rest_framework import viewsets, status
 from rest_framework.response import Response
-from .models import Paiement
-from .serializers import PaiementIndividuelSerializer, PaiementCollectifSerializer
+from .models import Paiement,EcheancierPaiement
+from .serializers import PaiementIndividuelSerializer, PaiementCollectifSerializer, EcheanceSerializer
 
 # ⚡ Paiement individuel
 class PaiementIndividuelViewSet(viewsets.ModelViewSet):
@@ -30,3 +30,7 @@ class PaiementCollectifViewSet(viewsets.GenericViewSet):
         return Response({
             "message": f"{len(paiements)} paiements créés pour la faculté."
         }, status=status.HTTP_201_CREATED)
+
+class EcheanceViewSet(viewsets.ModelViewSet):
+    queryset = EcheancierPaiement.objects.all()
+    serializer_class = EcheanceSerializer
