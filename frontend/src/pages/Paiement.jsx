@@ -49,6 +49,11 @@ import {
 } from "@mui/icons-material";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import {
+  Checkbox,
+  FormControlLabel
+} from "@mui/material";
+
 
 // Import de votre API configurée
 import api, { etudiantApi } from '../api';
@@ -71,18 +76,7 @@ const paiementApi = {
   // Récupérer un paiement spécifique
   getPaiement: (id) => api.get(`/paiements/${id}/`),
 
-  // Créer un nouveau paiement
-  createPaiement: async (data) => {
-    try {
-      console.log("API: Création paiement avec data:", data);
-      const response = await api.post('/paiements/', data);
-      console.log("API: Réponse création paiement:", response.data);
-      return response;
-    } catch (error) {
-      console.error("Erreur API createPaiement:", error);
-      throw error;
-    }
-  },
+
 
   // Mettre à jour un paiement (PUT)
   updatePaiement: async (id, data) => {
@@ -242,6 +236,57 @@ export default function Paiement() {
   const [selectedEtudiant, setSelectedEtudiant] = useState(null);
   const [selectedEcheancier, setSelectedEcheancier] = useState(null);
   const [selectedVersement, setSelectedVersement] = useState(null);
+
+
+  const [typePaiement, setTypePaiement] = useState("etudiant"); // etudiant | faculte
+  const [isRenouvellement, setIsRenouvellement] = useState(false);
+
+  const facultes = [
+    { id: 1, nom: "Faculté des Sciences" },
+    { id: 2, nom: "Faculté de Droit" },
+    { id: 3, nom: "Faculté d'Économie" },
+    { id: 4, nom: "Faculté d'Informatique" }
+  ]; 
+
+  const createPaiement = async () => {
+  try {
+    const url =
+      typePaiement === "etudiant"
+        ? "http://localhost:8000/api/paiement-individuel/"
+        : "http://localhost:8000/api/paiement-collectif/";
+
+    const payload =
+      typePaiement === "etudiant"
+        ? {
+            etudiant: newPaiementData.etudiant,
+            nombre_echeances: Number(newPaiementData.nombre_echeance),
+            date_paiement: newPaiementData.date_paiement,
+            notes: newPaiementData.notes,
+          }
+        : {
+            faculte: newPaiementData.faculte,
+            niveau: newPaiementData.niveau,
+            nombre_echeances: Number(newPaiementData.nombre_echeance),
+            notes: newPaiementData.notes,
+          };
+ console.log("Payload envoyé :", payload);
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+    alert(data.message || "Paiement créé !");
+    setShowCreateModal(false);
+  } catch (err) {
+    console.error(err);
+    alert("Erreur lors de la création du paiement.");
+  }
+};
+
   
   const [editData, setEditData] = useState({
     montant: "",
@@ -647,29 +692,29 @@ export default function Paiement() {
   };
 
   // Créer un nouveau paiement
-  const createPaiement = async () => {
-    try {
-      if (!newPaiementData.etudiant) {
-        showNotification("Veuillez sélectionner un étudiant", "error");
-        return;
-      }
+  // const createPaiement = async () => {
+  //   try {
+  //     if (!newPaiementData.etudiant) {
+  //       showNotification("Veuillez sélectionner un étudiant", "error");
+  //       return;
+  //     }
       
-      if (!newPaiementData.montant || parseFloat(newPaiementData.montant) <= 0) {
-        showNotification("Veuillez entrer un montant valide", "error");
-        return;
-      }
+  //     if (!newPaiementData.montant || parseFloat(newPaiementData.montant) <= 0) {
+  //       showNotification("Veuillez entrer un montant valide", "error");
+  //       return;
+  //     }
 
-      await paiementApi.createPaiement(newPaiementData);
+  //     await paiementApi.createPaiement(newPaiementData);
       
-      showNotification("Paiement créé avec succès!", "success");
-      setShowCreateModal(false);
-      loadData();
+  //     showNotification("Paiement créé avec succès!", "success");
+  //     setShowCreateModal(false);
+  //     loadData();
       
-    } catch (error) {
-      console.error("Erreur lors de la création:", error);
-      showNotification("Erreur lors de la création: " + error.message, "error");
-    }
-  };
+  //   } catch (error) {
+  //     console.error("Erreur lors de la création:", error);
+  //     showNotification("Erreur lors de la création: " + error.message, "error");
+  //   }
+  // };
 
   // CORRIGÉ: Créer un nouvel échéancier selon votre modèle
   const createEcheancier = async () => {
@@ -1783,106 +1828,158 @@ export default function Paiement() {
         </DialogActions>
       </Dialog>
 
-      {/* Modal Création Paiement */}
-      <Dialog open={showCreateModal} onClose={() => setShowCreateModal(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Nouveau Paiement</DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 2 }}>
-            {etudiants.length === 0 ? (
-              <Alert severity="warning">
-                Aucun étudiant disponible. Veuillez d'abord créer des étudiants.
-              </Alert>
-            ) : (
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
-                  <FormControl fullWidth required>
-                    <InputLabel>Étudiant *</InputLabel>
-                    <Select
-                      value={newPaiementData.etudiant}
-                      onChange={(e) => setNewPaiementData({ ...newPaiementData, etudiant: e.target.value })}
-                      label="Étudiant *"
-                      error={!newPaiementData.etudiant}
-                    >
-                      {etudiants.map((etudiant) => (
-                        <MenuItem key={etudiant.id} value={etudiant.id}>
-                          {etudiant.nom} {etudiant.prenom} ({etudiant.matricule})
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="Montant (MGA) *"
-                    type="number"
-                    value={newPaiementData.montant}
-                    onChange={(e) => setNewPaiementData({ ...newPaiementData, montant: e.target.value })}
-                    required
-                    error={!newPaiementData.montant || parseFloat(newPaiementData.montant) <= 0}
-                    helperText={!newPaiementData.montant ? "Ce champ est requis" : parseFloat(newPaiementData.montant) <= 0 ? "Le montant doit être positif" : ""}
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="Montant Restant (MGA)"
-                    type="number"
-                    value={newPaiementData.montant_restant}
-                    onChange={(e) => setNewPaiementData({ ...newPaiementData, montant_restant: e.target.value })}
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <FormControl fullWidth>
-                    <InputLabel>Statut</InputLabel>
-                    <Select
-                      value={newPaiementData.status}
-                      onChange={(e) => setNewPaiementData({ ...newPaiementData, status: e.target.value })}
-                      label="Statut"
-                    >
-                      {statutsPaiement.map((statut) => (
-                        <MenuItem key={statut.value} value={statut.value}>
-                          {statut.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="Date Paiement"
-                    type="date"
-                    value={newPaiementData.date_paiement}
-                    onChange={(e) => setNewPaiementData({ ...newPaiementData, date_paiement: e.target.value })}
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="Notes"
-                    multiline
-                    rows={3}
-                    value={newPaiementData.notes}
-                    onChange={(e) => setNewPaiementData({ ...newPaiementData, notes: e.target.value })}
-                  />
-                </Grid>
-              </Grid>
-            )}
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowCreateModal(false)}>Annuler</Button>
-          <Button 
-            variant="contained" 
-            onClick={createPaiement}
-            disabled={!newPaiementData.etudiant || !newPaiementData.montant || parseFloat(newPaiementData.montant) <= 0}
-          >
-            Créer
-          </Button>
-        </DialogActions>
-      </Dialog>
+ <Dialog open={showCreateModal} onClose={() => setShowCreateModal(false)} maxWidth="sm" fullWidth>
+  <DialogTitle>Nouveau Paiement</DialogTitle>
+
+  <DialogContent>
+    <Box sx={{ mt: 2 }}>
+
+      {/* Choix type paiement */}
+      <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
+        <Button
+          variant={typePaiement === "etudiant" ? "contained" : "outlined"}
+          onClick={() => setTypePaiement("etudiant")}
+        >
+          Paiement par Étudiant
+        </Button>
+
+        <Button
+          variant={typePaiement === "faculte" ? "contained" : "outlined"}
+          onClick={() => setTypePaiement("faculte")}
+        >
+          Paiement par Faculté
+        </Button>
+      </Box>
+
+      <Grid container spacing={2}>
+
+        {/* ===== Paiement par ETUDIANT ===== */}
+        {typePaiement === "etudiant" && (
+          <Grid item xs={12}>
+            <FormControl fullWidth required>
+              <InputLabel>Étudiant *</InputLabel>
+              <Select
+                value={newPaiementData.etudiant}
+                onChange={(e) =>
+                  setNewPaiementData({ ...newPaiementData, etudiant: e.target.value })
+                }
+                label="Étudiant *"
+              >
+                {etudiants.map((etudiant) => (
+                  <MenuItem key={etudiant.id} value={etudiant.id}>
+                    {etudiant.nom} {etudiant.prenom} ({etudiant.matricule})
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+        )}
+
+        {/* ===== Paiement par FACULTE ===== */}
+        {typePaiement === "faculte" && (
+          <>
+            <Grid item xs={12}>
+              <FormControl fullWidth required>
+                <InputLabel>Faculté *</InputLabel>
+                <Select
+                  value={newPaiementData.faculte}
+                  onChange={(e) =>
+                    setNewPaiementData({ ...newPaiementData, faculte: e.target.value })
+                  }
+                  label="Faculté *"
+                >
+                  {facultes.map((fac) => (
+                    <MenuItem key={fac.id} value={fac.id}>
+                      {fac.nom}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            {/* Niveau */}
+            <Grid item xs={12}>
+              <FormControl fullWidth required>
+                <InputLabel>Niveau *</InputLabel>
+                <Select
+                  value={newPaiementData.niveau}
+                  onChange={(e) =>
+                    setNewPaiementData({ ...newPaiementData, niveau: e.target.value })
+                  }
+                  label="Niveau *"
+                >
+                  <MenuItem value="L1">Licence 1 (L1)</MenuItem>
+                  <MenuItem value="L2">Licence 2 (L2)</MenuItem>
+                  <MenuItem value="L3">Licence 3 (L3)</MenuItem>
+                  <MenuItem value="M1">Master 1 (M1)</MenuItem>
+                  <MenuItem value="M2">Master 2 (M2)</MenuItem>
+                  <MenuItem value="DOCTORAT">Doctorat</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+          </>
+        )}
+
+        {/* ===== Nombre d'échéances ===== */}
+        <Grid item xs={12}>
+          <TextField
+            fullWidth
+            label="Nombre d'échéances"
+            type="number"
+            inputProps={{ min: 1 }}
+            value={newPaiementData.nombre_echeance}
+            onChange={(e) =>
+              setNewPaiementData({
+                ...newPaiementData,
+                nombre_echeance: e.target.value
+              })
+            }
+            required
+          />
+        </Grid>
+
+        {/* Date */}
+        <Grid item xs={12}>
+          <TextField
+            fullWidth
+            label="Date Paiement"
+            type="date"
+            value={newPaiementData.date_paiement}
+            onChange={(e) =>
+              setNewPaiementData({
+                ...newPaiementData,
+                date_paiement: e.target.value
+              })
+            }
+            InputLabelProps={{ shrink: true }}
+            required
+          />
+        </Grid>
+
+      </Grid>
+    </Box>
+  </DialogContent>
+
+  <DialogActions>
+    <Button onClick={() => setShowCreateModal(false)}>Annuler</Button>
+    <Button
+      variant="contained"
+      onClick={createPaiement}
+      disabled={
+        (typePaiement === "etudiant" && !newPaiementData.etudiant) ||
+        (typePaiement === "faculte" && (!newPaiementData.faculte || !newPaiementData.niveau)) ||
+        !newPaiementData.nombre_echeance ||
+        !newPaiementData.date_paiement
+      }
+    >
+      Créer
+    </Button>
+  </DialogActions>
+</Dialog>
+
+
+
+
 
       {/* CORRIGÉ: Modal Création Échéancier selon votre modèle */}
       <Dialog open={showCreateEcheancierModal} onClose={() => setShowCreateEcheancierModal(false)} maxWidth="sm" fullWidth>

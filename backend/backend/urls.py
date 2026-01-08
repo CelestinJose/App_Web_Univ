@@ -12,6 +12,7 @@ urlpatterns = [
     path('api/auth/', include('users.urls')),
     path('api/etudiants/', include('etudiants.urls')),
     path('api/paiements/', include('paiements.urls')),
+    path('api/paiement-individuel/', include('paiements.urls')), 
     path('api/paiement-collectif/', include('paiements.paiement_collectif_urls')), 
     path('api/bourses/', include('bourses.urls')),
     path('api/facultes/', include('facultes.urls')),
