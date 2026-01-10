@@ -10,7 +10,7 @@ class Paiement(models.Model):
         ('REMBOURSÉ', 'Remboursé'),
     ]
     
-    etudiant = models.OneToOneField('etudiants.Etudiant', on_delete=models.CASCADE, related_name='paiement')
+    etudiant = models.ForeignKey( 'etudiants.Etudiant',on_delete=models.CASCADE,related_name='paiement')
 
     montant = models.DecimalField(max_digits=10, decimal_places=2)
     montant_restant = models.DecimalField(max_digits=10, decimal_places=2, default=0)

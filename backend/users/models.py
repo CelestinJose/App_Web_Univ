@@ -10,6 +10,7 @@ class CustomUser(AbstractUser):
         ('finance', 'Finance'),
     )
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
+    faculte = models.CharField(max_length=50, blank=True, null=True)
     last_seen = models.DateTimeField(null=True, blank=True)
     is_online = models.BooleanField(default=False)
     last_login_ip = models.GenericIPAddressField(null=True, blank=True)

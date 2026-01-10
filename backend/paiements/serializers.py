@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import Paiement, EcheancierPaiement
 from etudiants.models import Etudiant
+from facultes.models import Faculte
 
 class PaiementIndividuelSerializer(serializers.ModelSerializer):
     # Nombre d'échéances envoyé depuis le frontend
@@ -50,50 +51,50 @@ class PaiementIndividuelSerializer(serializers.ModelSerializer):
 
 
 class PaiementCollectifSerializer(serializers.Serializer):
-    faculte = serializers.CharField()
+    faculte = serializers.IntegerField()  # ID de la faculté
     niveau = serializers.CharField()
     nombre_echeances = serializers.IntegerField()
     notes = serializers.CharField(required=False, allow_blank=True)
     status = serializers.CharField(default="EN_ATTENTE")
 
     def create(self, validated_data):
-        faculte = validated_data.get('faculte')
+        faculte_id = validated_data.get('faculte')
         niveau = validated_data.get('niveau')
         nombre_echeances = validated_data.get('nombre_echeances')
-        notes = validated_data.get('notes', '')
-        status = validated_data.get('status', 'EN_ATTENTE')
 
-        # 🔹 Récupérer tous les étudiants de cette faculté et niveau
-        etudiants = Etudiant.objects.filter(faculte=faculte, niveau=niveau)
+        # 🔹 Récupérer l'objet Faculté
+        etudiants = Etudiant.objects.filter(faculte=faculte_id, niveau=niveau)
+        print(f"Étudiants trouvés : {etudiants}")
+
         paiements = []
 
         for etudiant in etudiants:
-            # 🔹 Récupérer le champ boursier
-            boursier = etudiant.boursier
-
-            # 🔹 Calcul du montant : si boursier = "OUI" alors 48400 par échéance, sinon 0
-            montant_bourse = 48400.00 if boursier == 'OUI' else 0.00
-            montant_total = montant_bourse * int(nombre_echeances)
+            bourse = float(etudiant.bourse or 0)
+            montant_total = bourse * int(nombre_echeances)
 
             # 🔹 Création du paiement
             paiement = Paiement.objects.create(
                 etudiant=etudiant,
                 montant=montant_total,
                 montant_restant=montant_total,
-                status=status,
-                notes=notes
+                status="EN_ATTENTE", 
+                date_paiement=validated_data.get('date_paiement'),
+                notes="EN_ATTENTE",
+                etudiant_id=etudiant.id
             )
 
             # 🔹 Création de l’échéancier
             EcheancierPaiement.objects.create(
                 etudiant=etudiant,
                 nombre_echeances=nombre_echeances,
-                montant_par_echeance=montant_bourse
+                montant_par_echeance=montant_total / nombre_echeances if nombre_echeances > 0 else 0
             )
 
             paiements.append(paiement)
 
         return paiements
+
+
 class EcheanceSerializer(serializers.ModelSerializer):
     class Meta:
         model = EcheancierPaiement

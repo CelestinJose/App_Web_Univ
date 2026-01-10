@@ -197,6 +197,11 @@ const versementApi = {
     }
   }
 };
+// import { useState, useEffect } from "react";
+
+// Hook personnalisé pour récupérer les facultés
+
+
 
 export default function Paiement() {
   // États pour les données
@@ -236,17 +241,42 @@ export default function Paiement() {
   const [selectedEtudiant, setSelectedEtudiant] = useState(null);
   const [selectedEcheancier, setSelectedEcheancier] = useState(null);
   const [selectedVersement, setSelectedVersement] = useState(null);
-
+   const [facultes, setFacultes] = useState([]);
+  const [loadingFacultes, setLoadingFacultes] = useState(true);
 
   const [typePaiement, setTypePaiement] = useState("etudiant"); // etudiant | faculte
-  const [isRenouvellement, setIsRenouvellement] = useState(false);
 
-  const facultes = [
-    { id: 1, nom: "Faculté des Sciences" },
-    { id: 2, nom: "Faculté de Droit" },
-    { id: 3, nom: "Faculté d'Économie" },
-    { id: 4, nom: "Faculté d'Informatique" }
-  ]; 
+  useEffect(() => {
+  const fetchFacultes = async () => {
+    try {
+      const res = await fetch("http://localhost:8000/api/facultes/");
+      if (!res.ok) throw new Error("Erreur lors du chargement des facultés");
+
+      const data = await res.json();
+
+      // 🔹 Vérifie que c'est bien un tableau
+      if (Array.isArray(data)) {
+        setFacultes(data);
+      } else if (data.results && Array.isArray(data.results)) {
+        // si c'est paginé (DRF retourne souvent {results: [...]})
+        setFacultes(data.results);
+      } else {
+        console.error("Format inattendu des facultés :", data);
+        setFacultes([]);
+      }
+    } catch (err) {
+      console.error("Erreur fetch facultés :", err);
+      setFacultes([]);
+    } finally {
+      setLoadingFacultes(false);
+    }
+  };
+
+  fetchFacultes();
+}, []);
+
+
+
 
   const createPaiement = async () => {
   try {
@@ -269,7 +299,7 @@ export default function Paiement() {
             nombre_echeances: Number(newPaiementData.nombre_echeance),
             notes: newPaiementData.notes,
           };
- console.log("Payload envoyé :", payload);
+    console.log("Payload envoyé :", payload);
     const res = await fetch(url, {
       method: "POST",
       headers: {
@@ -1880,21 +1910,21 @@ export default function Paiement() {
           <>
             <Grid item xs={12}>
               <FormControl fullWidth required>
-                <InputLabel>Faculté *</InputLabel>
-                <Select
-                  value={newPaiementData.faculte}
-                  onChange={(e) =>
-                    setNewPaiementData({ ...newPaiementData, faculte: e.target.value })
-                  }
-                  label="Faculté *"
-                >
-                  {facultes.map((fac) => (
-                    <MenuItem key={fac.id} value={fac.id}>
-                      {fac.nom}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+      <InputLabel>Faculté *</InputLabel>
+      <Select
+        value={newPaiementData.faculte}
+        onChange={(e) =>
+          setNewPaiementData({ ...newPaiementData, faculte: e.target.value })
+        }
+        label="Faculté *"
+      >
+        {facultes.map((fac) => (
+          <MenuItem key={fac.id} value={fac.id}>
+            {fac.nom}
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
             </Grid>
 
             {/* Niveau */}
@@ -1908,12 +1938,12 @@ export default function Paiement() {
                   }
                   label="Niveau *"
                 >
-                  <MenuItem value="L1">Licence 1 (L1)</MenuItem>
-                  <MenuItem value="L2">Licence 2 (L2)</MenuItem>
-                  <MenuItem value="L3">Licence 3 (L3)</MenuItem>
-                  <MenuItem value="M1">Master 1 (M1)</MenuItem>
-                  <MenuItem value="M2">Master 2 (M2)</MenuItem>
-                  <MenuItem value="DOCTORAT">Doctorat</MenuItem>
+                  <MenuItem value="Licence 1">Licence 1 (L1)</MenuItem>
+                  <MenuItem value="Licence 2">Licence 2 (L2)</MenuItem>
+                  <MenuItem value="Licence 3">Licence 3 (L3)</MenuItem>
+                  <MenuItem value="Master 1">Master 1 (M1)</MenuItem>
+                  <MenuItem value="Master 2">Master 2 (M2)</MenuItem>
+                  <MenuItem value="Doctorat">Doctorat</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
