@@ -707,7 +707,7 @@ export default function Mentions() {
                               <td>
                                 <div className="d-flex gap-2">
                                   <Button
-                                    variant="outline-primary"
+                                    variant="outline-success"
                                     size="sm"
                                     onClick={() => handleEdit(mention)}
                                     title="Modifier"

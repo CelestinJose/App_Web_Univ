@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { FaEdit, FaTrash, FaSearch, FaArrowUp, FaArrowDown, FaSync } from "react-icons/fa";
+import { FaEdit, FaTrash, FaSearch, FaArrowUp, FaArrowDown, FaSync, FaInfoCircle } from "react-icons/fa";
 import Modal from 'react-bootstrap/Modal';
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
@@ -12,7 +12,7 @@ import Spinner from 'react-bootstrap/Spinner';
 import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { etudiantApi, faculteApi, domaineApi, mentionApi } from '../api'; // Ajoutez les imports
+import { etudiantApi, faculteApi, domaineApi, mentionApi } from '../api';
 
 export default function Reinscription() {
   // États pour les données
@@ -51,13 +51,13 @@ export default function Reinscription() {
     telephone: "",
     cin: "",
     annee_bacc: new Date().getFullYear().toString(),
-    code_redoublement: "R", // Par défaut R pour réinscription
+    code_redoublement: "R",
     boursier: "OUI",
-    faculte: "", // Maintenant c'est l'ID de la faculté
-    domaine: "", // Maintenant c'est l'ID du domaine
+    faculte: "",
+    domaine: "",
     niveau: "Licence 2",
     nationalite: "Malagasy",
-    mention: "", // Maintenant c'est l'ID de la mention
+    mention: "",
   });
 
   const [editId, setEditId] = useState(null);
@@ -71,6 +71,7 @@ export default function Reinscription() {
   // États pour la recherche
   const [searchTerm, setSearchTerm] = useState("");
   const [filterNiveau, setFilterNiveau] = useState("");
+  const [filterCode, setFilterCode] = useState(""); // Nouveau filtre pour le code redoublement
 
   // États pour la pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -180,20 +181,15 @@ export default function Reinscription() {
 
   // Fonction pour gérer les changements de faculté
   const handleFaculteChange = async (selectedFaculteId) => {
-    // Trouver la faculté sélectionnée
-    const faculte = facultes.find(f => f.id == selectedFaculteId);
-    
-    // Si on a changé de faculté, réinitialiser domaine et mention
     const updatedForm = {
       ...form,
       faculte: selectedFaculteId,
-      domaine: "", // Réinitialiser le domaine
-      mention: "" // Réinitialiser la mention
+      domaine: "",
+      mention: ""
     };
 
     setForm(updatedForm);
 
-    // Si on a sélectionné une faculté, charger ses domaines
     if (selectedFaculteId) {
       try {
         const response = await domaineApi.getDomaines({ faculte: selectedFaculteId });
@@ -201,23 +197,22 @@ export default function Reinscription() {
       } catch (err) {
         console.error("Erreur chargement domaines:", err);
       }
+    } else {
+      // Si aucune faculté sélectionnée, charger tous les domaines
+      fetchDomaines();
     }
   };
 
   // Fonction pour gérer les changements de domaine
   const handleDomaineChange = (selectedDomaineId) => {
-    // Trouver le domaine sélectionné
-    const domaine = domaines.find(d => d.id == selectedDomaineId);
-    
     const updatedForm = {
       ...form,
       domaine: selectedDomaineId,
-      mention: "" // Réinitialiser la mention quand on change de domaine
+      mention: ""
     };
 
     setForm(updatedForm);
 
-    // Filtrer les mentions par domaine
     if (selectedDomaineId) {
       filterMentionsByDomaine(selectedDomaineId);
     } else {
@@ -248,7 +243,7 @@ export default function Reinscription() {
     return [];
   };
 
-  // Charger les étudiants
+  // CORRIGÉ : Charger les étudiants - Recherche TOUS les étudiants, pas seulement redoublants
   const fetchEtudiants = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -257,15 +252,29 @@ export default function Reinscription() {
       const params = {
         page: currentPage,
         page_size: itemsPerPage,
-        code_redoublement__in: "R,T",
       };
 
+      // Recherche dans tous les étudiants
+      if (searchTerm) {
+        params.search = searchTerm;
+      }
+
+      // Filtre par niveau si spécifié
       if (filterNiveau) {
         params.niveau = filterNiveau;
       }
 
-      if (searchTerm) {
-        params.search = searchTerm;
+      // Filtre par code redoublement si spécifié
+      if (filterCode) {
+        if (filterCode === 'R_T') {
+          // Filtrer R et T
+          params.code_redoublement__in = 'R,T';
+        } else {
+          params.code_redoublement = filterCode;
+        }
+      } else {
+        // Par défaut, montrer tous les codes (N, R, T)
+        params.code_redoublement__in = 'N,R,T';
       }
 
       const response = await etudiantApi.getEtudiants(params);
@@ -306,7 +315,7 @@ export default function Reinscription() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, itemsPerPage, filterNiveau, searchTerm]);
+  }, [currentPage, itemsPerPage, filterNiveau, searchTerm, filterCode]);
 
   // Charger les statistiques
   const fetchStats = useCallback(async () => {
@@ -330,9 +339,24 @@ export default function Reinscription() {
     fetchFacultes();
     fetchDomaines();
     fetchMentions();
-    fetchEtudiants();
-    fetchStats();
-  }, [fetchEtudiants, fetchStats]);
+  }, []);
+
+  // Recharger les étudiants quand les critères de recherche changent
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setCurrentPage(1);
+      fetchEtudiants();
+    }, 300); // Délai de 300ms pour éviter trop d'appels API
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, filterNiveau, filterCode, itemsPerPage]);
+
+  // Charger les stats après le chargement initial
+  useEffect(() => {
+    if (!loading) {
+      fetchStats();
+    }
+  }, [loading]);
 
   // Fonction pour montrer les toasts
   const showToast = (message, type = 'success') => {
@@ -347,39 +371,78 @@ export default function Reinscription() {
   const getRelationName = (relation, relationList) => {
     if (!relation) return '-';
     
-    // Si c'est un objet avec un champ 'nom'
     if (typeof relation === 'object' && relation !== null) {
-      return relation.nom || relation.code || '-';
+      return relation.nom || relation.nom_faculte || relation.nom_domaine || relation.nom_mention || relation.code || '-';
     }
     
-    // Si c'est un ID, trouver dans la liste
     if (relationList) {
-      const found = relationList.find(item => item.id == relation);
-      return found ? found.nom || found.code : relation;
+      const found = relationList.find(item => item.id == relation || item.id === relation);
+      return found ? (found.nom || found.nom_faculte || found.nom_domaine || found.nom_mention || found.code) : relation;
     }
     
     return relation;
   };
 
-  // Ouvrir modal d'édition
+  // CORRIGÉ : Ouvrir modal d'édition - récupère correctement les données
   const openEditModal = async (etudiant) => {
-    // Charger les domaines de la faculté de l'étudiant
+    console.log("Étudiant à modifier:", etudiant);
+    
+    // Récupérer les IDs des relations
+    let faculteId = "";
+    let domaineId = "";
+    let mentionId = "";
+    
+    // Récupérer l'ID de la faculté
     if (etudiant.faculte) {
+      if (typeof etudiant.faculte === 'object') {
+        faculteId = etudiant.faculte.id;
+      } else if (etudiant.faculte_id) {
+        faculteId = etudiant.faculte_id;
+      } else {
+        faculteId = etudiant.faculte;
+      }
+    }
+    
+    // Récupérer l'ID du domaine
+    if (etudiant.domaine) {
+      if (typeof etudiant.domaine === 'object') {
+        domaineId = etudiant.domaine.id;
+      } else if (etudiant.domaine_id) {
+        domaineId = etudiant.domaine_id;
+      } else {
+        domaineId = etudiant.domaine;
+      }
+    }
+    
+    // Récupérer l'ID de la mention
+    if (etudiant.mention) {
+      if (typeof etudiant.mention === 'object') {
+        mentionId = etudiant.mention.id;
+      } else if (etudiant.mention_id) {
+        mentionId = etudiant.mention_id;
+      } else {
+        mentionId = etudiant.mention;
+      }
+    }
+    
+    console.log("IDs récupérés:", { faculteId, domaineId, mentionId });
+    
+    // Charger les domaines pour cette faculté
+    if (faculteId) {
       try {
-        const faculteId = typeof etudiant.faculte === 'object' ? etudiant.faculte.id : etudiant.faculte;
         const response = await domaineApi.getDomaines({ faculte: faculteId });
         setDomaines(response.data.results || response.data);
       } catch (err) {
         console.error("Erreur chargement domaines:", err);
       }
     }
-
-    // Charger les mentions du domaine de l'étudiant
-    if (etudiant.domaine) {
-      const domaineId = typeof etudiant.domaine === 'object' ? etudiant.domaine.id : etudiant.domaine;
+    
+    // Filtrer les mentions pour ce domaine
+    if (domaineId) {
       filterMentionsByDomaine(domaineId);
     }
-
+    
+    // Préparer les données du formulaire
     const formattedEtudiant = {
       matricule: etudiant.matricule || "",
       nom: etudiant.nom || "",
@@ -391,13 +454,15 @@ export default function Reinscription() {
       annee_bacc: etudiant.annee_bacc ? etudiant.annee_bacc.toString() : "",
       code_redoublement: etudiant.code_redoublement || "R",
       boursier: etudiant.boursier || "OUI",
-      faculte: typeof etudiant.faculte === 'object' ? etudiant.faculte.id : etudiant.faculte || "",
-      domaine: typeof etudiant.domaine === 'object' ? etudiant.domaine.id : etudiant.domaine || "",
+      faculte: faculteId || "",
+      domaine: domaineId || "",
       niveau: etudiant.niveau || "Licence 2",
       nationalite: etudiant.nationalite || "Malagasy",
-      mention: typeof etudiant.mention === 'object' ? etudiant.mention.id : etudiant.mention || "",
+      mention: mentionId || "",
     };
-
+    
+    console.log("Données du formulaire:", formattedEtudiant);
+    
     setForm(formattedEtudiant);
     setEditId(etudiant.id);
     setShowModal(true);
@@ -461,7 +526,7 @@ export default function Reinscription() {
     }
   }, [promotionDecision, etudiantForPromotion, showPromotionModal]);
 
-  // Sauvegarder étudiant (SEULEMENT MODIFICATION)
+  // Sauvegarder étudiant
   const saveEtudiant = async () => {
     if (!editId) {
       showToast("Seule la modification est autorisée", 'warning');
@@ -495,6 +560,8 @@ export default function Reinscription() {
         dataToSend.bourse = 0;
       }
 
+      console.log("Données à envoyer:", dataToSend);
+      
       await etudiantApi.updateEtudiant(editId, dataToSend);
       showToast("Étudiant modifié avec succès!", 'success');
 
@@ -525,80 +592,110 @@ export default function Reinscription() {
     }
   };
 
-// Gérer la promotion
-const handlePromotion = async () => {
-  if (!etudiantForPromotion) return;
+  // Gérer la promotion
+  const handlePromotion = async () => {
+    if (!etudiantForPromotion) return;
 
-  try {
-    const { nouveauNiveau, codeRedoublement } =
-      calculatePromotionDetails(etudiantForPromotion.niveau, promotionDecision, etudiantForPromotion.boursier);
-
-    // INCLURE TOUS LES CHAMPS OBLIGATOIRES DANS LE PATCH
-    const updatedData = {
-      matricule: etudiantForPromotion.matricule, // CHAMP OBLIGATOIRE
-      nom: etudiantForPromotion.nom, // CHAMP OBLIGATOIRE
-      prenom: etudiantForPromotion.prenom, // CHAMP OBLIGATOIRE
-      niveau: nouveauNiveau,
-      code_redoublement: codeRedoublement,
-      bourse: newBourse,
-      boursier: etudiantForPromotion.boursier || "OUI", // CHAMP OBLIGATOIRE
-      // Ajouter les autres champs obligatoires
-      faculte: typeof etudiantForPromotion.faculte === 'object' ? 
-        etudiantForPromotion.faculte.id : etudiantForPromotion.faculte,
-    };
-
-    console.log("Tentative avec PATCH:", updatedData);
-    
-    // Essayer d'abord avec PATCH
     try {
-      await etudiantApi.patchEtudiant(etudiantForPromotion.id, updatedData);
-    } catch (patchError) {
-      console.log("PATCH échoué, tentative avec PUT");
-      // Si PATCH échoue, utiliser PUT avec toutes les données
-      const putData = {
-        ...etudiantForPromotion,
-        ...updatedData
-      };
-      await etudiantApi.updateEtudiant(etudiantForPromotion.id, putData);
-    }
+      const { nouveauNiveau, codeRedoublement } =
+        calculatePromotionDetails(etudiantForPromotion.niveau, promotionDecision, etudiantForPromotion.boursier);
 
-    let message = "";
-    if (promotionDecision === "passe") {
-      message = `Étudiant promu de ${etudiantForPromotion.niveau} à ${nouveauNiveau} - Bourse: ${newBourse.toLocaleString()} MGA`;
-    } else if (promotionDecision === "redouble") {
-      message = `Étudiant redoublant maintenu en ${etudiantForPromotion.niveau} - Bourse: ${newBourse.toLocaleString()} MGA (moitié)`;
-    } else {
-      message = `Étudiant triplant maintenu en ${etudiantForPromotion.niveau} - Code: T - Bourse: 0 MGA`;
-    }
-
-    showToast(message, 'success');
-    setShowPromotionModal(false);
-    setEtudiantForPromotion(null);
-    fetchEtudiants();
-    fetchStats();
-
-  } catch (err) {
-    console.error("Erreur promotion:", err);
-    const errorMsg = err.response?.data?.detail ||
-      err.response?.data?.message ||
-      "Erreur lors de la mise à jour";
-
-    if (err.response?.data) {
-      console.error("Données d'erreur:", err.response.data);
-      const errors = [];
-      for (const [field, messages] of Object.entries(err.response.data)) {
-        if (Array.isArray(messages)) {
-          errors.push(`${field}: ${messages.join(', ')}`);
+      // Récupérer les IDs des relations
+      let faculteId = "";
+      let domaineId = "";
+      let mentionId = "";
+      
+      if (etudiantForPromotion.faculte) {
+        if (typeof etudiantForPromotion.faculte === 'object') {
+          faculteId = etudiantForPromotion.faculte.id;
+        } else if (etudiantForPromotion.faculte_id) {
+          faculteId = etudiantForPromotion.faculte_id;
         } else {
-          errors.push(`${field}: ${messages}`);
+          faculteId = etudiantForPromotion.faculte;
         }
       }
-      showToast(`Erreurs: ${errors.join('; ')}`, 'danger');
-    } else {
-      showToast(errorMsg, 'danger');
+      
+      if (etudiantForPromotion.domaine) {
+        if (typeof etudiantForPromotion.domaine === 'object') {
+          domaineId = etudiantForPromotion.domaine.id;
+        } else if (etudiantForPromotion.domaine_id) {
+          domaineId = etudiantForPromotion.domaine_id;
+        } else {
+          domaineId = etudiantForPromotion.domaine;
+        }
+      }
+      
+      if (etudiantForPromotion.mention) {
+        if (typeof etudiantForPromotion.mention === 'object') {
+          mentionId = etudiantForPromotion.mention.id;
+        } else if (etudiantForPromotion.mention_id) {
+          mentionId = etudiantForPromotion.mention_id;
+        } else {
+          mentionId = etudiantForPromotion.mention;
+        }
+      }
+
+      const updatedData = {
+        matricule: etudiantForPromotion.matricule,
+        nom: etudiantForPromotion.nom,
+        prenom: etudiantForPromotion.prenom,
+        niveau: nouveauNiveau,
+        code_redoublement: codeRedoublement,
+        bourse: newBourse,
+        boursier: etudiantForPromotion.boursier || "OUI",
+        faculte: faculteId,
+        domaine: domaineId,
+        mention: mentionId,
+      };
+
+      console.log("Données de promotion à envoyer:", updatedData);
+      
+      try {
+        await etudiantApi.patchEtudiant(etudiantForPromotion.id, updatedData);
+      } catch (patchError) {
+        const putData = {
+          ...etudiantForPromotion,
+          ...updatedData
+        };
+        await etudiantApi.updateEtudiant(etudiantForPromotion.id, putData);
+      }
+
+      let message = "";
+      if (promotionDecision === "passe") {
+        message = `Étudiant promu de ${etudiantForPromotion.niveau} à ${nouveauNiveau} - Bourse: ${newBourse.toLocaleString()} MGA`;
+      } else if (promotionDecision === "redouble") {
+        message = `Étudiant redoublant maintenu en ${etudiantForPromotion.niveau} - Bourse: ${newBourse.toLocaleString()} MGA (moitié)`;
+      } else {
+        message = `Étudiant triplant maintenu en ${etudiantForPromotion.niveau} - Code: T - Bourse: 0 MGA`;
+      }
+
+      showToast(message, 'success');
+      setShowPromotionModal(false);
+      setEtudiantForPromotion(null);
+      fetchEtudiants();
+      fetchStats();
+
+    } catch (err) {
+      console.error("Erreur promotion:", err);
+      const errorMsg = err.response?.data?.detail ||
+        err.response?.data?.message ||
+        "Erreur lors de la mise à jour";
+
+      if (err.response?.data) {
+        const errors = [];
+        for (const [field, messages] of Object.entries(err.response.data)) {
+          if (Array.isArray(messages)) {
+            errors.push(`${field}: ${messages.join(', ')}`);
+          } else {
+            errors.push(`${field}: ${messages}`);
+          }
+        }
+        showToast(`Erreurs: ${errors.join('; ')}`, 'danger');
+      } else {
+        showToast(errorMsg, 'danger');
+      }
     }
-  }
-};
+  };
 
   // Ouvrir modal de suppression
   const openDeleteModal = (etudiant) => {
@@ -632,10 +729,36 @@ const handlePromotion = async () => {
     fetchEtudiants();
   };
 
+  // Gérer la touche Entrée
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
+
+  // Réinitialiser tous les filtres
+  const resetFilters = () => {
+    setSearchTerm("");
+    setFilterNiveau("");
+    setFilterCode("");
+    setCurrentPage(1);
+    fetchEtudiants();
+    showToast("Filtres réinitialisés", 'info');
+  };
+
   // Options pour les niveaux
   const niveaux = [
     "Licence 1", "Licence 2", "Licence 3",
     "Master 1", "Master 2", "Doctorat 1"
+  ];
+
+  // Options pour les codes redoublement
+  const codeOptions = [
+    { value: "", label: "Tous les codes" },
+    { value: "N", label: "N - Non redoublant" },
+    { value: "R", label: "R - Redoublant" },
+    { value: "T", label: "T - Triplant" },
+    { value: "R_T", label: "R et T (Redoublants et Triplants)" }
   ];
 
   // Pagination
@@ -678,8 +801,6 @@ const handlePromotion = async () => {
   // Rafraîchir les données
   const refreshData = () => {
     setCurrentPage(1);
-    setSearchTerm("");
-    setFilterNiveau("");
     fetchEtudiants();
     fetchStats();
     showToast("Données rafraîchies", 'info');
@@ -741,7 +862,7 @@ const handlePromotion = async () => {
         <div className="col">
           <h1 className="text-primary">Gestion des Réinscriptions</h1>
           <p className="text-muted">
-            Gestion des étudiants redoublants (code redoublement = "R" - Redoublant, "T" - Triplant)
+            Gestion de tous les étudiants avec filtres par niveau et code redoublement
           </p>
         </div>
       </div>
@@ -751,15 +872,15 @@ const handlePromotion = async () => {
         <div className="col-md-3">
           <div className="card border-primary">
             <div className="card-body">
-              <h6 className="card-subtitle mb-2 text-muted">Total redoublants</h6>
-              <h3 className="card-title text-primary">{stats.redoublants || 0}</h3>
+              <h6 className="card-subtitle mb-2 text-muted">Total étudiants</h6>
+              <h3 className="card-title text-primary">{stats.total || totalCount}</h3>
             </div>
           </div>
         </div>
         <div className="col-md-3">
           <div className="card border-danger">
             <div className="card-body">
-              <h6 className="card-subtitle mb-2 text-muted">Code R (Redoublant)</h6>
+              <h6 className="card-subtitle mb-2 text-muted">Redoublants (R)</h6>
               <h3 className="card-title text-danger">{stats.redoublants || 0}</h3>
             </div>
           </div>
@@ -784,11 +905,11 @@ const handlePromotion = async () => {
 
       <br />
 
-      {/* Barre d'outils */}
+      {/* Barre d'outils CORRIGÉE */}
       <div className="card mb-4">
         <div className="card-body">
           <div className="row mb-3">
-            <div className="col-md-8">
+            <div className="col-md-9">
               <div className="row g-3">
                 <div className="col-md-4">
                   <InputGroup>
@@ -796,26 +917,28 @@ const handlePromotion = async () => {
                       <FaSearch />
                     </InputGroup.Text>
                     <Form.Control
-                      placeholder="Rechercher..."
+                      placeholder="Rechercher (matricule, nom, prénom, CIN...)"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                      onKeyPress={handleKeyPress}
                     />
                     <Button
                       variant="outline-secondary"
                       onClick={handleSearch}
+                      disabled={loading}
                     >
-                      Rechercher
+                      {loading ? '...' : 'Rechercher'}
                     </Button>
                   </InputGroup>
                 </div>
-                <div className="col-md-4">
+                <div className="col-md-3">
                   <Form.Select
                     value={filterNiveau}
                     onChange={(e) => {
                       setFilterNiveau(e.target.value);
                       setCurrentPage(1);
                     }}
+                    disabled={loading}
                   >
                     <option value="">Tous les niveaux</option>
                     {niveaux.map((niveau, index) => (
@@ -823,24 +946,69 @@ const handlePromotion = async () => {
                     ))}
                   </Form.Select>
                 </div>
-                <div className="col-md-4">
-                  <div className="d-flex align-items-center h-100">
-                    <Badge bg="danger" className="me-2">R = Redoublant</Badge>
-                    <Badge bg="warning" className="me-2">T = Triplant</Badge>
-                    <Badge bg="success">N = Non redoublant</Badge>
-                  </div>
+                <div className="col-md-3">
+                  <Form.Select
+                    value={filterCode}
+                    onChange={(e) => {
+                      setFilterCode(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    disabled={loading}
+                  >
+                    {codeOptions.map((option, index) => (
+                      <option key={index} value={option.value}>{option.label}</option>
+                    ))}
+                  </Form.Select>
+                </div>
+                <div className="col-md-2">
+                  <Button
+                    variant="outline-danger"
+                    onClick={resetFilters}
+                    disabled={loading}
+                    className="w-100"
+                  >
+                    Réinitialiser
+                  </Button>
                 </div>
               </div>
             </div>
-            <div className="col-md-4 text-end">
+            <div className="col-md-3 text-end">
               <Button
                 variant="outline-primary"
                 onClick={refreshData}
                 className="d-inline-flex align-items-center"
                 title="Rafraîchir les données"
+                disabled={loading}
               >
-                <FaSync className="me-2" /> Rafraîchir
+                <FaSync className={loading ? "fa-spin me-2" : "me-2"} /> 
+                {loading ? 'Chargement...' : 'Rafraîchir'}
               </Button>
+            </div>
+          </div>
+          <div className="row">
+            <div className="col">
+              <div className="d-flex justify-content-between align-items-center">
+                <div>
+                  <Badge bg="info" className="me-2">
+                    {filterNiveau ? `Niveau: ${filterNiveau}` : 'Tous niveaux'}
+                  </Badge>
+                  <Badge bg="warning" className="me-2">
+                    {filterCode ? codeOptions.find(opt => opt.value === filterCode)?.label || 'Tous codes' : 'Tous codes'}
+                  </Badge>
+                  <Badge bg={searchTerm ? "success" : "secondary"}>
+                    {searchTerm ? `Recherche: "${searchTerm}"` : 'Pas de recherche'}
+                  </Badge>
+                </div>
+                <div className="text-muted">
+                  {loading ? (
+                    <Spinner animation="border" size="sm" className="me-2" />
+                  ) : (
+                    <Badge bg="primary">
+                      {totalCount} étudiant(s) trouvé(s)
+                    </Badge>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -883,6 +1051,7 @@ const handlePromotion = async () => {
                         setItemsPerPage(parseInt(e.target.value));
                         setCurrentPage(1);
                       }}
+                      disabled={loading}
                     >
                       <option value="10">10</option>
                       <option value="25">25</option>
@@ -896,11 +1065,11 @@ const handlePromotion = async () => {
                     <Pagination className="mb-0">
                       <Pagination.First
                         onClick={goToFirstPage}
-                        disabled={currentPage === 1}
+                        disabled={currentPage === 1 || loading}
                       />
                       <Pagination.Prev
                         onClick={goToPrevPage}
-                        disabled={currentPage === 1}
+                        disabled={currentPage === 1 || loading}
                       />
 
                       {getPageNumbers().map((number, index) => (
@@ -910,7 +1079,8 @@ const handlePromotion = async () => {
                           <Pagination.Item
                             key={index}
                             active={number === currentPage}
-                            onClick={() => paginate(number)}
+                            onClick={() => !loading && paginate(number)}
+                            disabled={loading}
                           >
                             {number}
                           </Pagination.Item>
@@ -919,11 +1089,11 @@ const handlePromotion = async () => {
 
                       <Pagination.Next
                         onClick={goToNextPage}
-                        disabled={currentPage === totalPages}
+                        disabled={currentPage === totalPages || loading}
                       />
                       <Pagination.Last
                         onClick={goToLastPage}
-                        disabled={currentPage === totalPages}
+                        disabled={currentPage === totalPages || loading}
                       />
                     </Pagination>
                   </div>
@@ -953,26 +1123,31 @@ const handlePromotion = async () => {
                     {etudiants.length === 0 ? (
                       <tr>
                         <td colSpan="12" className="text-center py-5">
-                          <p className="text-muted">Aucun étudiant redoublant ou triplant trouvé</p>
-                          {searchTerm && (
-                            <Button
-                              variant="outline-primary"
-                              size="sm"
-                              onClick={() => {
-                                setSearchTerm('');
-                                fetchEtudiants();
-                              }}
-                            >
-                              Afficher tous les étudiants
-                            </Button>
+                          {searchTerm || filterNiveau || filterCode ? (
+                            <>
+                              <p className="text-muted">Aucun étudiant trouvé avec ces critères</p>
+                              <Button
+                                variant="outline-primary"
+                                size="sm"
+                                onClick={resetFilters}
+                                className="mt-2"
+                              >
+                                <FaSync className="me-2" />
+                                Réinitialiser les filtres
+                              </Button>
+                            </>
+                          ) : (
+                            <p className="text-muted">Aucun étudiant trouvé</p>
                           )}
                         </td>
                       </tr>
                     ) : (
-                      etudiants.map((etudiant) => (
+                      etudiants.map((etudiant, index) => (
                         <tr key={etudiant.id}>
                           <td>
-                            <small className="font-monospace">{etudiant.numero_inscription || '-'}</small>
+                            <small className="font-monospace">
+                              {((currentPage - 1) * itemsPerPage) + index + 1}
+                            </small>
                           </td>
                           <td className="font-monospace">{etudiant.matricule}</td>
                           <td>
@@ -1047,6 +1222,7 @@ const handlePromotion = async () => {
                                   onClick={() => openEditModal(etudiant)}
                                   title="Modifier"
                                   size="sm"
+                                  disabled={loading}
                                 >
                                   <FaEdit />
                                 </Button>
@@ -1057,6 +1233,7 @@ const handlePromotion = async () => {
                                 onClick={() => openPromotionModal(etudiant)}
                                 title="Gérer promotion"
                                 size="sm"
+                                disabled={loading}
                               >
                                 <FaArrowUp />
                               </Button>
@@ -1066,11 +1243,11 @@ const handlePromotion = async () => {
                                   onClick={() => openDeleteModal(etudiant)}
                                   title="Supprimer"
                                   size="sm"
+                                  disabled={loading}
                                 >
                                   <FaTrash />
                                 </Button>
                               )}
-
                             </div>
                           </td>
                         </tr>
@@ -1091,11 +1268,11 @@ const handlePromotion = async () => {
                     <Pagination className="mb-0">
                       <Pagination.First
                         onClick={goToFirstPage}
-                        disabled={currentPage === 1}
+                        disabled={currentPage === 1 || loading}
                       />
                       <Pagination.Prev
                         onClick={goToPrevPage}
-                        disabled={currentPage === 1}
+                        disabled={currentPage === 1 || loading}
                       />
 
                       {getPageNumbers().map((number, index) => (
@@ -1105,7 +1282,8 @@ const handlePromotion = async () => {
                           <Pagination.Item
                             key={index}
                             active={number === currentPage}
-                            onClick={() => paginate(number)}
+                            onClick={() => !loading && paginate(number)}
+                            disabled={loading}
                           >
                             {number}
                           </Pagination.Item>
@@ -1114,11 +1292,11 @@ const handlePromotion = async () => {
 
                       <Pagination.Next
                         onClick={goToNextPage}
-                        disabled={currentPage === totalPages}
+                        disabled={currentPage === totalPages || loading}
                       />
                       <Pagination.Last
                         onClick={goToLastPage}
-                        disabled={currentPage === totalPages}
+                        disabled={currentPage === totalPages || loading}
                       />
                     </Pagination>
                   </div>
@@ -1136,6 +1314,7 @@ const handlePromotion = async () => {
                         }
                       }}
                       style={{ width: '70px', marginRight: '10px' }}
+                      disabled={loading}
                     />
                     <span className="text-muted">sur {totalPages}</span>
                   </div>
@@ -1146,7 +1325,7 @@ const handlePromotion = async () => {
         </div>
       </div>
 
-      {/* Modal Ajout/Modification */}
+      {/* Modal Ajout/Modification CORRIGÉ */}
       <Modal show={showModal} onHide={() => setShowModal(false)} size="lg" centered>
         <Modal.Header closeButton className="bg-warning text-dark">
           <Modal.Title>Modifier l'étudiant</Modal.Title>
@@ -1273,7 +1452,7 @@ const handlePromotion = async () => {
                     <option value="">Sélectionner une faculté</option>
                     {facultes.map((faculte) => (
                       <option key={faculte.id} value={faculte.id}>
-                        {faculte.code} - {faculte.nom}
+                        {faculte.code} - {faculte.nom_faculte || faculte.nom}
                       </option>
                     ))}
                   </Form.Select>
@@ -1291,7 +1470,7 @@ const handlePromotion = async () => {
                     <option value="">Sélectionner un domaine</option>
                     {domaines.map((domaine) => (
                       <option key={domaine.id} value={domaine.id}>
-                        {domaine.code} - {domaine.nom}
+                        {domaine.code} - {domaine.nom_domaine || domaine.nom}
                       </option>
                     ))}
                   </Form.Select>
@@ -1311,7 +1490,7 @@ const handlePromotion = async () => {
                     <option value="">Sélectionner une mention</option>
                     {filteredMentions.map((mention) => (
                       <option key={mention.id} value={mention.id}>
-                        {mention.code} - {mention.nom}
+                        {mention.code} - {mention.nom_mention || mention.nom}
                       </option>
                     ))}
                   </Form.Select>
@@ -1351,15 +1530,16 @@ const handlePromotion = async () => {
               <div className="col-md-6 mb-3">
                 <Form.Group controlId="formCodeRedoublement">
                   <Form.Label>Code redoublement</Form.Label>
-                  <Form.Control
-                    type="text"
+                  <Form.Select
                     value={form.code_redoublement}
-                    readOnly
-                    plaintext
-                    className="font-monospace fw-bold"
-                  />
+                    onChange={(e) => setForm({ ...form, code_redoublement: e.target.value })}
+                  >
+                    <option value="N">N - Non redoublant</option>
+                    <option value="R">R - Redoublant</option>
+                    <option value="T">T - Triplant</option>
+                  </Form.Select>
                   <Form.Text className="text-muted">
-                    Code R = Redoublant, T = Triplant (fixe pour réinscription)
+                    N = Non redoublant, R = Redoublant, T = Triplant
                   </Form.Text>
                 </Form.Group>
               </div>
@@ -1450,7 +1630,9 @@ const handlePromotion = async () => {
                   Code actuel: <Badge bg={getCodeBadgeColor(etudiantForPromotion.code_redoublement)}>
                     {etudiantForPromotion.code_redoublement} ({getCodeLabel(etudiantForPromotion.code_redoublement)})
                   </Badge><br />
-                  Bourse actuelle: <strong>{etudiantForPromotion.bourse ? etudiantForPromotion.bourse.toLocaleString() + ' MGA' : 'Non boursier'}</strong>
+                  Bourse actuelle: <strong>{etudiantForPromotion.bourse ? etudiantForPromotion.bourse.toLocaleString() + ' MGA' : 'Non boursier'}</strong><br />
+                  Faculté: {getFaculteName(etudiantForPromotion.faculte)}<br />
+                  Mention: {getMentionName(etudiantForPromotion.mention)}
                 </p>
               </div>
 
@@ -1595,11 +1777,13 @@ const handlePromotion = async () => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+          boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+          zIndex: 1000
         }}
         title="Rafraîchir les données"
+        disabled={loading}
       >
-        <FaSync />
+        <FaSync className={loading ? "fa-spin" : ""} />
       </Button>
 
       {/* Pied de page */}
@@ -1608,6 +1792,13 @@ const handlePromotion = async () => {
           <div className="col-md-6">
             <small className="text-muted">
               Système de gestion des réinscriptions - TUL {new Date().getFullYear()}
+            </small>
+          </div>
+          <div className="col-md-6 text-end">
+            <small className="text-muted">
+              {searchTerm && `Recherche: "${searchTerm}"`}
+              {filterNiveau && ` | Filtre: ${filterNiveau}`}
+              {filterCode && ` | Code: ${filterCode}`}
             </small>
           </div>
         </div>

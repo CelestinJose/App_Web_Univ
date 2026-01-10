@@ -6,7 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.db.models import Count, Sum, Q
 import pandas as pd
 import io
-from .serializers import EtudiantSerializer, EtudiantDetailSerializers
+from .serializers import EtudiantSerializer
 from .models import Etudiant
 from facultes.models import Faculte
 

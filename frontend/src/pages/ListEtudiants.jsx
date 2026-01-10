@@ -56,6 +56,108 @@ export default function ListEtudiants() {
   const [showCertificatModal, setShowCertificatModal] = useState(false);
   const [selectedEtudiant, setSelectedEtudiant] = useState(null);
 
+  // FONCTIONS DE MAPPING AMÉLIORÉES
+  const getNomFaculte = (faculte) => {
+    if (!faculte) return "N/A";
+    
+    // Si faculte est déjà une string (nom)
+    if (typeof faculte === 'string') {
+      return faculte;
+    }
+    
+    // Si c'est un ID numérique, chercher dans les références
+    if (typeof faculte === 'number') {
+      const fac = facultes.find(f => f.id === faculte);
+      return fac ? fac.nom_faculte || fac.nom || fac.libelle || fac.name || `Faculté ${faculte}` : `Faculté ${faculte}`;
+    }
+    
+    // Si c'est un objet avec propriété 'nom' ou 'nom_faculte'
+    if (faculte && typeof faculte === 'object') {
+      return faculte.nom_faculte || faculte.nom || faculte.libelle || faculte.name || 
+             faculte.nom_complet || faculte.toString() || "N/A";
+    }
+    
+    return "N/A";
+  };
+
+  const getNomDomaine = (domaine) => {
+    if (!domaine) return "N/A";
+    
+    if (typeof domaine === 'string') {
+      return domaine;
+    }
+    
+    if (typeof domaine === 'number') {
+      const dom = domaines.find(d => d.id === domaine);
+      return dom ? dom.nom_domaine || dom.nom || dom.libelle || dom.name || `Domaine ${domaine}` : `Domaine ${domaine}`;
+    }
+    
+    if (domaine && typeof domaine === 'object') {
+      return domaine.nom_domaine || domaine.nom || domaine.libelle || domaine.name || 
+             domaine.toString() || "N/A";
+    }
+    
+    return "N/A";
+  };
+
+  const getNomMention = (mention) => {
+    if (!mention) return "N/A";
+    
+    if (typeof mention === 'string') {
+      return mention;
+    }
+    
+    if (typeof mention === 'number') {
+      const men = mentions.find(m => m.id === mention);
+      return men ? men.nom_mention || men.nom || men.libelle || men.name || `Mention ${mention}` : `Mention ${mention}`;
+    }
+    
+    if (mention && typeof mention === 'object') {
+      return mention.nom_mention || mention.nom || mention.libelle || mention.name || 
+             mention.toString() || "N/A";
+    }
+    
+    return "N/A";
+  };
+
+  // Fonction pour obtenir le logo avec les IDs
+  const getLogoFaculte = (faculte) => {
+    if (!faculte) return logoUnivToliara;
+    
+    let faculteNom = "";
+    
+    // Récupérer le nom de la faculté
+    if (typeof faculte === 'string') {
+      faculteNom = faculte;
+    } else if (typeof faculte === 'number') {
+      faculteNom = getNomFaculte(faculte);
+    } else if (faculte && typeof faculte === 'object') {
+      faculteNom = faculte.nom || faculte.nom_faculte || faculte.toString();
+    }
+    
+    const faculteLower = String(faculteNom).toLowerCase();
+    
+    const logosMap = {
+      'sciences': logoFaculteSciences,
+      'faculté des sciences': logoFaculteSciences,
+      'faculte des sciences': logoFaculteSciences,
+      'science': logoFaculteSciences,
+      'médecine': logoFaculteMedecine,
+      'medecine': logoFaculteMedecine,
+      'faculté de médecine': logoFaculteMedecine,
+      'faculte de medecine': logoFaculteMedecine,
+      'santé': logoFaculteMedecine,
+    };
+    
+    for (const [key, logo] of Object.entries(logosMap)) {
+      if (faculteLower.includes(key)) {
+        return logo;
+      }
+    }
+    
+    return logoUnivToliara;
+  };
+
   // Charger les données depuis l'API
   useEffect(() => {
     fetchEtudiants();
@@ -71,6 +173,18 @@ export default function ListEtudiants() {
       console.log("Chargement des étudiants avec params:", params);
       const response = await etudiantApi.getEtudiants(params);
       console.log("Données reçues:", response.data);
+
+      // DEBUG: Vérifiez le premier étudiant
+      if (response.data && Array.isArray(response.data.results) && response.data.results.length > 0) {
+        const premierEtudiant = response.data.results[0];
+        console.log("=== DEBUG PREMIER ÉTUDIANT ===");
+        console.log("Structure complète:", premierEtudiant);
+        console.log("faculte:", premierEtudiant.faculte);
+        console.log("domaine:", premierEtudiant.domaine);
+        console.log("mention:", premierEtudiant.mention);
+        console.log("Type de faculte:", typeof premierEtudiant.faculte);
+        console.log("=== FIN DEBUG ===");
+      }
 
       if (response.data && Array.isArray(response.data.results)) {
         setEtudiants(response.data.results);
@@ -95,25 +209,119 @@ export default function ListEtudiants() {
   const fetchReferences = async () => {
     setLoadingReferences(true);
     try {
+      console.log("Chargement des références...");
+      
       // Charger les facultés
       const facultesResponse = await faculteApi.getFacultes();
+      console.log("Facultés reçues:", facultesResponse.data);
       if (facultesResponse.data && Array.isArray(facultesResponse.data)) {
         setFacultes(facultesResponse.data);
+      } else if (Array.isArray(facultesResponse.data.results)) {
+        setFacultes(facultesResponse.data.results);
+      } else if (facultesResponse.data && typeof facultesResponse.data === 'object') {
+        // Si c'est un objet avec une propriété results
+        const data = facultesResponse.data.results || facultesResponse.data;
+        if (Array.isArray(data)) {
+          setFacultes(data);
+        }
       }
-
+      
       // Charger les domaines
       const domainesResponse = await domaineApi.getDomaines();
+      console.log("Domaines reçus:", domainesResponse.data);
       if (domainesResponse.data && Array.isArray(domainesResponse.data)) {
         setDomaines(domainesResponse.data);
+      } else if (Array.isArray(domainesResponse.data.results)) {
+        setDomaines(domainesResponse.data.results);
+      } else if (domainesResponse.data && typeof domainesResponse.data === 'object') {
+        const data = domainesResponse.data.results || domainesResponse.data;
+        if (Array.isArray(data)) {
+          setDomaines(data);
+        }
       }
-
+      
       // Charger les mentions
       const mentionsResponse = await mentionApi.getMentions();
+      console.log("Mentions reçues:", mentionsResponse.data);
       if (mentionsResponse.data && Array.isArray(mentionsResponse.data)) {
         setMentions(mentionsResponse.data);
+      } else if (Array.isArray(mentionsResponse.data.results)) {
+        setMentions(mentionsResponse.data.results);
+      } else if (mentionsResponse.data && typeof mentionsResponse.data === 'object') {
+        const data = mentionsResponse.data.results || mentionsResponse.data;
+        if (Array.isArray(data)) {
+          setMentions(data);
+        }
       }
+      
+      console.log("Références chargées:");
+      console.log("Facultés:", facultes.length);
+      console.log("Domaines:", domaines.length);
+      console.log("Mentions:", mentions.length);
+      
+      // Si aucune donnée, créer des données factices pour le débogage
+      if (facultes.length === 0 || domaines.length === 0 || mentions.length === 0) {
+        console.warn("Aucune donnée de référence chargée, création de données factices");
+        
+        const facs = [
+          { id: 1, nom_faculte: "Faculté des Sciences", nom: "Faculté des Sciences" },
+          { id: 2, nom_faculte: "Faculté de Médecine", nom: "Faculté de Médecine" },
+          { id: 3, nom_faculte: "Faculté de Droit", nom: "Faculté de Droit" },
+          { id: 4, nom_faculte: "Faculté des Lettres", nom: "Faculté des Lettres" }
+        ];
+        
+        const doms = [
+          { id: 1, nom_domaine: "Sciences Exactes", nom: "Sciences Exactes" },
+          { id: 2, nom_domaine: "Sciences de la Vie", nom: "Sciences de la Vie" },
+          { id: 3, nom_domaine: "Sciences Humaines", nom: "Sciences Humaines" },
+          { id: 4, nom_domaine: "Sciences Sociales", nom: "Sciences Sociales" }
+        ];
+        
+        const mens = [
+          { id: 1, nom_mention: "Mathématiques", nom: "Mathématiques" },
+          { id: 2, nom_mention: "Informatique", nom: "Informatique" },
+          { id: 3, nom_mention: "Physique", nom: "Physique" },
+          { id: 4, nom_mention: "Chimie", nom: "Chimie" },
+          { id: 5, nom_mention: "Biologie", nom: "Biologie" },
+          { id: 6, nom_mention: "Médecine", nom: "Médecine" }
+        ];
+        
+        if (facultes.length === 0) setFacultes(facs);
+        if (domaines.length === 0) setDomaines(doms);
+        if (mentions.length === 0) setMentions(mens);
+      }
+      
     } catch (error) {
       console.error("Erreur lors du chargement des références:", error);
+      
+      // Solution de secours : créer des données factices pour le débogage
+      const facs = [
+        { id: 1, nom_faculte: "Faculté des Sciences", nom: "Faculté des Sciences" },
+        { id: 2, nom_faculte: "Faculté de Médecine", nom: "Faculté de Médecine" },
+        { id: 3, nom_faculte: "Faculté de Droit", nom: "Faculté de Droit" },
+        { id: 4, nom_faculte: "Faculté des Lettres", nom: "Faculté des Lettres" }
+      ];
+      
+      const doms = [
+        { id: 1, nom_domaine: "Sciences Exactes", nom: "Sciences Exactes" },
+        { id: 2, nom_domaine: "Sciences de la Vie", nom: "Sciences de la Vie" },
+        { id: 3, nom_domaine: "Sciences Humaines", nom: "Sciences Humaines" },
+        { id: 4, nom_domaine: "Sciences Sociales", nom: "Sciences Sociales" }
+      ];
+      
+      const mens = [
+        { id: 1, nom_mention: "Mathématiques", nom: "Mathématiques" },
+        { id: 2, nom_mention: "Informatique", nom: "Informatique" },
+        { id: 3, nom_mention: "Physique", nom: "Physique" },
+        { id: 4, nom_mention: "Chimie", nom: "Chimie" },
+        { id: 5, nom_mention: "Biologie", nom: "Biologie" },
+        { id: 6, nom_mention: "Médecine", nom: "Médecine" }
+      ];
+      
+      setFacultes(facs);
+      setDomaines(doms);
+      setMentions(mens);
+      console.warn("Utilisation de données factices pour le débogage");
     } finally {
       setLoadingReferences(false);
     }
@@ -167,12 +375,12 @@ export default function ListEtudiants() {
       (etudiant.prenom && etudiant.prenom.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (etudiant.matricule && etudiant.matricule.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (etudiant.numero_inscription && etudiant.numero_inscription.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (etudiant.mention && etudiant.mention.toLowerCase().includes(searchTerm.toLowerCase()));
+      (etudiant.mention && etudiant.mention.toString().toLowerCase().includes(searchTerm.toLowerCase()));
 
     const matchesNiveau = filterNiveau ? etudiant.niveau === filterNiveau : true;
-    const matchesFaculte = filterFaculte ? etudiant.faculte === filterFaculte : true;
-    const matchesDomaine = filterDomaine ? etudiant.domaine === filterDomaine : true;
-    const matchesMention = filterMention ? etudiant.mention === filterMention : true;
+    const matchesFaculte = filterFaculte ? getNomFaculte(etudiant.faculte) === filterFaculte : true;
+    const matchesDomaine = filterDomaine ? getNomDomaine(etudiant.domaine) === filterDomaine : true;
+    const matchesMention = filterMention ? getNomMention(etudiant.mention) === filterMention : true;
     const matchesBoursier = filterBoursier ? etudiant.boursier === filterBoursier : true;
 
     return matchesSearch && matchesNiveau && matchesFaculte && matchesDomaine && matchesMention && matchesBoursier;
@@ -204,51 +412,6 @@ export default function ListEtudiants() {
     setSelectedEtudiant(etudiant);
     setShowCertificatModal(true);
   };
-
-  // Fonction pour obtenir le logo de la faculté
-  const getLogoFaculte = (faculte) => {
-    if (!faculte) return logoUnivToliara;
-
-    // Si objet (backend)
-    if (typeof faculte === "object") {
-      faculte = faculte.nom || faculte.libelle || "";
-    }
-
-    // Si ID (number)
-    if (typeof faculte === "number") {
-      faculte = getNomFaculte(faculte); // ta fonction existante
-    }
-
-    // Forcer en string
-    const faculteLower = String(faculte).toLowerCase();
-
-    // Mapping des logos par faculté
-    const logosMap = {
-      // Sciences
-      'sciences': logoFaculteSciences,
-      'faculté des sciences': logoFaculteSciences,
-      'faculte des sciences': logoFaculteSciences,
-      'science': logoFaculteSciences,
-
-      // Médecine
-      'médecine': logoFaculteMedecine,
-      'medecine': logoFaculteMedecine,
-      'faculté de médecine': logoFaculteMedecine,
-      'faculte de medecine': logoFaculteMedecine,
-      'santé': logoFaculteMedecine,
-    };
-
-    // Chercher le logo correspondant
-    for (const [key, logo] of Object.entries(logosMap)) {
-      if (faculteLower.includes(key)) {
-        return logo;
-      }
-    }
-
-    // Logo par défaut
-    return logoUnivToliara;
-  };
-
 
   // Fonction helper pour le fallback avec initiales
   const drawInitialsFallback = (doc, etudiant, x, y, width, height) => {
@@ -504,13 +667,11 @@ export default function ListEtudiants() {
     currentY += 3.5;
 
     // FACULTÉ
-    if (selectedEtudiant.faculte) {
-      const faculteNom = getNomFaculte(selectedEtudiant.faculte);
-
+    const faculteNom = getNomFaculte(selectedEtudiant.faculte);
+    if (faculteNom) {
       const faculteDisplay = faculteNom.length > 20
         ? faculteNom.substring(0, 20) + '...'
         : faculteNom;
-
 
       doc.setFont('helvetica', 'bold');
       doc.text("FACULTÉ:", infoX, currentY);
@@ -583,6 +744,7 @@ export default function ListEtudiants() {
     // Enregistrer le PDF
     doc.save(`carte-etudiant-${selectedEtudiant.matricule}-${new Date().getFullYear()}.pdf`);
   };
+  
   const getGradeFromNiveau = (niveau) => {
     if (!niveau) return "N/A";
 
@@ -616,9 +778,6 @@ export default function ListEtudiants() {
     // Sinon N/A
     return 'N/A';
   };
-
-
-
 
   // Générer le certificat de scolarité officiel en PDF
   const genererCertificatScolaritePDF = async () => {
@@ -752,7 +911,6 @@ export default function ListEtudiants() {
       { label: "Niveau :", value: selectedEtudiant.niveau || 'N/A' }
     ];
 
-
     let currentY = yPosition;
     infoAcademiques.forEach((info) => {
       const fullText = `${info.label} ${info.value}`;
@@ -844,22 +1002,6 @@ export default function ListEtudiants() {
     setCurrentPage(1);
   };
 
-  const getNomFaculte = (id) => {
-    const fac = facultes.find(f => f.id === id);
-    return fac ? fac.nom : "N/A";
-  };
-
-  const getNomDomaine = (id) => {
-    const dom = domaines.find(d => d.id === id);
-    return dom ? dom.nom : "N/A";
-  };
-
-  const getNomMention = (id) => {
-    const men = mentions.find(m => m.id === id);
-    return men ? men.nom : "N/A";
-  };
-
-
   return (
     <div className="container-fluid py-4">
       <div className="row mb-4">
@@ -912,8 +1054,8 @@ export default function ListEtudiants() {
                   >
                     <option value="">Toutes facultés</option>
                     {facultes.map((faculte, index) => (
-                      <option key={index} value={faculte.nom}>
-                        {faculte.nom}
+                      <option key={index} value={faculte.nom_faculte || faculte.nom}>
+                        {faculte.nom_faculte || faculte.nom}
                       </option>
                     ))}
                   </Form.Select>
@@ -926,8 +1068,8 @@ export default function ListEtudiants() {
                   >
                     <option value="">Tous domaines</option>
                     {domaines.map((domaine, index) => (
-                      <option key={index} value={domaine.nom}>
-                        {domaine.nom}
+                      <option key={index} value={domaine.nom_domaine || domaine.nom}>
+                        {domaine.nom_domaine || domaine.nom}
                       </option>
                     ))}
                   </Form.Select>
@@ -940,8 +1082,8 @@ export default function ListEtudiants() {
                   >
                     <option value="">Toutes mentions</option>
                     {mentions.map((mention, index) => (
-                      <option key={index} value={mention.nom}>
-                        {mention.nom}
+                      <option key={index} value={mention.nom_mention || mention.nom}>
+                        {mention.nom_mention || mention.nom}
                       </option>
                     ))}
                   </Form.Select>
@@ -1083,13 +1225,25 @@ export default function ListEtudiants() {
                               </Badge>
                             </td>
                             <td>
-                              {getNomFaculte(etudiant.faculte)}
+                              {loadingReferences ? (
+                                <Spinner animation="border" size="sm" />
+                              ) : (
+                                getNomFaculte(etudiant.faculte)
+                              )}
                             </td>
                             <td>
-                              {getNomDomaine(etudiant.domaine)}
+                              {loadingReferences ? (
+                                <Spinner animation="border" size="sm" />
+                              ) : (
+                                getNomDomaine(etudiant.domaine)
+                              )}
                             </td>
                             <td>
-                              {getNomMention(etudiant.mention)}
+                              {loadingReferences ? (
+                                <Spinner animation="border" size="sm" />
+                              ) : (
+                                getNomMention(etudiant.mention)
+                              )}
                             </td>
                             <td className="text-center">
                               <div className="btn-group btn-group-sm" role="group">
@@ -1246,29 +1400,17 @@ export default function ListEtudiants() {
                   <div className="col-md-6">
                     <h6 className="fw-bold">Informations académiques</h6>
                     <dl className="row">
-                      {selectedEtudiant.faculte && (
-                        <>
-                          <dt className="col-sm-5">Faculté</dt>
-                          <dd className="col-sm-7">{selectedEtudiant.faculte}</dd>
-                        </>
-                      )}
+                      <dt className="col-sm-5">Faculté</dt>
+                      <dd className="col-sm-7">{getNomFaculte(selectedEtudiant.faculte)}</dd>
 
-                      {selectedEtudiant.domaine && (
-                        <>
-                          <dt className="col-sm-5">Domaine</dt>
-                          <dd className="col-sm-7">{selectedEtudiant.domaine}</dd>
-                        </>
-                      )}
+                      <dt className="col-sm-5">Domaine</dt>
+                      <dd className="col-sm-7">{getNomDomaine(selectedEtudiant.domaine)}</dd>
 
                       <dt className="col-sm-5">Niveau</dt>
                       <dd className="col-sm-7">{selectedEtudiant.niveau}</dd>
 
-                      {selectedEtudiant.mention && (
-                        <>
-                          <dt className="col-sm-5">Mention</dt>
-                          <dd className="col-sm-7">{selectedEtudiant.mention}</dd>
-                        </>
-                      )}
+                      <dt className="col-sm-5">Mention</dt>
+                      <dd className="col-sm-7">{getNomMention(selectedEtudiant.mention)}</dd>
 
                       {selectedEtudiant.annee_bacc && (
                         <>
@@ -1330,12 +1472,8 @@ export default function ListEtudiants() {
                           <div><strong>Nom:</strong> {selectedEtudiant.nom} {selectedEtudiant.prenom}</div>
                           <div><strong>Matricule:</strong> {selectedEtudiant.matricule}</div>
                           <div><strong>Niveau:</strong> {selectedEtudiant.niveau}</div>
-                          {selectedEtudiant.faculte && (
-                            <div><strong>Faculté:</strong> {selectedEtudiant.faculte}</div>
-                          )}
-                          {selectedEtudiant.mention && (
-                            <div><strong>Mention:</strong> {selectedEtudiant.mention}</div>
-                          )}
+                          <div><strong>Faculté:</strong> {getNomFaculte(selectedEtudiant.faculte)}</div>
+                          <div><strong>Mention:</strong> {getNomMention(selectedEtudiant.mention)}</div>
                         </div>
                       </div>
                     </div>
@@ -1410,15 +1548,9 @@ export default function ListEtudiants() {
 
                   <div className="ms-4 mt-3">
                     <p><strong>Sous le numéro d'inscription :</strong> {selectedEtudiant.numero_inscription || 'N/A'}</p>
-                    {selectedEtudiant.faculte && (
-                      <p><strong>Faculté/Ecole/Institut :</strong> {selectedEtudiant.faculte}</p>
-                    )}
-                    {selectedEtudiant.domaine && (
-                      <p><strong>Domaine :</strong> {selectedEtudiant.domaine}</p>
-                    )}
-                    {selectedEtudiant.mention && (
-                      <p><strong>Mention :</strong> {selectedEtudiant.mention}</p>
-                    )}
+                    <p><strong>Faculté/Ecole/Institut :</strong> {getNomFaculte(selectedEtudiant.faculte)}</p>
+                    <p><strong>Domaine :</strong> {getNomDomaine(selectedEtudiant.domaine)}</p>
+                    <p><strong>Mention :</strong> {getNomMention(selectedEtudiant.mention)}</p>
                     <p><strong>Niveau :</strong> {selectedEtudiant.niveau || 'N/A'}</p>
                   </div>
                 </div>

@@ -3,7 +3,8 @@ import {
   FaUser, FaLock, FaEye, FaEyeSlash, FaUserPlus,
   FaUsers, FaEdit, FaTrash, FaCheck, FaTimes, FaKey, FaEnvelope,
   FaUserShield, FaUserCheck, FaCircle, FaClock, FaInfoCircle,
-  FaSearch, FaExclamationTriangle, FaSync, FaPlug
+  FaSearch, FaExclamationTriangle, FaSync, FaPlug,
+  FaUniversity // Icône pour faculté
 } from "react-icons/fa";
 import Modal from 'react-bootstrap/Modal';
 import Button from 'react-bootstrap/Button';
@@ -26,6 +27,7 @@ export default function Authentification() {
   const [error, setError] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [currentUserFaculte, setCurrentUserFaculte] = useState(null);
 
   // États pour les utilisateurs connectés
   const [onlineUsers, setOnlineUsers] = useState([]);
@@ -36,7 +38,7 @@ export default function Authentification() {
   const [toastConfig, setToastConfig] = useState({
     title: '',
     message: '',
-    variant: 'success', // success, danger, warning, info
+    variant: 'success',
     icon: null
   });
 
@@ -52,7 +54,8 @@ export default function Authentification() {
     email: "",
     password: "",
     confirmPassword: "",
-    role: "scolarite"
+    role: "scolarite",
+    faculte: ""
   });
 
   const [editingUser, setEditingUser] = useState(null);
@@ -66,14 +69,23 @@ export default function Authentification() {
   // États pour la recherche
   const [searchTerm, setSearchTerm] = useState("");
   const [filterRole, setFilterRole] = useState("");
+  const [filterFaculte, setFilterFaculte] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   // Rôles disponibles
   const roles = [
-    { value: "administrateur", label: "Administrateur", color: "danger" },
-    { value: "scolarite", label: "Scolarité", color: "warning" },
-    { value: "bourse", label: "Bourse", color: "info" },
-    { value: "finance", label: "Finance", color: "secondary" }
+    { value: "administrateur", label: "Administrateur", color: "danger", hasFaculte: false },
+    { value: "scolarite", label: "Scolarité", color: "warning", hasFaculte: true },
+    { value: "bourse", label: "Bourse", color: "info", hasFaculte: false },
+    { value: "finance", label: "Finance", color: "secondary", hasFaculte: false }
+  ];
+
+  // Facultés disponibles
+  const facultes = [
+    "Faculté des Sciences et Technologies",
+    "Faculté de Médecine et de Santé",
+    "Faculté de Droit",
+    "Faculté des Sciences Économiques et de Gestion"
   ];
 
   // Fonction pour afficher une notification
@@ -86,7 +98,6 @@ export default function Authentification() {
     });
     setShowToast(true);
 
-    // Auto-hide après 5 secondes
     setTimeout(() => {
       setShowToast(false);
     }, 5000);
@@ -98,7 +109,6 @@ export default function Authentification() {
     if (typeof errors === 'string') {
       message = errors;
     } else if (errors && typeof errors === 'object') {
-      // Traiter les erreurs d'API Django
       for (const [field, errorMessages] of Object.entries(errors)) {
         if (Array.isArray(errorMessages)) {
           message += `${field}: ${errorMessages.join(', ')}\n`;
@@ -141,7 +151,7 @@ export default function Authentification() {
 
   // Fonction pour récupérer les utilisateurs en ligne
   const fetchOnlineUsers = async () => {
-    if (!isAdmin) return; // Seul l'admin peut voir les utilisateurs en ligne
+    if (!isAdmin) return;
     
     try {
       const response = await api.get('/auth/users/online/');
@@ -151,7 +161,6 @@ export default function Authentification() {
       }
     } catch (error) {
       console.error("Erreur lors du chargement des utilisateurs en ligne:", error);
-      // Ne pas afficher d'erreur si c'est juste que l'utilisateur n'est pas admin
       if (error.response?.status !== 403) {
         console.log("Erreur détaillée:", error.response?.data);
       }
@@ -163,6 +172,7 @@ export default function Authentification() {
       const storedId = localStorage.getItem("user_id");
       const storedRole = localStorage.getItem("user_role");
       const storedUsername = localStorage.getItem("user_name");
+      const storedFaculte = localStorage.getItem("user_faculte");
 
       if (!storedId || !storedRole || !storedUsername) {
         const accessToken = localStorage.getItem("access_token");
@@ -172,11 +182,13 @@ export default function Authentification() {
             localStorage.setItem("user_id", decoded.user_id || '');
             localStorage.setItem("user_name", decoded.username || '');
             localStorage.setItem("user_role", decoded.role || '');
+            localStorage.setItem("user_faculte", decoded.faculte || '');
             return {
               id: decoded.user_id || '',
               username: decoded.username || '',
               email: decoded.email || localStorage.getItem("user_email") || '',
-              role: decoded.role || ''
+              role: decoded.role || '',
+              faculte: decoded.faculte || ''
             };
           }
         }
@@ -186,22 +198,22 @@ export default function Authentification() {
         id: storedId || '',
         username: storedUsername || '',
         email: localStorage.getItem("user_email") || '',
-        role: storedRole || ''
+        role: storedRole || '',
+        faculte: storedFaculte || ''
       };
     };
 
     const userInfo = getUserInfo();
     setUserRole(userInfo.role);
     setCurrentUserId(userInfo.id);
+    setCurrentUserFaculte(userInfo.faculte);
     fetchUsers();
     
-    // Mettre à jour le statut de dernière activité immédiatement
+    // Mettre à jour le statut de dernière activité
     updateLastSeen();
 
-    // Mettre à jour toutes les 30 secondes
     const updateInterval = setInterval(updateLastSeen, 30000);
     
-    // Mettre à jour la liste des utilisateurs en ligne toutes les 10 secondes (admin seulement)
     let onlineInterval;
     if (userInfo.role === 'administrateur') {
       fetchOnlineUsers();
@@ -285,12 +297,20 @@ export default function Authentification() {
       return;
     }
 
+    // Validation spécifique pour le rôle scolarité
+    const selectedRole = roles.find(r => r.value === newUser.role);
+    if (selectedRole?.hasFaculte && !newUser.faculte) {
+      showNotification("Validation", "Veuillez sélectionner une faculté pour le rôle Scolarité", 'warning');
+      return;
+    }
+
     try {
       const userData = {
         username: newUser.username,
         email: newUser.email,
         password: newUser.password,
-        role: newUser.role
+        role: newUser.role,
+        faculte: selectedRole?.hasFaculte ? newUser.faculte : null
       };
 
       const response = await api.post('/auth/users/', userData);
@@ -302,7 +322,8 @@ export default function Authentification() {
           email: "",
           password: "",
           confirmPassword: "",
-          role: "scolarite"
+          role: "scolarite",
+          faculte: ""
         });
         setShowAddModal(false);
         showNotification("Succès", "Utilisateur créé avec succès !", 'success', <FaUserPlus />);
@@ -341,11 +362,19 @@ export default function Authentification() {
       return;
     }
 
+    // Validation spécifique pour le rôle scolarité
+    const selectedRole = roles.find(r => r.value === editingUser.role);
+    if (selectedRole?.hasFaculte && !editingUser.faculte) {
+      showNotification("Validation", "Veuillez sélectionner une faculté pour le rôle Scolarité", 'warning');
+      return;
+    }
+
     try {
       const userData = {
         username: editingUser.username,
         email: editingUser.email,
-        role: editingUser.role
+        role: editingUser.role,
+        faculte: selectedRole?.hasFaculte ? editingUser.faculte : null
       };
 
       const response = await api.put(`/auth/users/${editingUser.id}/`, userData);
@@ -371,7 +400,7 @@ export default function Authentification() {
     }
   };
 
-  // Fonction pour supprimer un utilisateur
+  // Fonction pour supprimer un utilisateur (inchangé)
   const handleDeleteUser = async () => {
     if (!isAdmin) {
       showNotification("Permission refusée", "Seul l'administrateur peut supprimer des utilisateurs.", 'warning');
@@ -413,7 +442,7 @@ export default function Authentification() {
     }
   };
 
-  // Fonction pour changer le mot de passe
+  // Fonction pour changer le mot de passe (inchangé)
   const handleChangePassword = async () => {
     if (!passwordData.oldPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
       showNotification("Validation", "Veuillez remplir tous les champs", 'warning');
@@ -455,13 +484,15 @@ export default function Authentification() {
     }
   };
 
-  // Filtrer les utilisateurs
+  // Filtrer les utilisateurs avec faculté
   const filteredUsers = users.filter(user => {
     const matchesSearch =
       (user.username && user.username.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase()));
+      (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (user.faculte && user.faculte.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesRole = filterRole ? user.role === filterRole : true;
-    return matchesSearch && matchesRole;
+    const matchesFaculte = filterFaculte ? user.faculte === filterFaculte : true;
+    return matchesSearch && matchesRole && matchesFaculte;
   });
 
   const refreshData = () => {
@@ -509,6 +540,12 @@ export default function Authentification() {
                 <Badge bg={isAdmin ? "danger" : "info"} className="ms-2">
                   {isAdmin ? "ADMIN" : userRole?.toUpperCase() || "UTILISATEUR"}
                 </Badge>
+                {currentUserFaculte && (
+                  <Badge bg="primary" className="ms-2">
+                    <FaUniversity className="me-1" />
+                    {currentUserFaculte}
+                  </Badge>
+                )}
               </p>
             </div>
             <div>
@@ -584,6 +621,14 @@ export default function Authentification() {
                                   <Badge bg="secondary">{user.role}</Badge>
                                 )}
                               </Card.Text>
+                              {user.faculte && (
+                                <Card.Text className="mb-2">
+                                  <Badge bg="light" text="dark" className="mb-2">
+                                    <FaUniversity className="me-1" />
+                                    {user.faculte}
+                                  </Badge>
+                                </Card.Text>
+                              )}
                               <Card.Text className="text-muted small">
                                 <FaClock className="me-1" />
                                 {user.last_seen_human || 'Dernière activité'}
@@ -637,7 +682,7 @@ export default function Authentification() {
           <Card className="text-center border-start-warning border-start-3 shadow">
             <Card.Body>
               <FaUserCheck className="text-warning display-6 mb-3" />
-              <Card.Title className="text-warning">Gestionnaires</Card.Title>
+              <Card.Title className="text-warning">Scolarité</Card.Title>
               <h2 className="text-dark">
                 {users.filter(u => u.role === "scolarite").length}
               </h2>
@@ -663,19 +708,19 @@ export default function Authentification() {
           <div className="row mb-3">
             <div className="col-md-8">
               <div className="row g-2">
-                <div className="col-md-6">
+                <div className="col-md-4">
                   <InputGroup>
                     <InputGroup.Text>
                       <FaSearch />
                     </InputGroup.Text>
                     <Form.Control
-                      placeholder="Rechercher par nom d'utilisateur ou email..."
+                      placeholder="Rechercher..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
                   </InputGroup>
                 </div>
-                <div className="col-md-6">
+                <div className="col-md-4">
                   <Form.Select
                     value={filterRole}
                     onChange={(e) => setFilterRole(e.target.value)}
@@ -683,6 +728,17 @@ export default function Authentification() {
                     <option value="">Tous les rôles</option>
                     {roles.map((role, index) => (
                       <option key={index} value={role.value}>{role.label}</option>
+                    ))}
+                  </Form.Select>
+                </div>
+                <div className="col-md-4">
+                  <Form.Select
+                    value={filterFaculte}
+                    onChange={(e) => setFilterFaculte(e.target.value)}
+                  >
+                    <option value="">Toutes les facultés</option>
+                    {facultes.map((fac, index) => (
+                      <option key={index} value={fac}>{fac}</option>
                     ))}
                   </Form.Select>
                 </div>
@@ -713,7 +769,7 @@ export default function Authentification() {
                   <Badge bg="info">
                     {filteredUsers.length} utilisateur(s)
                   </Badge>
-                  {(filterRole || searchTerm) && (
+                  {(filterRole || searchTerm || filterFaculte) && (
                     <Badge bg="secondary" className="ms-2">Filtré</Badge>
                   )}
                   {!isAdmin && (
@@ -728,6 +784,7 @@ export default function Authentification() {
                 </div>
                 <div className="text-muted">
                   Connecté en tant que : {userRole || "Non défini"}
+                  {currentUserFaculte && ` | ${currentUserFaculte}`}
                 </div>
               </div>
             </div>
@@ -762,14 +819,16 @@ export default function Authentification() {
                     <th>#</th>
                     <th>Nom d'utilisateur</th>
                     <th>Email</th>
-                    <th>Rôle et Statut</th>
+                    <th>Rôle</th>
+                    <th>Faculté</th>
+                    <th>Statut</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="text-center py-5">
+                      <td colSpan={7} className="text-center py-5">
                         <FaSearch className="text-muted mb-3" size={48} />
                         <p className="text-muted">Aucun utilisateur trouvé</p>
                         {users.length === 0 && (
@@ -799,25 +858,41 @@ export default function Authentification() {
                             </div>
                           </td>
                           <td>
+                            {role ? (
+                              <Badge bg={role.color}>{role.label}</Badge>
+                            ) : (
+                              <Badge bg="secondary">{user.role}</Badge>
+                            )}
+                          </td>
+                          <td>
+                            {user.faculte ? (
+                              <Badge bg="light" text="dark">
+                                <FaUniversity className="me-1" />
+                                {user.faculte}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted">-</span>
+                            )}
+                          </td>
+                          <td>
                             <div className="d-flex align-items-center">
-                              {role ? (
-                                <Badge bg={role.color}>{role.label}</Badge>
-                              ) : (
-                                <Badge bg="secondary">{user.role}</Badge>
-                              )}
-                              {isOnline && (
-                                <Badge bg="success" className="ms-2" pill>
+                              {isOnline ? (
+                                <Badge bg="success" pill>
                                   <FaCircle className="me-1" style={{ fontSize: '0.6rem' }} />
                                   En ligne
                                 </Badge>
+                              ) : (
+                                <Badge bg="secondary" pill>
+                                  Hors ligne
+                                </Badge>
+                              )}
+                              {user.last_seen_human && (
+                                <div className="text-muted small ms-2">
+                                  <FaClock className="me-1" />
+                                  {user.last_seen_human}
+                                </div>
                               )}
                             </div>
-                            {user.last_seen_human && (
-                              <div className="text-muted small mt-1">
-                                <FaClock className="me-1" />
-                                {user.last_seen_human}
-                              </div>
-                            )}
                           </td>
                           <td>
                             <div className="btn-group btn-group-sm" role="group">
@@ -920,7 +995,15 @@ export default function Authentification() {
                   <Form.Label>Rôle *</Form.Label>
                   <Form.Select
                     value={newUser.role}
-                    onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                    onChange={(e) => {
+                      const selectedRole = e.target.value;
+                      const roleObj = roles.find(r => r.value === selectedRole);
+                      setNewUser({ 
+                        ...newUser, 
+                        role: selectedRole,
+                        faculte: roleObj?.hasFaculte ? newUser.faculte : ""
+                      });
+                    }}
                   >
                     {roles.map((role, index) => (
                       <option key={index} value={role.value}>{role.label}</option>
@@ -930,6 +1013,26 @@ export default function Authentification() {
                     Définit les permissions de l'utilisateur
                   </Form.Text>
                 </Form.Group>
+              </div>
+              <div className="col-md-6">
+                {roles.find(r => r.value === newUser.role)?.hasFaculte && (
+                  <Form.Group className="mb-3">
+                    <Form.Label>Faculté *</Form.Label>
+                    <Form.Select
+                      value={newUser.faculte}
+                      onChange={(e) => setNewUser({ ...newUser, faculte: e.target.value })}
+                      required={roles.find(r => r.value === newUser.role)?.hasFaculte}
+                    >
+                      <option value="">Sélectionnez une faculté</option>
+                      {facultes.map((fac, index) => (
+                        <option key={index} value={fac}>{fac}</option>
+                      ))}
+                    </Form.Select>
+                    <Form.Text className="text-muted">
+                      Uniquement pour le rôle Scolarité
+                    </Form.Text>
+                  </Form.Group>
+                )}
               </div>
             </div>
 
@@ -1031,7 +1134,15 @@ export default function Authentification() {
                       <Form.Label>Rôle *</Form.Label>
                       <Form.Select
                         value={editingUser.role}
-                        onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}
+                        onChange={(e) => {
+                          const selectedRole = e.target.value;
+                          const roleObj = roles.find(r => r.value === selectedRole);
+                          setEditingUser({ 
+                            ...editingUser, 
+                            role: selectedRole,
+                            faculte: roleObj?.hasFaculte ? editingUser.faculte : ""
+                          });
+                        }}
                         disabled={editingUser.id === parseInt(currentUserId)}
                       >
                         {roles.map((role, index) => (
@@ -1044,6 +1155,26 @@ export default function Authentification() {
                         </Form.Text>
                       )}
                     </Form.Group>
+                  </div>
+                  <div className="col-md-6">
+                    {roles.find(r => r.value === editingUser.role)?.hasFaculte && (
+                      <Form.Group className="mb-3">
+                        <Form.Label>Faculté *</Form.Label>
+                        <Form.Select
+                          value={editingUser.faculte || ""}
+                          onChange={(e) => setEditingUser({ ...editingUser, faculte: e.target.value })}
+                          required={roles.find(r => r.value === editingUser.role)?.hasFaculte}
+                        >
+                          <option value="">Sélectionnez une faculté</option>
+                          {facultes.map((fac, index) => (
+                            <option key={index} value={fac}>{fac}</option>
+                          ))}
+                        </Form.Select>
+                        <Form.Text className="text-muted">
+                          Uniquement pour le rôle Scolarité
+                        </Form.Text>
+                      </Form.Group>
+                    )}
                   </div>
                 </div>
               </Form>
@@ -1073,6 +1204,14 @@ export default function Authentification() {
               <p className="mt-3">
                 <strong>{userToDelete.username}</strong><br />
                 <span className="text-muted">({userToDelete.email})</span>
+                {userToDelete.faculte && (
+                  <div className="mt-2">
+                    <Badge bg="light" text="dark">
+                      <FaUniversity className="me-1" />
+                      {userToDelete.faculte}
+                    </Badge>
+                  </div>
+                )}
               </p>
               <Alert variant="warning" className="mt-3">
                 <FaExclamationTriangle className="me-2" />
@@ -1103,7 +1242,7 @@ export default function Authentification() {
         </Modal.Footer>
       </Modal>
 
-      {/* Modal Changement de mot de passe */}
+      {/* Modal Changement de mot de passe (inchangé) */}
       <Modal show={showChangePasswordModal} onHide={() => setShowChangePasswordModal(false)}>
         <Modal.Header closeButton className="bg-primary text-white">
           <Modal.Title>Changer mon mot de passe</Modal.Title>
@@ -1188,6 +1327,7 @@ export default function Authentification() {
               <small>
                 Système de gestion des utilisateurs - Université de Toliara<br />
                 {isAdmin ? "Mode administrateur" : "Mode consultation"}
+                {currentUserFaculte && ` | Faculté: ${currentUserFaculte}`}
                 {isAdmin && onlineCount > 0 && (
                   <>
                     <br />

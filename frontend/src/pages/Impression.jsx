@@ -6,6 +6,7 @@ import {
     FaFilter,
     FaSearch,
     FaEye,
+    FaInfoCircle,
     FaEyeSlash,
     FaExclamationTriangle,
     FaCheckCircle
@@ -23,7 +24,7 @@ import {
     Col,
     Badge
 } from "react-bootstrap";
-import { etudiantApi, faculteApi, domaineApi, mentionApi } from '../api';
+import { etudiantApi } from '../api';
 import * as XLSX from 'xlsx';
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -32,11 +33,7 @@ export default function Impression() {
     // États pour les données
     const [etudiants, setEtudiants] = useState([]);
     const [filteredEtudiants, setFilteredEtudiants] = useState([]);
-    const [facultes, setFacultes] = useState([]);
-    const [domaines, setDomaines] = useState([]);
-    const [mentions, setMentions] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [loadingFilters, setLoadingFilters] = useState(true);
     const [error, setError] = useState(null);
     const [exportError, setExportError] = useState(null);
 
@@ -48,13 +45,42 @@ export default function Impression() {
     const [searchTerm, setSearchTerm] = useState("");
     const [showAll, setShowAll] = useState(false);
 
+    // États pour les données de filtres dynamiques
+    const [facultesList, setFacultesList] = useState([]);
+    const [domainesList, setDomainesList] = useState([]);
+    const [mentionsList, setMentionsList] = useState([]);
+    const [niveauxList, setNiveauxList] = useState([]);
+
     // États pour l'exportation
     const [exportLoading, setExportLoading] = useState(false);
     const [showExportModal, setShowExportModal] = useState(false);
     const [exportType, setExportType] = useState("");
 
-    // Niveaux
-    const niveaux = ["Licence 1", "Licence 2", "Licence 3", "Master 1", "Master 2", "Doctorat 1"];
+    // Extraire les listes uniques des étudiants chargés
+    const extractFilterData = (etudiantsData) => {
+        const facultesSet = new Set();
+        const domainesSet = new Set();
+        const mentionsSet = new Set();
+        const niveauxSet = new Set();
+        
+        etudiantsData.forEach(etudiant => {
+            if (etudiant.faculte_nom) facultesSet.add(etudiant.faculte_nom);
+            else if (etudiant.faculte) facultesSet.add(etudiant.faculte);
+            
+            if (etudiant.domaine_nom) domainesSet.add(etudiant.domaine_nom);
+            else if (etudiant.domaine) domainesSet.add(etudiant.domaine);
+            
+            if (etudiant.mention_nom) mentionsSet.add(etudiant.mention_nom);
+            else if (etudiant.mention) mentionsSet.add(etudiant.mention);
+            
+            if (etudiant.niveau) niveauxSet.add(etudiant.niveau);
+        });
+        
+        setFacultesList(Array.from(facultesSet).sort());
+        setDomainesList(Array.from(domainesSet).sort());
+        setMentionsList(Array.from(mentionsSet).sort());
+        setNiveauxList(Array.from(niveauxSet).sort());
+    };
 
     // Vérifier si tous les filtres requis sont sélectionnés (pour PDF)
     const areAllRequiredFiltersSelected = () => {
@@ -79,97 +105,39 @@ export default function Impression() {
         return missing;
     };
 
-    // Charger toutes les données
-    const fetchData = async () => {
+    // Charger tous les étudiants
+    const fetchEtudiants = async () => {
         setLoading(true);
-        setLoadingFilters(true);
         setError(null);
 
         try {
-            // Charger les facultés
-            const facResponse = await faculteApi.getFacultes({ page_size: 100 });
-            setFacultes(Array.isArray(facResponse.data) ? facResponse.data : 
-                      facResponse.data?.results || []);
-
-            // Charger les domaines
-            const domResponse = await domaineApi.getDomaines({ page_size: 100 });
-            setDomaines(Array.isArray(domResponse.data) ? domResponse.data : 
-                       domResponse.data?.results || []);
-
-            // Charger les mentions
-            const menResponse = await mentionApi.getMentions({ page_size: 100 });
-            setMentions(Array.isArray(menResponse.data) ? menResponse.data : 
-                       menResponse.data?.results || []);
-
-            // Charger les étudiants
-            const etudResponse = await etudiantApi.getEtudiants({ page_size: 1000 });
-            const etudiantsData = Array.isArray(etudResponse.data) ? etudResponse.data : 
-                                 etudResponse.data?.results || [];
+            const response = await etudiantApi.getEtudiants({ page_size: 1000 });
+            let etudiantsData = [];
             
-            // Enrichir les données des étudiants avec les noms des références
-            const enrichedEtudiants = etudiantsData.map(etudiant => ({
-                ...etudiant,
-                faculte_nom: getFaculteNomById(etudiant.faculte),
-                domaine_nom: getDomaineNomById(etudiant.domaine),
-                mention_nom: getMentionNomById(etudiant.mention)
-            }));
-
-            setEtudiants(enrichedEtudiants);
-            setFilteredEtudiants(enrichedEtudiants);
-
+            if (response.data && Array.isArray(response.data.results)) {
+                etudiantsData = response.data.results;
+            } else if (Array.isArray(response.data)) {
+                etudiantsData = response.data;
+            }
+            
+            setEtudiants(etudiantsData);
+            setFilteredEtudiants(etudiantsData);
+            
+            // Extraire les données pour les filtres
+            extractFilterData(etudiantsData);
+            
         } catch (err) {
-            console.error("Erreur lors du chargement des données:", err);
-            setError("Erreur lors du chargement des données");
+            console.error("Erreur:", err);
+            setError("Erreur lors du chargement des étudiants");
         } finally {
             setLoading(false);
-            setLoadingFilters(false);
         }
-    };
-
-    // Fonctions helpers pour obtenir les noms
-    const getFaculteNomById = (id) => {
-        const faculte = facultes.find(f => f.id === id);
-        return faculte ? faculte.nom : `Faculté ${id}`;
-    };
-
-    const getDomaineNomById = (id) => {
-        const domaine = domaines.find(d => d.id === id);
-        return domaine ? domaine.nom : `Domaine ${id}`;
-    };
-
-    const getMentionNomById = (id) => {
-        const mention = mentions.find(m => m.id === id);
-        return mention ? mention.nom : `Mention ${id}`;
-    };
-
-    // Filtrer les domaines par faculté
-    const getDomainesByFaculte = (faculteId) => {
-        return domaines.filter(domaine => domaine.faculte === faculteId);
-    };
-
-    // Filtrer les mentions par domaine
-    const getMentionsByDomaine = (domaineId) => {
-        return mentions.filter(mention => mention.domaine === domaineId);
     };
 
     // Charger les données au démarrage
     useEffect(() => {
-        fetchData();
+        fetchEtudiants();
     }, []);
-
-    // Mettre à jour les étudiants enrichis lorsque les listes changent
-    useEffect(() => {
-        if (facultes.length > 0 && domaines.length > 0 && mentions.length > 0) {
-            const enrichedEtudiants = etudiants.map(etudiant => ({
-                ...etudiant,
-                faculte_nom: getFaculteNomById(etudiant.faculte),
-                domaine_nom: getDomaineNomById(etudiant.domaine),
-                mention_nom: getMentionNomById(etudiant.mention)
-            }));
-            setEtudiants(enrichedEtudiants);
-            setFilteredEtudiants(enrichedEtudiants);
-        }
-    }, [facultes, domaines, mentions]);
 
     // Filtrer les étudiants selon les critères
     useEffect(() => {
@@ -177,17 +145,26 @@ export default function Impression() {
 
         // Filtre par faculté
         if (selectedFaculte) {
-            filtered = filtered.filter(e => e.faculte == selectedFaculte);
+            filtered = filtered.filter(e => 
+                (e.faculte_nom && e.faculte_nom === selectedFaculte) || 
+                (e.faculte && e.faculte === selectedFaculte)
+            );
         }
 
         // Filtre par domaine
         if (selectedDomaine) {
-            filtered = filtered.filter(e => e.domaine == selectedDomaine);
+            filtered = filtered.filter(e => 
+                (e.domaine_nom && e.domaine_nom === selectedDomaine) || 
+                (e.domaine && e.domaine === selectedDomaine)
+            );
         }
 
         // Filtre par mention
         if (selectedMention) {
-            filtered = filtered.filter(e => e.mention == selectedMention);
+            filtered = filtered.filter(e => 
+                (e.mention_nom && e.mention_nom === selectedMention) || 
+                (e.mention && e.mention === selectedMention)
+            );
         }
 
         // Filtre par niveau
@@ -209,14 +186,421 @@ export default function Impression() {
         setFilteredEtudiants(filtered);
     }, [etudiants, selectedFaculte, selectedDomaine, selectedMention, selectedNiveau, searchTerm]);
 
+    // Gérer le changement de faculté
+    const handleFaculteChange = (e) => {
+        const faculteValue = e.target.value;
+        setSelectedFaculte(faculteValue);
+        setSelectedDomaine("");
+        setSelectedMention("");
+        setSelectedNiveau("");
+        
+        // Extraire les domaines, mentions et niveaux pour cette faculté
+        const domainesSet = new Set();
+        const mentionsSet = new Set();
+        const niveauxSet = new Set();
+        
+        etudiants.forEach(etudiant => {
+            const faculteMatch = (etudiant.faculte_nom && etudiant.faculte_nom === faculteValue) || 
+                               (etudiant.faculte && etudiant.faculte === faculteValue);
+            if (faculteMatch) {
+                if (etudiant.domaine_nom) domainesSet.add(etudiant.domaine_nom);
+                else if (etudiant.domaine) domainesSet.add(etudiant.domaine);
+                
+                if (etudiant.mention_nom) mentionsSet.add(etudiant.mention_nom);
+                else if (etudiant.mention) mentionsSet.add(etudiant.mention);
+                
+                if (etudiant.niveau) niveauxSet.add(etudiant.niveau);
+            }
+        });
+        
+        setDomainesList(Array.from(domainesSet).sort());
+        setMentionsList(Array.from(mentionsSet).sort());
+        setNiveauxList(Array.from(niveauxSet).sort());
+    };
+
+    // Gérer le changement de domaine
+    const handleDomaineChange = (e) => {
+        const domaineValue = e.target.value;
+        setSelectedDomaine(domaineValue);
+        setSelectedMention("");
+        setSelectedNiveau("");
+        
+        // Extraire les mentions et niveaux pour ce domaine
+        const mentionsSet = new Set();
+        const niveauxSet = new Set();
+        
+        etudiants.forEach(etudiant => {
+            const faculteMatch = (etudiant.faculte_nom && etudiant.faculte_nom === selectedFaculte) || 
+                               (etudiant.faculte && etudiant.faculte === selectedFaculte);
+            const domaineMatch = (etudiant.domaine_nom && etudiant.domaine_nom === domaineValue) || 
+                               (etudiant.domaine && etudiant.domaine === domaineValue);
+            
+            if (faculteMatch && domaineMatch) {
+                if (etudiant.mention_nom) mentionsSet.add(etudiant.mention_nom);
+                else if (etudiant.mention) mentionsSet.add(etudiant.mention);
+                
+                if (etudiant.niveau) niveauxSet.add(etudiant.niveau);
+            }
+        });
+        
+        setMentionsList(Array.from(mentionsSet).sort());
+        setNiveauxList(Array.from(niveauxSet).sort());
+    };
+
+    // Gérer le changement de mention
+    const handleMentionChange = (e) => {
+        const mentionValue = e.target.value;
+        setSelectedMention(mentionValue);
+        setSelectedNiveau("");
+        
+        // Extraire les niveaux pour cette mention
+        const niveauxSet = new Set();
+        
+        etudiants.forEach(etudiant => {
+            const faculteMatch = (etudiant.faculte_nom && etudiant.faculte_nom === selectedFaculte) || 
+                               (etudiant.faculte && etudiant.faculte === selectedFaculte);
+            const domaineMatch = (etudiant.domaine_nom && etudiant.domaine_nom === selectedDomaine) || 
+                               (etudiant.domaine && etudiant.domaine === selectedDomaine);
+            const mentionMatch = (etudiant.mention_nom && etudiant.mention_nom === mentionValue) || 
+                               (etudiant.mention && etudiant.mention === mentionValue);
+            
+            if (faculteMatch && domaineMatch && mentionMatch) {
+                if (etudiant.niveau) niveauxSet.add(etudiant.niveau);
+            }
+        });
+        
+        setNiveauxList(Array.from(niveauxSet).sort());
+    };
+
+    // Fonction d'exportation Excel
+    const exportToExcel = () => {
+        setExportLoading(true);
+        setExportError(null);
+
+        try {
+            const dataForExport = filteredEtudiants.map(etudiant => ({
+                "Matricule": etudiant.matricule,
+                "Nom et Prénom": `${etudiant.nom} ${etudiant.prenom}`,
+                "Date Naissance": formatDate(etudiant.date_naissance),
+                "CIN": etudiant.cin || '-',
+                "Num Tél": etudiant.telephone || '-',
+                "N/R/T": etudiant.code_redoublement,
+                "Année Bac": etudiant.annee_bacc || '-',
+                "Boursier": etudiant.boursier,
+                "Montant Bourse": etudiant.bourse > 0 ? `${parseFloat(etudiant.bourse).toLocaleString()} MGA` : '-',
+                "Faculté": etudiant.faculte_nom || etudiant.faculte || '-',
+                "Domaine": etudiant.domaine_nom || etudiant.domaine || '-',
+                "Mention": etudiant.mention_nom || etudiant.mention || '-',
+                "Niveau": etudiant.niveau,
+                "Lieu Naissance": etudiant.lieu_naissance || '-',
+                "Email": etudiant.email || '-',
+                "Nationalité": etudiant.nationalite || 'Malagasy',
+                "Père": etudiant.nom_pere || '-',
+                "Mère": etudiant.nom_mere || '-'
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(dataForExport);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Liste Étudiants");
+
+            const fileName = `liste_etudiants_${new Date().toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+        } catch (error) {
+            console.error("Erreur export Excel:", error);
+            setExportError("Erreur lors de l'export Excel : " + error.message);
+        } finally {
+            setExportLoading(false);
+            setShowExportModal(false);
+        }
+    };
+
+    // Fonction d'exportation PDF - Affiche SEULEMENT les étudiants du niveau sélectionné
+    const exportToPDF = () => {
+        setExportLoading(true);
+        setExportError(null);
+
+        try {
+            const doc = new jsPDF('portrait');
+            const date = new Date().toLocaleDateString('fr-FR');
+
+            // En-tête institutionnel
+            doc.setFontSize(14);
+            doc.setFont("helvetica", "bold");
+            doc.text("REPOBLIKAN'NY MADAGASIKARA", 105, 15, { align: 'center' });
+            doc.setFontSize(12);
+            doc.text("FITIAVANA - TANINDRAZANA - FANDROSOANA", 105, 22, { align: 'center' });
+
+            doc.setFontSize(11);
+            doc.text("MINISTERE DE L'ENSEIGNEMENT SUPERIEUR ET DE LA RECHERCHE SCIENTIFIQUE", 105, 30, { align: 'center' });
+            doc.text("UNIVERSITE DE TOLIARA", 105, 37, { align: 'center' });
+
+            doc.setFontSize(14);
+            doc.text("Liste Inscription", 105, 47, { align: 'center' });
+
+            // Informations de la faculté
+            const firstStudent = filteredEtudiants[0] || {};
+            const currentDate = new Date().toLocaleDateString('fr-FR', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Faculte: ${firstStudent.faculte_nom || firstStudent.faculte || selectedFaculte || 'Non spécifié'}`, 20, 60);
+            doc.text(`Domaine: ${firstStudent.domaine_nom || firstStudent.domaine || selectedDomaine || 'Non spécifié'}`, 20, 67);
+            doc.text(`Mention: ${firstStudent.mention_nom || firstStudent.mention || selectedMention || 'Non spécifié'}`, 20, 74);
+            doc.text(`Niveau: ${firstStudent.niveau || selectedNiveau || 'Non spécifié'}`, 20, 81);
+
+            // Date de génération à droite
+            doc.text(`Date: ${currentDate}`, 180, 81, { align: 'right' });
+
+            // Tableau des étudiants - SEULEMENT ceux du niveau sélectionné
+            const tableColumn = [
+                { header: "N°", dataKey: "numero", width: 10 },
+                { header: "Matricule", dataKey: "matricule", width: 25 },
+                { header: "Nom et Prénoms", dataKey: "nom_complet", width: 45 },
+                { header: "Date de naissance", dataKey: "date_naissance", width: 22 },
+                { header: "CIN", dataKey: "cin", width: 25 },
+                { header: "Num Tel", dataKey: "telephone", width: 22 },
+                { header: "N/R/T", dataKey: "code_redoublement", width: 12 },
+                { header: "Année Bacc", dataKey: "annee_bacc", width: 18 },
+                { header: "Bourse", dataKey: "boursier", width: 12 },
+                { header: "Montant", dataKey: "montant", width: 15 },
+                { header: "Signature", dataKey: "signature", width: 25 }
+            ];
+
+            const tableRows = filteredEtudiants
+                .filter(etudiant => etudiant.niveau === selectedNiveau) // FILTRE SUPPLEMENTAIRE : seulement le niveau sélectionné
+                .map((etudiant, index) => {
+                    let montantFormatted = '-';
+                    if (etudiant.bourse > 0) {
+                        const montantNum = parseFloat(etudiant.bourse);
+                        montantFormatted = montantNum.toLocaleString('fr-FR', {
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 0
+                        }).replace(/\u202f/g, ' ');
+                    }
+
+                    return {
+                        numero: index + 1,
+                        matricule: etudiant.matricule || '-',
+                        nom_complet: `${etudiant.nom || ''} ${etudiant.prenom || ''}`.trim(),
+                        date_naissance: formatDate(etudiant.date_naissance) || '-',
+                        cin: etudiant.cin || '-',
+                        telephone: etudiant.telephone || '-',
+                        code_redoublement: etudiant.code_redoublement || 'N',
+                        annee_bacc: etudiant.annee_bacc || '-',
+                        boursier: etudiant.boursier === 'OUI' ? 'OUI' : 'NON',
+                        montant: montantFormatted,
+                        signature: ""
+                    };
+                });
+
+            const startY = 90;
+
+            autoTable(doc, {
+                columns: tableColumn,
+                body: tableRows,
+                startY: startY,
+                theme: 'grid',
+                headStyles: {
+                    fillColor: [220, 220, 220],
+                    textColor: [0, 0, 0],
+                    fontStyle: 'bold',
+                    fontSize: 7
+                },
+                bodyStyles: {
+                    fontSize: 7,
+                    cellPadding: 1,
+                    cellWidth: 'wrap',
+                    overflow: 'linebreak',
+                    halign: 'center'
+                },
+                columnStyles: {
+                    numero: {
+                        halign: 'center',
+                        cellWidth: 10
+                    },
+                    montant: {
+                        halign: 'right',
+                        cellWidth: 15
+                    },
+                    date_naissance: {
+                        halign: 'center',
+                        cellWidth: 22
+                    },
+                    annee_bacc: {
+                        halign: 'center',
+                        cellWidth: 18
+                    }
+                },
+                margin: { left: 10, right: 10 },
+                styles: {
+                    overflow: 'linebreak',
+                    cellWidth: 'wrap'
+                },
+                didDrawPage: function (data) {
+                    const pageCount = doc.internal.getNumberOfPages();
+                    doc.setFontSize(8);
+                    doc.text(
+                        `Page ${data.pageNumber} sur ${pageCount}`,
+                        105,
+                        doc.internal.pageSize.height - 10,
+                        { align: 'center' }
+                    );
+
+                    // Mention spécifique au niveau
+                    const mention = firstStudent.mention_nom || firstStudent.mention || selectedMention || 'Non spécifié';
+                    const niveau = selectedNiveau || 'Non spécifié';
+                    doc.text(
+                        `${mention} --- ${niveau}`,
+                        105,
+                        doc.internal.pageSize.height - 20,
+                        { align: 'right' }
+                    );
+
+                    if (data.pageNumber === pageCount) {
+                        const totalY = doc.internal.pageSize.height - 30;
+                        doc.setFont("helvetica");
+                        doc.text(
+                            `Arrêtée la présente liste au nombre de ${tableRows.length} étudiants (Niveau: ${selectedNiveau})`,
+                            105,
+                            totalY,
+                            { align: 'center' }
+                        );
+                    }
+                }
+            });
+
+            const mention = firstStudent.mention_nom || firstStudent.mention || selectedMention || 'TUL';
+            const niveau = selectedNiveau || '';
+            const fileName = `Liste_Inscription_${mention.replace(/\s+/g, '_')}_${niveau.replace(/\s+/g, '_')}_${new Date().getFullYear()}.pdf`;
+            doc.save(fileName);
+
+        } catch (error) {
+            console.error("Erreur export PDF:", error);
+            setExportError("Erreur lors de l'export PDF : " + error.message);
+        } finally {
+            setExportLoading(false);
+            setShowExportModal(false);
+        }
+    };
+
+    // Fonction helper pour formater la date
+    const formatDate = (dateString) => {
+        if (!dateString) return '-';
+        try {
+            const date = new Date(dateString);
+            if (dateString.includes('-')) {
+                const parts = dateString.split('-');
+                if (parts[0].length === 4) {
+                    return `${parts[2]}-${parts[1]}-${parts[0]}`;
+                } else {
+                    return dateString;
+                }
+            }
+            return date.toLocaleDateString('fr-FR');
+        } catch (e) {
+            return dateString;
+        }
+    };
+
+    // Gérer l'exportation
+    const handleExport = (type) => {
+        // Vérifier s'il y a des étudiants à exporter
+        if (filteredEtudiants.length === 0) {
+            setExportError(`Impossible d'exporter en ${type.toUpperCase()} : Aucun étudiant correspondant aux critères de filtrage.`);
+            setTimeout(() => setExportError(null), 5000);
+            return;
+        }
+
+        // Vérification spéciale pour PDF
+        if (type === 'pdf' && !isPdfEnabled()) {
+            const missingFilters = getMissingFilters();
+            let errorMessage = "Impossible d'exporter en PDF : ";
+            
+            if (missingFilters.length > 0) {
+                errorMessage += `Filtres requis manquants : ${missingFilters.join(', ')}.`;
+            } else {
+                errorMessage += "Conditions d'exportation PDF non remplies.";
+            }
+            
+            setExportError(errorMessage);
+            setTimeout(() => setExportError(null), 5000);
+            return;
+        }
+
+        // Vérifier spécifiquement pour PDF qu'il y a des étudiants du niveau sélectionné
+        if (type === 'pdf') {
+            const etudiantsDuNiveau = filteredEtudiants.filter(e => e.niveau === selectedNiveau);
+            if (etudiantsDuNiveau.length === 0) {
+                setExportError(`Impossible d'exporter en PDF : Aucun étudiant trouvé pour le niveau "${selectedNiveau}".`);
+                setTimeout(() => setExportError(null), 5000);
+                return;
+            }
+        }
+
+        setExportType(type);
+        setShowExportModal(true);
+    };
+
+    // Confirmer l'exportation
+    const confirmExport = () => {
+        if (filteredEtudiants.length === 0) {
+            setExportError("Impossible d'exporter : La liste des étudiants est vide.");
+            setShowExportModal(false);
+            setTimeout(() => setExportError(null), 5000);
+            return;
+        }
+
+        // Vérification supplémentaire pour PDF
+        if (exportType === 'pdf' && !isPdfEnabled()) {
+            const missingFilters = getMissingFilters();
+            setExportError(`Impossible d'exporter en PDF : Filtres requis manquants : ${missingFilters.join(', ')}.`);
+            setShowExportModal(false);
+            setTimeout(() => setExportError(null), 5000);
+            return;
+        }
+
+        // Vérifier spécifiquement pour PDF qu'il y a des étudiants du niveau sélectionné
+        if (exportType === 'pdf') {
+            const etudiantsDuNiveau = filteredEtudiants.filter(e => e.niveau === selectedNiveau);
+            if (etudiantsDuNiveau.length === 0) {
+                setExportError(`Impossible d'exporter en PDF : Aucun étudiant trouvé pour le niveau "${selectedNiveau}".`);
+                setShowExportModal(false);
+                setTimeout(() => setExportError(null), 5000);
+                return;
+            }
+        }
+
+        if (exportType === 'excel') {
+            exportToExcel();
+        } else if (exportType === 'pdf') {
+            exportToPDF();
+        }
+    };
+
+    // Réinitialiser les filtres
+    const resetFilters = () => {
+        setSelectedFaculte("");
+        setSelectedDomaine("");
+        setSelectedMention("");
+        setSelectedNiveau("");
+        setSearchTerm("");
+        // Réinitialiser les listes à toutes les valeurs disponibles
+        extractFilterData(etudiants);
+    };
+
     // Groupe les étudiants par faculté → domaine → mention → niveau
     const groupEtudiants = () => {
         const grouped = {};
 
         filteredEtudiants.forEach(etudiant => {
-            const faculte = getFaculteNomById(etudiant.faculte) || "Non spécifié";
-            const domaine = getDomaineNomById(etudiant.domaine) || "Non spécifié";
-            const mention = getMentionNomById(etudiant.mention) || "Non spécifié";
+            const faculte = etudiant.faculte_nom || etudiant.faculte || "Non spécifié";
+            const domaine = etudiant.domaine_nom || etudiant.domaine || "Non spécifié";
+            const mention = etudiant.mention_nom || etudiant.mention || "Non spécifié";
             const niveau = etudiant.niveau || "Non spécifié";
 
             if (!grouped[faculte]) grouped[faculte] = {};
@@ -278,319 +662,6 @@ export default function Impression() {
 
         stats.totalEtudiants = totalEtudiants;
         return stats;
-    };
-
-// Fonction d'exportation Excel
-const exportToExcel = () => {
-    setExportLoading(true);
-    setExportError(null);
-
-    try {
-        const dataForExport = filteredEtudiants.map(etudiant => ({
-            "Matricule": etudiant.matricule,
-            "Nom et Prénom": `${etudiant.nom} ${etudiant.prenom}`,
-            "Date Naissance": formatDate(etudiant.date_naissance),
-            "CIN": etudiant.cin || '-',
-            "Num Tél": etudiant.telephone || '-',
-            "N/R/T": etudiant.code_redoublement,
-            "Année Bac": etudiant.annee_bacc || '-',
-            "Boursier": etudiant.boursier,
-            "Montant Bourse": etudiant.bourse > 0 ? `${parseFloat(etudiant.bourse).toLocaleString()} MGA` : '-',
-            // Utiliser les propriétés enrichies qui contiennent déjà les noms
-            "Faculté": etudiant.faculte_nom || getFaculteNomById(etudiant.faculte) || '-',
-            "Domaine": etudiant.domaine_nom || getDomaineNomById(etudiant.domaine) || '-',
-            "Mention": etudiant.mention_nom || getMentionNomById(etudiant.mention) || '-',
-            "Niveau": etudiant.niveau,
-            "Lieu Naissance": etudiant.lieu_naissance || '-',
-            "Email": etudiant.email || '-',
-            "Nationalité": etudiant.nationalite || 'Malagasy',
-            "Père": etudiant.nom_pere || '-',
-            "Mère": etudiant.nom_mere || '-'
-        }));
-
-        const ws = XLSX.utils.json_to_sheet(dataForExport);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Liste Étudiants");
-
-        const fileName = `liste_etudiants_${new Date().toISOString().split('T')[0]}.xlsx`;
-        XLSX.writeFile(wb, fileName);
-    } catch (error) {
-        console.error("Erreur export Excel:", error);
-        setExportError("Erreur lors de l'export Excel : " + error.message);
-    } finally {
-        setExportLoading(false);
-        setShowExportModal(false);
-    }
-};
-
-// Fonction d'exportation PDF
-const exportToPDF = () => {
-    setExportLoading(true);
-    setExportError(null);
-
-    try {
-        const doc = new jsPDF('portrait');
-        const date = new Date().toLocaleDateString('fr-FR');
-
-        // En-tête institutionnel
-        doc.setFontSize(14);
-        doc.setFont("helvetica", "bold");
-        doc.text("REPOBLIKAN'NY MADAGASIKARA", 105, 15, { align: 'center' });
-        doc.setFontSize(12);
-        doc.text("FITIAVANA - TANINDRAZANA - FANDROSOANA", 105, 22, { align: 'center' });
-
-        doc.setFontSize(11);
-        doc.text("MINISTERE DE L'ENSEIGNEMENT SUPERIEUR ET DE LA RECHERCHE SCIENTIFIQUE", 105, 30, { align: 'center' });
-        doc.text("UNIVERSITE DE TOLIARA", 105, 37, { align: 'center' });
-
-        doc.setFontSize(14);
-        doc.text("Liste Inscription", 105, 47, { align: 'center' });
-
-        // Informations de la faculté
-        const firstStudent = filteredEtudiants[0] || {};
-        const currentDate = new Date().toLocaleDateString('fr-FR', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-        });
-
-        // Utiliser les données enrichies qui contiennent déjà les noms
-        const faculteNom = firstStudent.faculte_nom || getFaculteNomById(selectedFaculte) || 'Non spécifié';
-        const domaineNom = firstStudent.domaine_nom || getDomaineNomById(selectedDomaine) || 'Non spécifié';
-        const mentionNom = firstStudent.mention_nom || getMentionNomById(selectedMention) || 'Non spécifié';
-        const niveauNom = selectedNiveau || firstStudent.niveau || 'Non spécifié';
-
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Faculte: ${faculteNom}`, 20, 60);
-        doc.text(`Domaine: ${domaineNom}`, 20, 67);
-        doc.text(`Mention: ${mentionNom}`, 20, 74);
-        doc.text(`Niveau: ${niveauNom}`, 20, 81);
-
-        // Date de génération à droite
-        doc.text(`Date: ${currentDate}`, 180, 81, { align: 'right' });
-
-        // Tableau des étudiants
-        const tableColumn = [
-            { header: "Matricule", dataKey: "matricule", width: 30 },
-            { header: "Nom et Prénoms", dataKey: "nom_complet", width: 50 },
-            { header: "Date de naissance", dataKey: "date_naissance", width: 25 },
-            { header: "CIN", dataKey: "cin", width: 30 },
-            { header: "Num Tel", dataKey: "telephone", width: 25 },
-            { header: "N/R/T", dataKey: "code_redoublement", width: 15 },
-            { header: "Année Bacc", dataKey: "annee_bacc", width: 20 },
-            { header: "Bourse", dataKey: "boursier", width: 15 },
-            { header: "Montant", dataKey: "montant", width: 10 },
-            { header: "Signature", dataKey: "signature", width: 30 }
-        ];
-
-        const tableRows = filteredEtudiants.map((etudiant, index) => {
-            let montantFormatted = '-';
-            if (etudiant.bourse > 0) {
-                const montantNum = parseFloat(etudiant.bourse);
-                montantFormatted = montantNum.toLocaleString('fr-FR', {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 0
-                }).replace(/\u202f/g, ' ');
-            }
-
-            return {
-                matricule: etudiant.matricule || '-',
-                nom_complet: `${etudiant.nom || ''} ${etudiant.prenom || ''}`.trim(),
-                date_naissance: formatDate(etudiant.date_naissance) || '-',
-                cin: etudiant.cin || '-',
-                telephone: etudiant.telephone || '-',
-                code_redoublement: etudiant.code_redoublement || 'N',
-                annee_bacc: etudiant.annee_bacc || '-',
-                boursier: etudiant.boursier === 'OUI' ? 'OUI' : 'NON',
-                montant: montantFormatted,
-                signature: ""
-            };
-        });
-
-        const startY = 90;
-
-        autoTable(doc, {
-            columns: tableColumn,
-            body: tableRows,
-            startY: startY,
-            theme: 'grid',
-            headStyles: {
-                fillColor: [220, 220, 220],
-                textColor: [0, 0, 0],
-                fontStyle: 'bold',
-                fontSize: 6
-            },
-            bodyStyles: {
-                fontSize: 7,
-                cellPadding: 1,
-                cellWidth: 'wrap',
-                overflow: 'linebreak',
-                halign: 'center'
-            },
-            columnStyles: {
-                montant: {
-                    halign: 'right',
-                    cellWidth: 10
-                },
-                date_naissance: {
-                    halign: 'right',
-                    cellWidth: 15
-                },
-                annee_bacc: {
-                    halign: 'right',
-                    cellWidth: 10
-                }
-            },
-            margin: { left: 10, right: 10 },
-            styles: {
-                overflow: 'linebreak',
-                cellWidth: 'wrap'
-            },
-            didDrawPage: function (data) {
-                const pageCount = doc.internal.getNumberOfPages();
-                doc.setFontSize(8);
-                doc.text(
-                    `Page ${data.pageNumber} sur ${pageCount}`,
-                    105,
-                    doc.internal.pageSize.height - 10,
-                    { align: 'center' }
-                );
-
-                // Utiliser la variable mentionNom définie plus haut
-                doc.text(
-                    `${mentionNom} --- ${niveauNom}`,
-                    105,
-                    doc.internal.pageSize.height - 20,
-                    { align: 'right' }
-                );
-
-                if (data.pageNumber === pageCount) {
-                    const totalY = doc.internal.pageSize.height - 30;
-                    doc.setFont("helvetica");
-                    doc.text(
-                        `Arrêtée la présente liste au nombre de ${filteredEtudiants.length} étudiants`,
-                        105,
-                        totalY,
-                        { align: 'center' }
-                    );
-                }
-            }
-        });
-
-        // Nettoyer le nom du fichier
-        const cleanFileName = (str) => {
-            return str.replace(/[^a-zA-Z0-9-_]/g, '_').replace(/_+/g, '_');
-        };
-
-        const fileName = `Liste_Inscription_${cleanFileName(mentionNom)}_${cleanFileName(niveauNom)}_${new Date().getFullYear()}.pdf`;
-        doc.save(fileName);
-
-    } catch (error) {
-        console.error("Erreur export PDF:", error);
-        setExportError("Erreur lors de l'export PDF : " + error.message);
-    } finally {
-        setExportLoading(false);
-        setShowExportModal(false);
-    }
-};
-
-    // Fonction helper pour formater la date
-    const formatDate = (dateString) => {
-        if (!dateString) return '-';
-        try {
-            const date = new Date(dateString);
-            if (dateString.includes('-')) {
-                const parts = dateString.split('-');
-                if (parts[0].length === 4) {
-                    return `${parts[2]}-${parts[1]}-${parts[0]}`;
-                } else {
-                    return dateString;
-                }
-            }
-            return date.toLocaleDateString('fr-FR');
-        } catch (e) {
-            return dateString;
-        }
-    };
-
-    // Gérer l'exportation
-    const handleExport = (type) => {
-        if (filteredEtudiants.length === 0) {
-            setExportError(`Impossible d'exporter en ${type.toUpperCase()} : Aucun étudiant correspondant aux critères de filtrage.`);
-
-            setTimeout(() => {
-                setExportError(null);
-            }, 5000);
-
-            return;
-        }
-
-        if (type === 'pdf' && !isPdfEnabled()) {
-            const missingFilters = getMissingFilters();
-            let errorMessage = "Impossible d'exporter en PDF : ";
-
-            if (filteredEtudiants.length === 0) {
-                errorMessage += "Aucun étudiant à exporter.";
-            } else if (missingFilters.length > 0) {
-                errorMessage += `Filtres requis manquants : ${missingFilters.join(', ')}.`;
-            } else {
-                errorMessage += "Conditions d'exportation PDF non remplies.";
-            }
-
-            setExportError(errorMessage);
-
-            setTimeout(() => {
-                setExportError(null);
-            }, 5000);
-
-            return;
-        }
-
-        setExportType(type);
-        setShowExportModal(true);
-    };
-
-    // Confirmer l'exportation
-    const confirmExport = () => {
-        if (filteredEtudiants.length === 0) {
-            setExportError("Impossible d'exporter : La liste des étudiants est vide.");
-            setShowExportModal(false);
-
-            setTimeout(() => {
-                setExportError(null);
-            }, 5000);
-
-            return;
-        }
-
-        if (exportType === 'pdf' && !isPdfEnabled()) {
-            const missingFilters = getMissingFilters();
-            setExportError(`Impossible d'exporter en PDF : Filtres requis manquants : ${missingFilters.join(', ')}.`);
-            setShowExportModal(false);
-
-            setTimeout(() => {
-                setExportError(null);
-            }, 5000);
-
-            return;
-        }
-
-        if (exportType === 'excel') {
-            exportToExcel();
-        } else if (exportType === 'pdf') {
-            exportToPDF();
-        }
-    };
-
-    // Réinitialiser les filtres
-    const resetFilters = () => {
-        setSelectedFaculte("");
-        setSelectedDomaine("");
-        setSelectedMention("");
-        setSelectedNiveau("");
-        setSearchTerm("");
     };
 
     // Obtenir les statistiques
@@ -699,28 +770,16 @@ const exportToPDF = () => {
                                 <Form.Label className="fw-medium">
                                     Faculté <span className="text-danger">*</span>
                                 </Form.Label>
-                                {loadingFilters ? (
-                                    <Form.Control as="select" disabled>
-                                        <option>Chargement des facultés...</option>
-                                    </Form.Control>
-                                ) : (
-                                    <Form.Select
-                                        value={selectedFaculte}
-                                        onChange={(e) => {
-                                            setSelectedFaculte(e.target.value);
-                                            setSelectedDomaine("");
-                                            setSelectedMention("");
-                                        }}
-                                        className={`border-${selectedFaculte ? 'success' : 'primary'}`}
-                                    >
-                                        <option value="">Sélectionnez une faculté</option>
-                                        {facultes.map((faculte) => (
-                                            <option key={faculte.id} value={faculte.id}>
-                                                {faculte.nom}
-                                            </option>
-                                        ))}
-                                    </Form.Select>
-                                )}
+                                <Form.Select
+                                    value={selectedFaculte}
+                                    onChange={handleFaculteChange}
+                                    className={`border-${selectedFaculte ? 'success' : 'primary'}`}
+                                >
+                                    <option value="">Sélectionnez une faculté</option>
+                                    {facultesList.map((fac, idx) => (
+                                        <option key={idx} value={fac}>{fac}</option>
+                                    ))}
+                                </Form.Select>
                                 <Form.Text className={selectedFaculte ? "text-success" : "text-danger"}>
                                     {selectedFaculte ? "✓ Sélectionné" : "✗ Obligatoire pour PDF"}
                                 </Form.Text>
@@ -732,28 +791,17 @@ const exportToPDF = () => {
                                 <Form.Label className="fw-medium">
                                     Domaine <span className="text-danger">*</span>
                                 </Form.Label>
-                                {loadingFilters ? (
-                                    <Form.Control as="select" disabled>
-                                        <option>Chargement des domaines...</option>
-                                    </Form.Control>
-                                ) : (
-                                    <Form.Select
-                                        value={selectedDomaine}
-                                        onChange={(e) => {
-                                            setSelectedDomaine(e.target.value);
-                                            setSelectedMention("");
-                                        }}
-                                        disabled={!selectedFaculte}
-                                        className={`border-${selectedDomaine ? 'success' : 'warning'}`}
-                                    >
-                                        <option value="">Sélectionnez un domaine</option>
-                                        {selectedFaculte && getDomainesByFaculte(parseInt(selectedFaculte)).map((domaine) => (
-                                            <option key={domaine.id} value={domaine.id}>
-                                                {domaine.nom}
-                                            </option>
-                                        ))}
-                                    </Form.Select>
-                                )}
+                                <Form.Select
+                                    value={selectedDomaine}
+                                    onChange={handleDomaineChange}
+                                    disabled={!selectedFaculte}
+                                    className={`border-${selectedDomaine ? 'success' : 'warning'}`}
+                                >
+                                    <option value="">Sélectionnez un domaine</option>
+                                    {domainesList.map((dom, idx) => (
+                                        <option key={idx} value={dom}>{dom}</option>
+                                    ))}
+                                </Form.Select>
                                 <Form.Text className={selectedDomaine ? "text-success" : "text-danger"}>
                                     {selectedDomaine ? "✓ Sélectionné" : "✗ Obligatoire pour PDF"}
                                 </Form.Text>
@@ -765,25 +813,17 @@ const exportToPDF = () => {
                                 <Form.Label className="fw-medium">
                                     Mention <span className="text-danger">*</span>
                                 </Form.Label>
-                                {loadingFilters ? (
-                                    <Form.Control as="select" disabled>
-                                        <option>Chargement des mentions...</option>
-                                    </Form.Control>
-                                ) : (
-                                    <Form.Select
-                                        value={selectedMention}
-                                        onChange={(e) => setSelectedMention(e.target.value)}
-                                        disabled={!selectedDomaine}
-                                        className={`border-${selectedMention ? 'success' : 'warning'}`}
-                                    >
-                                        <option value="">Sélectionnez une mention</option>
-                                        {selectedDomaine && getMentionsByDomaine(parseInt(selectedDomaine)).map((mention) => (
-                                            <option key={mention.id} value={mention.id}>
-                                                {mention.nom}
-                                            </option>
-                                        ))}
-                                    </Form.Select>
-                                )}
+                                <Form.Select
+                                    value={selectedMention}
+                                    onChange={handleMentionChange}
+                                    disabled={!selectedDomaine}
+                                    className={`border-${selectedMention ? 'success' : 'warning'}`}
+                                >
+                                    <option value="">Sélectionnez une mention</option>
+                                    {mentionsList.map((men, idx) => (
+                                        <option key={idx} value={men}>{men}</option>
+                                    ))}
+                                </Form.Select>
                                 <Form.Text className={selectedMention ? "text-success" : "text-danger"}>
                                     {selectedMention ? "✓ Sélectionnée" : "✗ Obligatoire pour PDF"}
                                 </Form.Text>
@@ -798,10 +838,11 @@ const exportToPDF = () => {
                                 <Form.Select
                                     value={selectedNiveau}
                                     onChange={(e) => setSelectedNiveau(e.target.value)}
+                                    disabled={!selectedMention}
                                     className={`border-${selectedNiveau ? 'success' : 'info'}`}
                                 >
                                     <option value="">Sélectionnez un niveau</option>
-                                    {niveaux.map((niv, idx) => (
+                                    {niveauxList.map((niv, idx) => (
                                         <option key={idx} value={niv}>{niv}</option>
                                     ))}
                                 </Form.Select>
@@ -909,6 +950,12 @@ const exportToPDF = () => {
                         <small className="text-muted mt-2 d-block">
                             Filtres requis pour PDF: <span className="fw-bold">Faculté, Domaine, Mention, Niveau</span>
                         </small>
+                        {selectedNiveau && (
+                            <small className="text-info mt-1 d-block">
+                                <FaInfoCircle className="me-1" />
+                                Le PDF affichera seulement les étudiants du niveau: <strong>{selectedNiveau}</strong>
+                            </small>
+                        )}
                     </div>
                 </Card.Body>
             </Card>
@@ -925,7 +972,7 @@ const exportToPDF = () => {
                 <Alert variant="danger">
                     <Alert.Heading>Erreur !</Alert.Heading>
                     <p>{error}</p>
-                    <Button variant="outline-danger" onClick={fetchData}>
+                    <Button variant="outline-danger" onClick={fetchEtudiants}>
                         Réessayer
                     </Button>
                 </Alert>
@@ -936,15 +983,21 @@ const exportToPDF = () => {
                         <Alert.Heading>Résumé des résultats</Alert.Heading>
                         <p className="mb-0">
                             Affichage de <strong>{filteredEtudiants.length}</strong> étudiant(s) sur {etudiants.length} total.
-                            {selectedFaculte && ` Faculté : ${getFaculteNomById(selectedFaculte)}`}
-                            {selectedDomaine && ` | Domaine : ${getDomaineNomById(selectedDomaine)}`}
-                            {selectedMention && ` | Mention : ${getMentionNomById(selectedMention)}`}
+                            {selectedFaculte && ` Faculté : ${selectedFaculte}`}
+                            {selectedDomaine && ` | Domaine : ${selectedDomaine}`}
+                            {selectedMention && ` | Mention : ${selectedMention}`}
                             {selectedNiveau && ` | Niveau : ${selectedNiveau}`}
                         </p>
                         {!isPdfEnabled() && (
                             <p className="mb-0 mt-2 text-warning">
                                 <FaExclamationTriangle className="me-1" />
                                 <small>Pour exporter en PDF : {getMissingFilters().join(', ')} {getMissingFilters().length > 1 ? 'sont requis' : 'est requis'}</small>
+                            </p>
+                        )}
+                        {isPdfEnabled() && (
+                            <p className="mb-0 mt-2 text-success">
+                                <FaCheckCircle className="me-1" />
+                                <small>Le PDF affichera seulement les étudiants du niveau : <strong>{selectedNiveau}</strong> ({filteredEtudiants.filter(e => e.niveau === selectedNiveau).length} étudiants)</small>
                             </p>
                         )}
                     </Alert>
@@ -1084,16 +1137,19 @@ const exportToPDF = () => {
                 </Modal.Header>
                 <Modal.Body>
                     <p>
-                        Vous êtes sur le point d'exporter <strong>{filteredEtudiants.length}</strong> étudiant(s) au format {exportType.toUpperCase()}.
+                        Vous êtes sur le point d'exporter <strong>{exportType === 'pdf' ? filteredEtudiants.filter(e => e.niveau === selectedNiveau).length : filteredEtudiants.length}</strong> étudiant(s) au format {exportType.toUpperCase()}.
                     </p>
                     {exportType === 'pdf' && (
                         <div className="alert alert-success mb-2">
                             <strong>Filtres appliqués :</strong>
                             <div className="mt-1">
-                                <Badge bg="info" className="me-1">Faculté: {getFaculteNomById(selectedFaculte)}</Badge>
-                                <Badge bg="info" className="me-1">Domaine: {getDomaineNomById(selectedDomaine)}</Badge>
-                                <Badge bg="info" className="me-1">Mention: {getMentionNomById(selectedMention)}</Badge>
+                                <Badge bg="info" className="me-1">Faculté: {selectedFaculte}</Badge>
+                                <Badge bg="info" className="me-1">Domaine: {selectedDomaine}</Badge>
+                                <Badge bg="info" className="me-1">Mention: {selectedMention}</Badge>
                                 <Badge bg="info" className="me-1">Niveau: {selectedNiveau}</Badge>
+                            </div>
+                            <div className="mt-2">
+                                <strong>Note importante :</strong> Le PDF affichera seulement les étudiants du niveau <strong>{selectedNiveau}</strong>.
                             </div>
                         </div>
                     )}
@@ -1104,7 +1160,7 @@ const exportToPDF = () => {
                     )}
                     {exportType === 'pdf' && (
                         <div className="alert alert-info mb-0">
-                            <strong>Format PDF :</strong> Une liste imprimable avec toutes les informations principales.
+                            <strong>Format PDF :</strong> Une liste imprimable avec seulement les étudiants du niveau sélectionné.
                         </div>
                     )}
                 </Modal.Body>

@@ -47,6 +47,18 @@ export const etudiantApi = {
     }
   },
 
+  // 🔹 Ajouter cette méthode
+  getCurrentUser: async () => {
+    try {
+      console.log("API: Récupération de l'utilisateur courant");
+      const response = await api.get('/auth/current-user/');
+      console.log("API: Utilisateur courant:", response.data);
+      return response;
+    } catch (error) {
+      return handleApiError(error, 'getCurrentUser');
+    }
+  },
+
   // Importation en masse
   bulkImport: async (etudiantsData) => {
     try {
@@ -129,6 +141,7 @@ export const etudiantApi = {
   getEtudiantPhoto: async (id) => {
     return api.get(`/etudiants/${id}/photo/`);
   }
+  
 };
 
 // API pour les facultés, domaines et mentions

@@ -522,7 +522,7 @@ export default function Domaines() {
                         <td>
                           <div className="d-flex gap-2">
                             <Button
-                              variant="outline-primary"
+                              variant="outline-success"
                               size="sm"
                               onClick={() => handleEdit(domaine)}
                               title="Modifier"

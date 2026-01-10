@@ -116,40 +116,9 @@ export default function Inscription() {
     setToast({ show: true, message, type });
   };
 
-  // Ajoutez ces fonctions de chargement
-  const fetchAllDomaines = useCallback(async () => {
-    try {
-      const response = await domaineApi.getDomaines(); // Sans paramètres
-      if (response.data && Array.isArray(response.data)) {
-        setAllDomaines(response.data);
-      } else if (response.data && Array.isArray(response.data.results)) {
-        setAllDomaines(response.data.results);
-      }
-    } catch (err) {
-      console.error("Erreur lors du chargement de tous les domaines:", err);
-    }
-  }, []);
-
-  const fetchAllMentions = useCallback(async () => {
-  try {
-    const response = await mentionApi.getMentions(); // Sans paramètres
-    if (response.data && Array.isArray(response.data)) {
-      setAllMentions(response.data);
-    } else if (response.data && Array.isArray(response.data.results)) {
-      setAllMentions(response.data.results);
-    }
-  } catch (err) {
-    console.error("Erreur lors du chargement de toutes les mentions:", err);
-  }
-}, []);
-
   // Fonction de formatage du téléphone SANS espace
   const formatTelephone = (value) => {
-    // Retirer tous les espaces et caractères non numériques
     const numbers = value.replace(/\D/g, '');
-
-    // Retourner seulement les chiffres (sans espace)
-    // Limiter à 10 chiffres maximum (format téléphone Madagascar)
     return numbers.slice(0, 10);
   };
 
@@ -161,11 +130,7 @@ export default function Inscription() {
 
   // Fonction de formatage du CIN SANS espace
   const formatCIN = (value) => {
-    // Retirer tous les espaces et caractères non numériques
     const numbers = value.replace(/\D/g, '');
-
-    // Retourner seulement les chiffres (sans espace)
-    // Limiter à 12 chiffres maximum (format CIN)
     return numbers.slice(0, 12);
   };
 
@@ -241,22 +206,18 @@ export default function Inscription() {
   const handlePhotoUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Vérifier le type de fichier
       if (!file.type.startsWith('image/')) {
         showToast('Veuillez sélectionner une image valide', 'warning');
         return;
       }
 
-      // Vérifier la taille (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         showToast('L\'image ne doit pas dépasser 5MB', 'warning');
         return;
       }
 
-      // Mettre à jour le formulaire
       setForm({ ...form, photo: file });
 
-      // Créer une prévisualisation
       const reader = new FileReader();
       reader.onloadend = () => {
         setPhotoPreview(reader.result);
@@ -289,29 +250,55 @@ export default function Inscription() {
     }
   }, []);
 
+  // Charger tous les domaines (sans filtre)
+  const fetchAllDomaines = useCallback(async () => {
+    try {
+      const response = await domaineApi.getDomaines();
+      if (response.data && Array.isArray(response.data)) {
+        setAllDomaines(response.data);
+      } else if (response.data && Array.isArray(response.data.results)) {
+        setAllDomaines(response.data.results);
+      }
+    } catch (err) {
+      console.error("Erreur lors du chargement de tous les domaines:", err);
+    }
+  }, []);
+
+  // Charger tous les mentions (sans filtre)
+  const fetchAllMentions = useCallback(async () => {
+    try {
+      const response = await mentionApi.getMentions();
+      if (response.data && Array.isArray(response.data)) {
+        setAllMentions(response.data);
+      } else if (response.data && Array.isArray(response.data.results)) {
+        setAllMentions(response.data.results);
+      }
+    } catch (err) {
+      console.error("Erreur lors du chargement de toutes les mentions:", err);
+    }
+  }, []);
+
   // Charger les domaines selon la faculté sélectionnée
   const fetchDomaines = useCallback(async (faculteId) => {
     if (!faculteId) {
       setDomaines([]);
-      setMentions([]);
-      setFilteredMentions([]);
       return;
     }
 
     try {
+      console.log("Chargement des domaines pour faculte:", faculteId);
       const response = await domaineApi.getDomaines({ faculte: faculteId });
+      
       if (response.data && Array.isArray(response.data)) {
         setDomaines(response.data);
       } else if (response.data && Array.isArray(response.data.results)) {
         setDomaines(response.data.results);
+      } else {
+        setDomaines([]);
       }
-
-      // Réinitialiser les mentions
-      setMentions([]);
-      setFilteredMentions([]);
-      setForm(prev => ({ ...prev, domaine: "", mention: "" }));
     } catch (err) {
       console.error("Erreur lors du chargement des domaines:", err);
+      setDomaines([]);
     }
   }, []);
 
@@ -319,19 +306,23 @@ export default function Inscription() {
   const fetchMentions = useCallback(async (domaineId) => {
     if (!domaineId) {
       setFilteredMentions([]);
-      setForm(prev => ({ ...prev, mention: "" }));
       return;
     }
 
     try {
+      console.log("Chargement des mentions pour domaine:", domaineId);
       const response = await mentionApi.getMentions({ domaine: domaineId });
+      
       if (response.data && Array.isArray(response.data)) {
         setFilteredMentions(response.data);
       } else if (response.data && Array.isArray(response.data.results)) {
         setFilteredMentions(response.data.results);
+      } else {
+        setFilteredMentions([]);
       }
     } catch (err) {
       console.error("Erreur lors du chargement des mentions:", err);
+      setFilteredMentions([]);
     }
   }, []);
 
@@ -356,7 +347,6 @@ export default function Inscription() {
 
       const response = await etudiantApi.getEtudiants(params);
 
-      // Si la réponse contient des résultats
       if (response.data && Array.isArray(response.data.results)) {
         setEtudiants(response.data.results);
         setTotalCount(response.data.count || response.data.results.length);
@@ -408,52 +398,44 @@ export default function Inscription() {
     }
   }, []);
 
-  // Fonction pour obtenir le nom d'une faculté par ID
+  // Fonction pour obtenir le nom d'une faculté
   const getFaculteName = (faculteId) => {
     if (!faculteId) return '-';
 
-    // Si c'est un objet avec un champ 'nom'
     if (typeof faculteId === 'object' && faculteId !== null) {
       return faculteId.nom || faculteId.code || '-';
     }
 
-    // Si c'est un ID, chercher dans toutes les facultés
     const faculte = facultes.find(f => f.id == faculteId);
     return faculte ? faculte.nom : `Faculté #${faculteId}`;
   };
 
-  // Fonction pour obtenir le nom d'un domaine par ID
+  // Fonction pour obtenir le nom d'un domaine
   const getDomaineName = (domaineId) => {
     if (!domaineId) return '-';
 
-    // Si c'est un objet avec un champ 'nom'
     if (typeof domaineId === 'object' && domaineId !== null) {
       return domaineId.nom || domaineId.code || '-';
     }
 
-    // Si c'est un ID, chercher d'abord dans allDomaines
     let domaine = allDomaines.find(d => d.id == domaineId);
     if (!domaine) {
-      // Si pas trouvé dans allDomaines, chercher dans domaines (filtrés)
       domaine = domaines.find(d => d.id == domaineId);
     }
 
     return domaine ? domaine.nom : `Domaine #${domaineId}`;
   };
 
-  // Fonction pour obtenir le nom d'une mention par ID
+  // Fonction pour obtenir le nom d'une mention
   const getMentionName = (mentionId) => {
     if (!mentionId) return '-';
 
-    // Si c'est un objet avec un champ 'nom'
     if (typeof mentionId === 'object' && mentionId !== null) {
       return mentionId.nom || mentionId.code || '-';
     }
 
-    // Si c'est un ID, chercher d'abord dans allMentions
     let mention = allMentions.find(m => m.id == mentionId);
     if (!mention) {
-      // Si pas trouvé dans allMentions, chercher dans filteredMentions
       mention = filteredMentions.find(m => m.id == mentionId);
     }
 
@@ -466,23 +448,25 @@ export default function Inscription() {
     fetchEtudiants();
     fetchStats();
     fetchFacultes();
-    fetchAllDomaines();  // AJOUTEZ CELUI-CI
+    fetchAllDomaines();
     fetchAllMentions();
   }, [fetchEtudiants, fetchStats, fetchFacultes, fetchAllDomaines, fetchAllMentions]);
 
   // Effet pour charger les domaines quand la faculté change dans le formulaire
   useEffect(() => {
-    if (form.faculte) {
+    if (form.faculte && showModal) {
+      console.log("Form faculte changed:", form.faculte);
       fetchDomaines(form.faculte);
     }
-  }, [form.faculte, fetchDomaines]);
+  }, [form.faculte, fetchDomaines, showModal]);
 
   // Effet pour charger les mentions quand le domaine change dans le formulaire
   useEffect(() => {
-    if (form.domaine) {
+    if (form.domaine && showModal) {
+      console.log("Form domaine changed:", form.domaine);
       fetchMentions(form.domaine);
     }
-  }, [form.domaine, fetchMentions]);
+  }, [form.domaine, fetchMentions, showModal]);
 
   const fetchUserInfo = async () => {
     try {
@@ -506,24 +490,28 @@ export default function Inscription() {
   };
 
   // Gestionnaire de changement de faculté dans le formulaire
-  const handleFaculteChange = (selectedFaculteId) => {
-    const selectedFaculte = facultes.find(f => f.id == selectedFaculteId);
-
+  const handleFaculteChange = async (selectedFaculteId) => {
+    console.log("Faculté sélectionnée:", selectedFaculteId);
+    
     const updatedForm = {
       ...form,
       faculte: selectedFaculteId,
       domaine: "",
-      mention: "",
-      domaine_nom: selectedFaculte ? selectedFaculte.nom : ""
+      mention: ""
     };
 
     setForm(updatedForm);
+    setFilteredMentions([]);
+    
+    if (selectedFaculteId) {
+      await fetchDomaines(selectedFaculteId);
+    }
   };
 
   // Gestionnaire de changement de domaine dans le formulaire
-  const handleDomaineChange = (selectedDomaineId) => {
-    const selectedDomaine = domaines.find(d => d.id == selectedDomaineId);
-
+  const handleDomaineChange = async (selectedDomaineId) => {
+    console.log("Domaine sélectionné:", selectedDomaineId);
+    
     const updatedForm = {
       ...form,
       domaine: selectedDomaineId,
@@ -531,18 +519,20 @@ export default function Inscription() {
     };
 
     setForm(updatedForm);
+    
+    if (selectedDomaineId) {
+      await fetchMentions(selectedDomaineId);
+    }
   };
 
   // Gestionnaire de changement de mention dans le formulaire
   const handleMentionChange = (selectedMentionId) => {
-    const selectedMention = filteredMentions.find(m => m.id == selectedMentionId);
-
-    const updatedForm = {
+    console.log("Mention sélectionnée:", selectedMentionId);
+    
+    setForm({
       ...form,
       mention: selectedMentionId
-    };
-
-    setForm(updatedForm);
+    });
   };
 
   // Ouvrir la modale d'importation
@@ -579,7 +569,6 @@ export default function Inscription() {
 
   // Télécharger un modèle Excel
   const downloadTemplate = () => {
-    // Créer un workbook avec les colonnes attendues
     const ws = XLSX.utils.aoa_to_sheet([
       ['matricule', 'nom', 'prenom', 'date_naissance', 'lieu_naissance', 'telephone', 'email', 'cin', 'annee_bacc', 'code_redoublement', 'boursier', 'faculte', 'domaine', 'niveau', 'nationalite', 'mention', 'nom_pere', 'nom_mere'],
       ['MAT001', 'RAKOTO', 'Jean', '1995-01-15', 'Antananarivo', '0341234567', 'jean.rakoto@email.com', '101123456789', '2013', 'N', 'OUI', '1', '1', 'Licence 1', 'Malagasy', '1', 'RAKOTO Pierre', 'RASOA Marie']
@@ -663,7 +652,6 @@ export default function Inscription() {
                 const value = row[colIndex]?.toString().trim() || '';
 
                 if (header && value) {
-                  // Convertir les IDs en nombres si nécessaire
                   if (['faculte', 'domaine', 'mention'].includes(header)) {
                     etudiant[header] = isNaN(value) ? value : parseInt(value);
                   } else {
@@ -784,141 +772,143 @@ export default function Inscription() {
     });
     setPhotoPreview(null);
     setEditId(null);
+    setDomaines([]);
+    setFilteredMentions([]);
     setShowModal(true);
   };
 
-// Ouvrir modal d'édition
-const openEditModal = async (etudiant) => {
-  const formattedEtudiant = {
-    matricule: etudiant.matricule || "",
-    nom: etudiant.nom || "",
-    prenom: etudiant.prenom || "",
-    date_naissance: etudiant.date_naissance ?
-      etudiant.date_naissance.split('T')[0] : "",
-    lieu_naissance: etudiant.lieu_naissance || "",
-    telephone: etudiant.telephone || "",
-    email: etudiant.email || "",
-    cin: etudiant.cin || "",
-    annee_bacc: etudiant.annee_bacc ? etudiant.annee_bacc.toString() : "",
-    code_redoublement: etudiant.code_redoublement || "N",
-    boursier: etudiant.boursier || "OUI",
-    faculte: etudiant.faculte || "",
-    domaine: etudiant.domaine || "",
-    niveau: etudiant.niveau || "Licence 1",
-    nationalite: etudiant.nationalite || "Malagasy",
-    mention: etudiant.mention || "",
-    nom_pere: etudiant.nom_pere || "",
-    nom_mere: etudiant.nom_mere || "",
-    bourse: etudiant.bourse || 0
+  // Sauvegarder étudiant avec photo
+  const saveEtudiant = async () => {
+    // Vérification des champs obligatoires
+    if (!form.matricule || !form.nom || !form.prenom || !form.niveau || !form.faculte) {
+      showToast('Veuillez remplir tous les champs obligatoires', 'warning');
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+
+      // Ajouter les champs au FormData
+      Object.keys(form).forEach(key => {
+        if (key === 'photo' && form[key]) {
+          if (form[key] instanceof File) {
+            formData.append('photo', form[key]);
+          }
+        } else if (form[key] !== null && form[key] !== undefined && form[key] !== '') {
+          // Pour les IDs de relation
+          if (['faculte', 'domaine', 'mention'].includes(key)) {
+            formData.append(`${key}_id`, form[key]);
+          } else {
+            formData.append(key, form[key]);
+          }
+        }
+      });
+
+      if (editId) {
+        await etudiantApi.updateEtudiantWithPhoto(editId, formData);
+        showToast("Étudiant modifié avec succès!", 'success');
+      } else {
+        await etudiantApi.createEtudiantWithPhoto(formData);
+        showToast("Étudiant ajouté avec succès!", 'success');
+      }
+
+      setShowModal(false);
+      fetchEtudiants();
+      fetchStats();
+
+    } catch (err) {
+      console.error("Erreur sauvegarde:", err.response?.data || err);
+      const errorMsg = err.response?.data?.detail ||
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        "Erreur lors de la sauvegarde";
+      showToast(errorMsg, 'danger');
+    }
   };
 
-  setForm(formattedEtudiant);
-  setEditId(etudiant.id);
-  
-  // Afficher la modal immédiatement
-  setShowModal(true);
+  // Ouvrir modal d'édition - CORRECTION PRINCIPALE
+  const openEditModal = async (etudiant) => {
+    console.log("Étudiant pour édition:", etudiant);
+    
+    // Extraire les IDs des relations
+    let faculteId = "";
+    let domaineId = "";
+    let mentionId = "";
 
-  // Charger les domaines si l'étudiant a une faculté
-  if (etudiant.faculte) {
-    // Extraire l'ID de la faculté (peut être un objet ou un ID)
-    const faculteId = typeof etudiant.faculte === 'object' ? 
-                     etudiant.faculte.id : 
-                     etudiant.faculte;
-    
-    // Mettre à jour le form avec l'ID de faculté
-    setForm(prev => ({ ...prev, faculte: faculteId }));
-    
-    // Charger les domaines pour cette faculté
-    await fetchDomaines(faculteId);
-    
-    // Si l'étudiant a un domaine, charger les mentions
-    if (etudiant.domaine) {
-      // Extraire l'ID du domaine
-      const domaineId = typeof etudiant.domaine === 'object' ? 
-                       etudiant.domaine.id : 
-                       etudiant.domaine;
-      
-      // Mettre à jour le form avec l'ID de domaine
-      setForm(prev => ({ ...prev, domaine: domaineId }));
-      
-      // Attendre que les domaines soient chargés puis charger les mentions
-      setTimeout(async () => {
-        await fetchMentions(domaineId);
-        
-        // Mettre à jour le form avec l'ID de mention
-        if (etudiant.mention) {
-          const mentionId = typeof etudiant.mention === 'object' ? 
-                           etudiant.mention.id : 
-                           etudiant.mention;
-          setForm(prev => ({ ...prev, mention: mentionId }));
-        }
-      }, 300); // Petit délai pour s'assurer que les domaines sont chargés
-    }
-  }
-};
-
-// Sauvegarder étudiant avec photo
-const saveEtudiant = async () => {
-  // Vérification des champs obligatoires avec une méthode plus robuste
-  const requiredFields = ['matricule', 'nom', 'prenom', 'niveau', 'faculte'];
-  const missingFields = requiredFields.filter(field => {
-    const value = form[field];
-    // Vérifier si la valeur existe et n'est pas vide
-    if (value === null || value === undefined) return true;
-    
-    // Pour les chaînes, vérifier si elles ne sont pas vides après trim
-    if (typeof value === 'string') {
-      return value.trim() === '';
-    }
-    
-    // Pour les nombres, vérifier si c'est 0 ou non défini
-    if (typeof value === 'number') {
-      return value === 0 || isNaN(value);
-    }
-    
-    // Pour les autres types, considérer comme manquant si falsy
-    return !value;
-  });
-
-  if (missingFields.length > 0) {
-    showToast(`Veuillez remplir les champs obligatoires: ${missingFields.join(', ')}`, 'warning');
-    return;
-  }
-
-  try {
-    const formData = new FormData();
-
-    Object.keys(form).forEach(key => {
-      if (key === 'photo' && form[key]) {
-        formData.append(key, form[key]);
-      } else if (form[key] !== null && form[key] !== undefined) {
-        // Convertir les valeurs en chaînes si nécessaire
-        const value = form[key];
-        formData.append(key, typeof value === 'string' ? value.trim() : value);
+    // Fonction pour extraire l'ID d'une relation
+    const extractId = (relation) => {
+      if (!relation) return "";
+      if (typeof relation === 'object' && relation !== null) {
+        return relation.id || relation.toString();
       }
-    });
+      return relation.toString();
+    };
 
-    if (editId) {
-      await etudiantApi.updateEtudiantWithPhoto(editId, formData);
-      showToast("Étudiant modifié avec succès!", 'success');
-    } else {
-      await etudiantApi.createEtudiantWithPhoto(formData);
-      showToast("Étudiant ajouté avec succès!", 'success');
+    faculteId = extractId(etudiant.faculte);
+    domaineId = extractId(etudiant.domaine);
+    mentionId = extractId(etudiant.mention);
+
+    console.log("IDs extraits:", { faculteId, domaineId, mentionId });
+
+    const formattedEtudiant = {
+      matricule: etudiant.matricule || "",
+      nom: etudiant.nom || "",
+      prenom: etudiant.prenom || "",
+      date_naissance: etudiant.date_naissance ?
+        etudiant.date_naissance.split('T')[0] : "",
+      lieu_naissance: etudiant.lieu_naissance || "",
+      telephone: etudiant.telephone || "",
+      email: etudiant.email || "",
+      cin: etudiant.cin || "",
+      annee_bacc: etudiant.annee_bacc ? etudiant.annee_bacc.toString() : "",
+      code_redoublement: etudiant.code_redoublement || "N",
+      boursier: etudiant.boursier || "OUI",
+      faculte: faculteId,
+      domaine: domaineId,
+      niveau: etudiant.niveau || "Licence 1",
+      nationalite: etudiant.nationalite || "Malagasy",
+      mention: mentionId,
+      nom_pere: etudiant.nom_pere || "",
+      nom_mere: etudiant.nom_mere || "",
+      bourse: etudiant.bourse || 0,
+      photo: etudiant.photo || null
+    };
+
+    console.log("Form data pour le formulaire:", formattedEtudiant);
+
+    // Réinitialiser les états
+    setDomaines([]);
+    setFilteredMentions([]);
+    
+    // Définir le formulaire
+    setForm(formattedEtudiant);
+    setEditId(etudiant.id);
+    setShowModal(true);
+
+    // Si l'étudiant a une faculté, charger les domaines
+    if (faculteId) {
+      console.log("Chargement des domaines pour faculté ID:", faculteId);
+      await fetchDomaines(faculteId);
+      
+      // Attendre que les domaines soient chargés
+      setTimeout(async () => {
+        if (domaineId) {
+          console.log("Chargement des mentions pour domaine ID:", domaineId);
+          await fetchMentions(domaineId);
+          
+          // Mettre à jour le form avec les IDs
+          setTimeout(() => {
+            setForm(prev => ({ 
+              ...prev, 
+              faculte: faculteId,
+              domaine: domaineId,
+              mention: mentionId 
+            }));
+          }, 100);
+        }
+      }, 300);
     }
-
-    setShowModal(false);
-    fetchEtudiants();
-    fetchStats();
-
-  } catch (err) {
-    console.error("Erreur sauvegarde:", err);
-    const errorMsg = err.response?.data?.detail ||
-      err.response?.data?.message ||
-      err.response?.data?.error ||
-      "Erreur lors de la sauvegarde";
-    showToast(errorMsg, 'danger');
-  }
-};
+  };
 
   // Ouvrir modal de suppression
   const openDeleteModal = (etudiant) => {
@@ -986,15 +976,6 @@ const saveEtudiant = async () => {
     }
 
     return pageNumbers;
-  };
-
-  // Rafraîchir les données
-  const refreshData = () => {
-    setCurrentPage(1);
-    setSearchTerm("");
-    setFilterNiveau("");
-    fetchEtudiants();
-    fetchStats();
   };
 
   // Fonction pour formater la date
@@ -1120,13 +1101,6 @@ const saveEtudiant = async () => {
               </div>
             </div>
             <div className="col-md-4 text-end">
-              {/* <Button
-                variant="success"
-                onClick={openImportModal}
-                className="d-inline-flex align-items-center me-2"
-              >
-                <FaUpload className="me-2" /> Importer Excel
-              </Button> */}
               <Button
                 variant="primary"
                 onClick={openAddModal}
@@ -1740,7 +1714,7 @@ const saveEtudiant = async () => {
                     <Spinner animation="border" size="sm" />
                   ) : (
                     <Form.Select
-                      value={form.faculte}
+                      value={form.faculte || ""}
                       onChange={(e) => handleFaculteChange(e.target.value)}
                       required
                     >
@@ -1752,23 +1726,35 @@ const saveEtudiant = async () => {
                       ))}
                     </Form.Select>
                   )}
+                  <small className="text-muted">
+                    Facultés disponibles: {facultes.length}
+                  </small>
                 </Form.Group>
               </div>
               <div className="col-md-6">
                 <Form.Group className="mb-3">
                   <Form.Label>Domaine</Form.Label>
                   <Form.Select
-                    value={form.domaine}
+                    value={form.domaine || ""}
                     onChange={(e) => handleDomaineChange(e.target.value)}
                     disabled={!form.faculte}
                   >
-                    <option value="">{form.faculte ? "Sélectionner un domaine..." : "Veuillez d'abord choisir une faculté"}</option>
+                    <option value="">
+                      {form.faculte 
+                        ? domaines.length > 0 
+                          ? "Sélectionner un domaine..." 
+                          : "Chargement..." 
+                        : "Veuillez d'abord choisir une faculté"}
+                    </option>
                     {domaines.map((domaine) => (
                       <option key={domaine.id} value={domaine.id}>
                         {domaine.nom} ({domaine.code})
                       </option>
                     ))}
                   </Form.Select>
+                  <small className="text-muted">
+                    Domaines disponibles: {domaines.length}
+                  </small>
                 </Form.Group>
               </div>
             </div>
@@ -1778,17 +1764,26 @@ const saveEtudiant = async () => {
                 <Form.Group className="mb-3">
                   <Form.Label>Mention</Form.Label>
                   <Form.Select
-                    value={form.mention}
+                    value={form.mention || ""}
                     onChange={(e) => handleMentionChange(e.target.value)}
                     disabled={!form.domaine}
                   >
-                    <option value="">{form.domaine ? "Sélectionner une mention..." : "Veuillez d'abord choisir un domaine"}</option>
+                    <option value="">
+                      {form.domaine 
+                        ? filteredMentions.length > 0 
+                          ? "Sélectionner une mention..." 
+                          : "Chargement..." 
+                        : "Veuillez d'abord choisir un domaine"}
+                    </option>
                     {filteredMentions.map((mention) => (
                       <option key={mention.id} value={mention.id}>
                         {mention.nom} ({mention.code})
                       </option>
                     ))}
                   </Form.Select>
+                  <small className="text-muted">
+                    Mentions disponibles: {filteredMentions.length}
+                  </small>
                 </Form.Group>
               </div>
             </div>
@@ -1849,243 +1844,6 @@ const saveEtudiant = async () => {
           </Button>
           <Button variant="danger" onClick={confirmDelete}>
             Supprimer
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      {/* Modal d'importation Excel */}
-      <Modal show={showImportModal} onHide={closeImportModal} size="lg" centered>
-        <Modal.Header closeButton className="bg-success text-white">
-          <Modal.Title>
-            <FaFileExcel className="me-2" />
-            Importer des étudiants depuis Excel
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <div className="mb-4">
-            <h6>Instructions d'importation :</h6>
-            <ul className="text-muted small">
-              <li>Le fichier doit être au format Excel (.xlsx ou .xls)</li>
-              <li>La première ligne doit contenir les en-têtes des colonnes</li>
-              <li>Les colonnes obligatoires sont : matricule, nom, prenom</li>
-              <li>Les dates doivent être au format YYYY-MM-DD</li>
-              <li>Pour faculté, domaine, mention : utiliser les IDs numériques</li>
-              <li>Téléchargez le modèle pour voir le format attendu</li>
-            </ul>
-            <Button
-              variant="outline-info"
-              size="sm"
-              onClick={downloadTemplate}
-              className="d-inline-flex align-items-center"
-            >
-              <FaDownload className="me-2" />
-              Télécharger le modèle Excel
-            </Button>
-          </div>
-
-          <Form.Group className="mb-3">
-            <Form.Label>Sélectionner le fichier Excel</Form.Label>
-            <Form.Control
-              type="file"
-              accept=".xlsx,.xls"
-              onChange={handleFileChange}
-              disabled={importStatus === 'processing'}
-            />
-            {importFile && (
-              <Form.Text className="text-success">
-                Fichier sélectionné : {importFile.name}
-              </Form.Text>
-            )}
-          </Form.Group>
-          <Form.Group className="mb-3">
-            <Form.Check
-              type="checkbox"
-              label="Ignorer les doublons (mettre à jour les étudiants existants)"
-              checked={ignoreDuplicates}
-              onChange={(e) => setIgnoreDuplicates(e.target.checked)}
-            />
-            <Form.Text className="text-muted">
-              Si coché, les étudiants existants seront mis à jour au lieu de créer des doublons
-            </Form.Text>
-          </Form.Group>
-
-          {importStatus === 'processing' && (
-            <div className="mb-3">
-              <div className="d-flex align-items-center mb-2">
-                <span className="me-2">Traitement en cours...</span>
-                <span className="text-muted">({importProgress}%)</span>
-              </div>
-              <ProgressBar now={importProgress} animated />
-            </div>
-          )}
-
-          {importResults.total > 0 && (
-            <div className="mb-3">
-              <h6>Résultats de l'importation :</h6>
-              <div className="row text-center">
-                <div className="col-md-4">
-                  <div className="p-2 bg-light rounded">
-                    <div className="h5 text-primary">{importResults.total}</div>
-                    <small className="text-muted">Total</small>
-                  </div>
-                </div>
-                <div className="col-md-4">
-                  <div className="p-2 bg-success rounded text-white">
-                    <div className="h5">{importResults.success}</div>
-                    <small>Succès</small>
-                  </div>
-                </div>
-                <div className="col-md-4">
-                  <div className="p-2 bg-danger rounded text-white">
-                    <div className="h5">{importResults.failed}</div>
-                    <small>Échecs</small>
-                  </div>
-                </div>
-              </div>
-
-              {importResults.errors.length > 0 && (
-                <div className="mt-3">
-                  <h6 className="text-danger">Erreurs rencontrées :</h6>
-                  <div className="bg-light p-2 rounded" style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                    {importResults.errors.map((error, index) => (
-                      <div key={index} className="text-danger small">
-                        - {error}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {importStatus === 'error' && (
-            <Alert variant="danger">
-              <Alert.Heading>Erreur lors de l'importation</Alert.Heading>
-              <p>Une erreur s'est produite pendant le traitement du fichier. Vérifiez le format et réessayez.</p>
-            </Alert>
-          )}
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={closeImportModal}>
-            Fermer
-          </Button>
-          <Button
-            variant="success"
-            onClick={processImport}
-            disabled={!importFile || importStatus === 'processing'}
-          >
-            {importStatus === 'processing' ? (
-              <>
-                <Spinner animation="border" size="sm" className="me-2" />
-                Importation en cours...
-              </>
-            ) : (
-              <>
-                <FaUpload className="me-2" />
-                Importer
-              </>
-            )}
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      {/* Modal de confirmation pour les doublons */}
-      <Modal show={showConfirmModal} onHide={() => setShowConfirmModal(false)} centered>
-        <Modal.Header closeButton className="bg-warning">
-          <Modal.Title>
-            <FaExclamationTriangle className="me-2" />
-            Doublons détectés
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Alert variant="warning" className="mb-3">
-            <Alert.Heading>⚠️ Attention !</Alert.Heading>
-            <p>
-              <strong>{duplicateErrors.length} erreur(s)</strong> détectée(s) dans le fichier.
-              Certaines lignes peuvent contenir des doublons.
-            </p>
-            <p className="mb-0">
-              En continuant, l'importation risque d'échouer à cause des contraintes d'unicité.
-            </p>
-          </Alert>
-
-          {duplicateErrors.length > 0 && (
-            <div className="mb-3">
-              <h6 className="text-danger">Détails des erreurs :</h6>
-              <div className="bg-light p-2 rounded" style={{
-                maxHeight: '200px',
-                overflowY: 'auto',
-                fontSize: '0.875rem'
-              }}>
-                {duplicateErrors.map((error, index) => (
-                  <div key={index} className="text-danger mb-1">
-                    • {error}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="bg-light p-3 rounded">
-            <h6>Que voulez-vous faire ?</h6>
-            <div className="form-check mb-2">
-              <input
-                className="form-check-input"
-                type="radio"
-                id="optionCancel"
-                name="importOption"
-                defaultChecked
-              />
-              <label className="form-check-label" htmlFor="optionCancel">
-                <strong>Annuler l'importation</strong>
-                <div className="text-muted small">
-                  Corrigez le fichier Excel et réessayez
-                </div>
-              </label>
-            </div>
-            <div className="form-check">
-              <input
-                className="form-check-input"
-                type="radio"
-                id="optionContinue"
-                name="importOption"
-              />
-              <label className="form-check-label" htmlFor="optionContinue">
-                <strong>Continuer malgré les doublons</strong>
-                <div className="text-muted small">
-                  L'importation pourrait échouer partiellement
-                </div>
-              </label>
-            </div>
-          </div>
-
-          <div className="mt-3">
-            <small className="text-muted">
-              Total des étudiants valides : {importData?.total || 0}
-            </small>
-          </div>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setShowConfirmModal(false);
-              setImportStatus('idle');
-            }}
-          >
-            Annuler l'importation
-          </Button>
-          <Button
-            variant="warning"
-            onClick={() => {
-              setShowConfirmModal(false);
-              if (importData) {
-                proceedWithImport(importData.etudiantsData, importData.errors);
-              }
-            }}
-          >
-            <FaExclamationTriangle className="me-2" />
-            Continuer malgré les erreurs
           </Button>
         </Modal.Footer>
       </Modal>
