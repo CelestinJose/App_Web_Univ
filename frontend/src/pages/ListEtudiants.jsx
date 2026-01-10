@@ -206,48 +206,48 @@ export default function ListEtudiants() {
   };
 
   // Fonction pour obtenir le logo de la faculté
-const getLogoFaculte = (faculte) => {
-  if (!faculte) return logoUnivToliara;
+  const getLogoFaculte = (faculte) => {
+    if (!faculte) return logoUnivToliara;
 
-  // Si objet (backend)
-  if (typeof faculte === "object") {
-    faculte = faculte.nom || faculte.libelle || "";
-  }
-
-  // Si ID (number)
-  if (typeof faculte === "number") {
-    faculte = getNomFaculte(faculte); // ta fonction existante
-  }
-
-  // Forcer en string
-  const faculteLower = String(faculte).toLowerCase();
-
-  // Mapping des logos par faculté
-  const logosMap = {
-    // Sciences
-    'sciences': logoFaculteSciences,
-    'faculté des sciences': logoFaculteSciences,
-    'faculte des sciences': logoFaculteSciences,
-    'science': logoFaculteSciences,
-
-    // Médecine
-    'médecine': logoFaculteMedecine,
-    'medecine': logoFaculteMedecine,
-    'faculté de médecine': logoFaculteMedecine,
-    'faculte de medecine': logoFaculteMedecine,
-    'santé': logoFaculteMedecine,
-  };
-
-  // Chercher le logo correspondant
-  for (const [key, logo] of Object.entries(logosMap)) {
-    if (faculteLower.includes(key)) {
-      return logo;
+    // Si objet (backend)
+    if (typeof faculte === "object") {
+      faculte = faculte.nom || faculte.libelle || "";
     }
-  }
 
-  // Logo par défaut
-  return logoUnivToliara;
-};
+    // Si ID (number)
+    if (typeof faculte === "number") {
+      faculte = getNomFaculte(faculte); // ta fonction existante
+    }
+
+    // Forcer en string
+    const faculteLower = String(faculte).toLowerCase();
+
+    // Mapping des logos par faculté
+    const logosMap = {
+      // Sciences
+      'sciences': logoFaculteSciences,
+      'faculté des sciences': logoFaculteSciences,
+      'faculte des sciences': logoFaculteSciences,
+      'science': logoFaculteSciences,
+
+      // Médecine
+      'médecine': logoFaculteMedecine,
+      'medecine': logoFaculteMedecine,
+      'faculté de médecine': logoFaculteMedecine,
+      'faculte de medecine': logoFaculteMedecine,
+      'santé': logoFaculteMedecine,
+    };
+
+    // Chercher le logo correspondant
+    for (const [key, logo] of Object.entries(logosMap)) {
+      if (faculteLower.includes(key)) {
+        return logo;
+      }
+    }
+
+    // Logo par défaut
+    return logoUnivToliara;
+  };
 
 
   // Fonction helper pour le fallback avec initiales
@@ -583,6 +583,42 @@ const getLogoFaculte = (faculte) => {
     // Enregistrer le PDF
     doc.save(`carte-etudiant-${selectedEtudiant.matricule}-${new Date().getFullYear()}.pdf`);
   };
+  const getGradeFromNiveau = (niveau) => {
+    if (!niveau) return "N/A";
+
+    const niveauLower = niveau.toLowerCase();
+
+    if (niveauLower.includes("licence") || niveauLower.match(/\bL\d\b/i)) {
+      return "Licence";
+    }
+
+    if (niveauLower.includes("master") || niveauLower.match(/\bM\d\b/i)) {
+      return "Master";
+    }
+
+    if (niveauLower.includes("doctorat") || niveauLower.includes("phd")) {
+      return "Doctorat";
+    }
+
+    return "N/A";
+  };
+
+  const getParcours = (parcours, mention) => {
+    // Si parcours est défini et différent de 'N/A', on le renvoie
+    if (parcours && parcours !== 'N/A') return parcours;
+
+    // Si mention est un objet avec la propriété 'nom', on renvoie le nom
+    if (mention && typeof mention === 'object' && mention.nom) return mention.nom;
+
+    // Si mention est une chaîne, on la renvoie
+    if (mention && typeof mention === 'string' && mention !== 'N/A') return mention;
+
+    // Sinon N/A
+    return 'N/A';
+  };
+
+
+
 
   // Générer le certificat de scolarité officiel en PDF
   const genererCertificatScolaritePDF = async () => {
@@ -711,10 +747,11 @@ const getLogoFaculte = (faculte) => {
       { label: "Faculté/Ecole/Institut :", value: getNomFaculte(selectedEtudiant.faculte) },
       { label: "Domaine :", value: getNomDomaine(selectedEtudiant.domaine) },
       { label: "Mention :", value: getNomMention(selectedEtudiant.mention) },
-      { label: "Parcours :", value: selectedEtudiant.parcours || 'N/A' },
-      { label: "Grade :", value: selectedEtudiant.grade || 'N/A' },
+      { label: "Parcours :", value: getNomMention(selectedEtudiant.mention) },
+      { label: "Grade :", value: getGradeFromNiveau(selectedEtudiant.niveau) },
       { label: "Niveau :", value: selectedEtudiant.niveau || 'N/A' }
     ];
+
 
     let currentY = yPosition;
     infoAcademiques.forEach((info) => {

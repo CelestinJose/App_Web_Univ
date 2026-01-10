@@ -1,4 +1,4 @@
-// src/pages/DoublonBourseExact.jsx - Version corrigée
+// src/pages/DoublonBourseExact.jsx - Version corrigée avec suppression des doublons traités
 import React, { useState, useEffect } from "react";
 import {
     FaMoneyBillWave,
@@ -33,7 +33,8 @@ import {
     Badge,
     Modal,
     Pagination,
-    Dropdown
+    Dropdown,
+    Toast
 } from "react-bootstrap";
 import { etudiantApi, bourseApi } from '../api';
 import * as XLSX from 'xlsx';
@@ -62,6 +63,19 @@ export default function DoublonBourseExact() {
     // États pour la pagination
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(10);
+
+    // État pour le toast de succès
+    const [showSuccessToast, setShowSuccessToast] = useState(false);
+    const [toastMessage, setToastMessage] = useState("");
+
+    // Fonction utilitaire pour comparer deux doublons
+    const compareDoublon = (doublon1, doublon2) => {
+        return (
+            doublon1.nom === doublon2.nom &&
+            doublon1.prenom === doublon2.prenom &&
+            doublon1.cin === doublon2.cin
+        );
+    };
 
     // Charger les doublons par identité
     const fetchDoublonsIdentite = async () => {
@@ -114,11 +128,25 @@ export default function DoublonBourseExact() {
             const response = await bourseApi.attribuerBourseUnique(data);
             
             if (response.data) {
-                setActionMessage(response.data.message || "Bourse unique attribuée avec succès");
+                const successMessage = response.data.message || "Bourse unique attribuée avec succès";
+                setActionMessage(successMessage);
                 
-                // Recharger les données après un délai
+                // Afficher le toast de succès
+                setToastMessage("Doublon traité et retiré de la liste avec succès !");
+                setShowSuccessToast(true);
+                
+                // Retirer le doublon traité de la liste
+                setDoublonsIdentite(prevDoublons => 
+                    prevDoublons.filter(doublon => !compareDoublon(doublon, selectedGroup))
+                );
+                
+                // Réinitialiser la pagination si nécessaire
+                if (currentPage > 1 && filteredDoublons.length <= itemsPerPage) {
+                    setCurrentPage(1);
+                }
+                
+                // Fermer le modal après un délai
                 setTimeout(() => {
-                    fetchDoublonsIdentite();
                     setShowAttributionModal(false);
                     setSelectedGroup(null);
                     setSelectedEtudiant(null);
@@ -128,6 +156,11 @@ export default function DoublonBourseExact() {
         } catch (err) {
             console.error("Erreur:", err);
             setActionMessage("Erreur lors de l'attribution de la bourse: " + err.message);
+            
+            // Recharger les données en cas d'erreur
+            setTimeout(() => {
+                fetchDoublonsIdentite();
+            }, 2000);
         } finally {
             setActionLoading(false);
         }
@@ -216,6 +249,24 @@ export default function DoublonBourseExact() {
 
     return (
         <div className="container-fluid py-4" style={{ backgroundColor: '#f8f9fa', minHeight: '100vh' }}>
+            {/* Toast de succès */}
+            <Toast 
+                show={showSuccessToast} 
+                onClose={() => setShowSuccessToast(false)}
+                bg="success"
+                className="position-fixed top-0 end-0 m-4 text-white"
+                delay={3000}
+                autohide
+            >
+                <Toast.Header closeButton={false}>
+                    <FaCheckCircle className="me-2" />
+                    <strong className="me-auto">Succès</strong>
+                </Toast.Header>
+                <Toast.Body>
+                    {toastMessage}
+                </Toast.Body>
+            </Toast>
+
             {/* En-tête */}
             <div className="row mb-4">
                 <div className="col">

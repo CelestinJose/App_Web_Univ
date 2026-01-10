@@ -4,6 +4,17 @@ from bourses.models import Bourse
 from datetime import date
 
 class EtudiantSerializer(serializers.ModelSerializer):
+    
+    # AJOUTEZ CES CHAMPS POUR AFFICHER LES NOMS
+    faculte_nom = serializers.CharField(source='faculte.nom_faculte', read_only=True)
+    domaine_nom = serializers.CharField(source='domaine.nom_domaine', read_only=True)
+    mention_nom = serializers.CharField(source='mention.nom_mention', read_only=True)
+    
+    # Utilisez StringRelatedField pour afficher la représentation string
+    faculte = serializers.StringRelatedField()
+    domaine = serializers.StringRelatedField()
+    mention = serializers.StringRelatedField()
+    
     class Meta:
         model = Etudiant
         fields = [
@@ -12,7 +23,9 @@ class EtudiantSerializer(serializers.ModelSerializer):
             'code_redoublement', 'faculte', 'domaine', 'mention', 'niveau',
             'nationalite', 'photo', 'bourse', 'boursier',
             'nom_pere', 'nom_mere',
-            'created_at', 'updated_at'
+            'created_at', 'updated_at',
+            # AJOUTEZ CES CHAMPS
+            'faculte_nom', 'domaine_nom', 'mention_nom'
         ]
         read_only_fields = ['created_at', 'updated_at', 'numero_inscription', 'bourse']
     
@@ -222,6 +235,16 @@ class EtudiantDetailSerializers(serializers.ModelSerializer):
     
     statut_bourse = serializers.SerializerMethodField()
     faculte_display = serializers.CharField(source='get_faculte_display', read_only=True)
+    
+    # AJOUTEZ AUSSI ICI POUR LE SERIALIZER DÉTAILLÉ
+    faculte_nom = serializers.CharField(source='faculte.nom_faculte', read_only=True)
+    domaine_nom = serializers.CharField(source='domaine.nom_domaine', read_only=True)
+    mention_nom = serializers.CharField(source='mention.nom_mention', read_only=True)
+    
+    # Utilisez StringRelatedField pour afficher la représentation string
+    faculte = serializers.StringRelatedField()
+    domaine = serializers.StringRelatedField()
+    mention = serializers.StringRelatedField()
     
     class Meta:
         model = Etudiant

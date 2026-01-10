@@ -35,6 +35,7 @@ export default function Bourses() {
   const [filterStatut, setFilterStatut] = useState("");
   const [filterNiveau, setFilterNiveau] = useState("");
   const [filterBoursier, setFilterBoursier] = useState("");
+  const [filterFaculte, setFilterFaculte] = useState("");
 
   // États pour les modales
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -70,10 +71,71 @@ export default function Bourses() {
   // Statuts de bourse (selon votre modèle Django)
   const statutsBourse = [
     { value: "EN_ATTENTE", label: "En attente", color: "warning" },
-    { value: "ACCEPTEE", label: "Acceptée", color: "info" },
+    { value: "ACCEPTEE", label: "Acceptée", color: "success" },
     { value: "REJETEE", label: "Rejetée", color: "danger" },
     // { value: "SUSPENDUE", label: "Suspendue", color: "secondary" }
   ];
+
+  // Fonctions utilitaires pour extraire les noms des objets liés
+  const getFaculteName = (etudiant) => {
+    if (!etudiant) return '';
+    
+    // Essayer les différentes possibilités
+    if (etudiant.faculte_nom) {
+      return etudiant.faculte_nom;
+    }
+    if (typeof etudiant.faculte === 'string') {
+      return etudiant.faculte;
+    }
+    if (etudiant.faculte && typeof etudiant.faculte === 'object') {
+      return etudiant.faculte.nom_faculte || etudiant.faculte.nom || etudiant.faculte.toString();
+    }
+    return '';
+  };
+
+  const getDomaineName = (etudiant) => {
+    if (!etudiant) return '';
+    
+    if (etudiant.domaine_nom) {
+      return etudiant.domaine_nom;
+    }
+    if (typeof etudiant.domaine === 'string') {
+      return etudiant.domaine;
+    }
+    if (etudiant.domaine && typeof etudiant.domaine === 'object') {
+      return etudiant.domaine.nom_domaine || etudiant.domaine.nom || etudiant.domaine.toString();
+    }
+    return '';
+  };
+
+  const getMentionName = (etudiant) => {
+    if (!etudiant) return '';
+    
+    if (etudiant.mention_nom) {
+      return etudiant.mention_nom;
+    }
+    if (typeof etudiant.mention === 'string') {
+      return etudiant.mention;
+    }
+    if (etudiant.mention && typeof etudiant.mention === 'object') {
+      return etudiant.mention.nom_mention || etudiant.mention.nom || etudiant.mention.toString();
+    }
+    return '';
+  };
+
+  // Fonction combinée pour afficher la formation complète
+  const getFormationDisplay = (etudiant) => {
+    const faculte = getFaculteName(etudiant);
+    const domaine = getDomaineName(etudiant);
+    const mention = getMentionName(etudiant);
+    
+    let result = '';
+    if (faculte) result += faculte;
+    if (domaine) result += ` / ${domaine}`;
+    if (mention) result += ` / ${mention}`;
+    
+    return result || 'Non spécifié';
+  };
 
   // Charger les données
   useEffect(() => {
@@ -91,6 +153,17 @@ export default function Bourses() {
       const etudiantsResponse = await etudiantApi.getEtudiants();
       const etudiantsData = etudiantsResponse.data;
       console.log("Étudiants chargés:", etudiantsData.length);
+      
+      // Debug: vérifier la structure des données
+      if (etudiantsData.length > 0) {
+        console.log("Premier étudiant (structure complète):", etudiantsData[0]);
+        console.log("Type de faculte:", typeof etudiantsData[0].faculte, "Valeur:", etudiantsData[0].faculte);
+        console.log("Type de domaine:", typeof etudiantsData[0].domaine, "Valeur:", etudiantsData[0].domaine);
+        console.log("Type de mention:", typeof etudiantsData[0].mention, "Valeur:", etudiantsData[0].mention);
+        console.log("faculte_nom:", etudiantsData[0].faculte_nom);
+        console.log("domaine_nom:", etudiantsData[0].domaine_nom);
+        console.log("mention_nom:", etudiantsData[0].mention_nom);
+      }
 
       // Charger les bourses depuis l'API - CORRIGÉ
       const boursesResponse = await bourseApi.getBourses();
@@ -143,12 +216,12 @@ export default function Bourses() {
   // Obtenir le statut de bourse avec style
   const getBourseStatus = (etudiant) => {
     if (etudiant.boursier === 'NON') {
-      return { label: "Non boursier", color: "secondary" };
+      return { label: "Non boursier", color: "warning" };
     }
 
     const bourse = findBourseForEtudiant(etudiant.id);
     if (!bourse) {
-      return { label: "Sans bourse", color: "warning" };
+      return { label: "Sans bourse", color: "secondary" };
     }
 
     const statut = statutsBourse.find(s => s.value === bourse.status);
@@ -184,8 +257,9 @@ export default function Bourses() {
     const matchesStatut = filterStatut ? bourseStatus.label === filterStatut : true;
     const matchesNiveau = filterNiveau ? etudiant.niveau === filterNiveau : true;
     const matchesBoursier = filterBoursier ? etudiant.boursier === filterBoursier : true;
+    const matchesFaculte = filterFaculte ? getFaculteName(etudiant) === filterFaculte : true;
 
-    return matchesSearch && matchesStatut && matchesNiveau && matchesBoursier;
+    return matchesSearch && matchesStatut && matchesNiveau && matchesBoursier && matchesFaculte;
   });
 
   // Niveaux disponibles pour filtre
@@ -193,6 +267,9 @@ export default function Bourses() {
 
   // Statuts disponibles pour filtre
   const statutsDisponibles = [...new Set(etudiants.map(e => getBourseStatus(e).label))];
+
+  // Facultés disponibles pour filtre
+  const facultes = [...new Set(etudiants.map(e => getFaculteName(e)).filter(Boolean))];
 
   // Calculer les statistiques
   const stats = {
@@ -436,8 +513,9 @@ export default function Bourses() {
         ['Matricule', etudiant.matricule || '-'],
         ['Nom complet', getFullName(etudiant)],
         ['Niveau', etudiant.niveau || '-'],
-        ['Faculté', etudiant.faculte || '-'],
-        ['Domaine', etudiant.domaine || '-'],
+        ['Faculté', getFaculteName(etudiant) || '-'],
+        ['Domaine', getDomaineName(etudiant) || '-'],
+        ['Mention', getMentionName(etudiant) || '-'],
         ['Code redoublement', etudiant.code_redoublement || '-'],
         ['Statut boursier', etudiant.boursier === 'OUI' ? 'BOURSIER' : 'NON BOURSIER']
       ];
@@ -909,8 +987,9 @@ export default function Bourses() {
         "Nom": etudiant.nom || "",
         "Prénom": etudiant.prenom || "",
         "Niveau": etudiant.niveau || "",
-        "Faculté": etudiant.faculte || "",
-        "Domaine": etudiant.domaine || "",
+        "Faculté": getFaculteName(etudiant) || "",
+        "Domaine": getDomaineName(etudiant) || "",
+        "Mention": getMentionName(etudiant) || "",
         "Boursier": etudiant.boursier || "NON",
         "Montant bourse": bourse?.montant || etudiant.bourse || 0,
         "Statut bourse": bourse?.status || getBourseStatus(etudiant).label,
@@ -1080,7 +1159,7 @@ export default function Bourses() {
           <div className="row mb-3">
             <div className="col-md-8">
               <div className="row g-3">
-                <div className="col-md-3">
+                <div className="col-md-2">
                   <InputGroup>
                     <InputGroup.Text>
                       <FaSearch />
@@ -1092,7 +1171,7 @@ export default function Bourses() {
                     />
                   </InputGroup>
                 </div>
-                <div className="col-md-3">
+                <div className="col-md-2">
                   <Form.Select
                     value={filterStatut}
                     onChange={(e) => setFilterStatut(e.target.value)}
@@ -1103,7 +1182,7 @@ export default function Bourses() {
                     ))}
                   </Form.Select>
                 </div>
-                <div className="col-md-3">
+                <div className="col-md-2">
                   <Form.Select
                     value={filterNiveau}
                     onChange={(e) => setFilterNiveau(e.target.value)}
@@ -1114,7 +1193,7 @@ export default function Bourses() {
                     ))}
                   </Form.Select>
                 </div>
-                <div className="col-md-3">
+                <div className="col-md-2">
                   <Form.Select
                     value={filterBoursier}
                     onChange={(e) => setFilterBoursier(e.target.value)}
@@ -1123,6 +1202,27 @@ export default function Bourses() {
                     <option value="OUI">Boursiers</option>
                     <option value="NON">Non boursiers</option>
                   </Form.Select>
+                </div>
+                <div className="col-md-2">
+                  <Form.Select
+                    value={filterFaculte}
+                    onChange={(e) => setFilterFaculte(e.target.value)}
+                  >
+                    <option value="">Toutes les facultés</option>
+                    {facultes.map((faculte, index) => (
+                      <option key={index} value={faculte}>{faculte}</option>
+                    ))}
+                  </Form.Select>
+                </div>
+                <div className="col-md-2">
+                  <Button
+                    variant="outline-secondary"
+                    onClick={loadData}
+                    title="Actualiser les données"
+                  >
+                    <FaSearch className="me-1" />
+                    Actualiser
+                  </Button>
                 </div>
               </div>
             </div>
@@ -1145,7 +1245,6 @@ export default function Bourses() {
               </div>
             </div>
           </div>
-
         </div>
       </div>
 
@@ -1206,7 +1305,9 @@ export default function Bourses() {
                         </td>
                         <td>
                           <div className="fw-medium">{getFullName(etudiant)}</div>
-                          <small className="text-muted">{etudiant.faculte}</small>
+                          <small className="text-muted">
+                            {getFormationDisplay(etudiant)}
+                          </small>
                         </td>
                         <td>
                           <Badge bg={etudiant.code_redoublement === 'N' ? 'success' : 'warning'}>
@@ -1339,14 +1440,13 @@ export default function Bourses() {
                   </dd>
 
                   <dt className="col-sm-4">Faculté</dt>
-                  <dd className="col-sm-8">{selectedEtudiant.faculte}</dd>
+                  <dd className="col-sm-8">{getFaculteName(selectedEtudiant) || '-'}</dd>
 
-                  {selectedEtudiant.domaine && (
-                    <>
-                      <dt className="col-sm-4">Domaine</dt>
-                      <dd className="col-sm-8">{selectedEtudiant.domaine}</dd>
-                    </>
-                  )}
+                  <dt className="col-sm-4">Domaine</dt>
+                  <dd className="col-sm-8">{getDomaineName(selectedEtudiant) || '-'}</dd>
+
+                  <dt className="col-sm-4">Mention</dt>
+                  <dd className="col-sm-8">{getMentionName(selectedEtudiant) || '-'}</dd>
                 </dl>
               </div>
 
@@ -1441,7 +1541,6 @@ export default function Bourses() {
         </Modal.Footer>
       </Modal>
 
-      {/* Les autres modales restent inchangées */}
       {/* Modal Modification de bourse */}
       <Modal show={showEditBourseModal} onHide={() => setShowEditBourseModal(false)} size="lg">
         <Modal.Header closeButton className="bg-warning text-dark">
@@ -1460,6 +1559,8 @@ export default function Bourses() {
                 </Badge>
                 <br />
                 Niveau : {selectedEtudiant.niveau}
+                <br />
+                Formation : {getFormationDisplay(selectedEtudiant)}
               </Alert>
 
               <div className="row">
@@ -1585,6 +1686,8 @@ export default function Bourses() {
                 Attribuer une bourse à : <strong>{getFullName(selectedEtudiant)}</strong>
                 <br />
                 Niveau : {selectedEtudiant.niveau}
+                <br />
+                Formation : {getFormationDisplay(selectedEtudiant)}
               </Alert>
 
               <div className="row">

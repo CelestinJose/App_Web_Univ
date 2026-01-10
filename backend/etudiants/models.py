@@ -1,3 +1,4 @@
+from datetime import timezone
 from django.db import models
 
 from facultes.models import Domaine, Faculte, Mention
@@ -51,6 +52,25 @@ class Etudiant(models.Model):
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    # Nouveaux champs pour la gestion des doublons
+    doublon_traite = models.BooleanField(default=False, verbose_name="Doublon traité")
+    bourse_unique_attribuee = models.BooleanField(default=False, verbose_name="Bourse unique attribuée")
+    est_etudiant_principal = models.BooleanField(default=False, verbose_name="Étudiant principal (pour bourse)")
+    date_traitement_doublon = models.DateTimeField(null=True, blank=True, verbose_name="Date de traitement du doublon")
+    
+    # Méthode pour marquer comme traité
+    def marquer_doublon_traite(self):
+        self.doublon_traite = True
+        self.bourse_unique_attribuee = True
+        self.date_traitement_doublon = timezone.now()
+        self.save()
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['doublon_traite', 'bourse_unique_attribuee']),
+            models.Index(fields=['nom', 'prenom', 'cin']),
+        ]
     
     
     class Meta:

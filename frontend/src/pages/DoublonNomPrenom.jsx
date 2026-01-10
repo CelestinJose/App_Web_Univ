@@ -32,7 +32,7 @@ import {
     Tabs,
     Tab
 } from "react-bootstrap";
-import { etudiantApi } from '../api';
+import { etudiantApi, faculteApi, domaineApi, mentionApi } from '../api';
 import * as XLSX from 'xlsx';
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -40,6 +40,9 @@ import autoTable from "jspdf-autotable";
 export default function DoublonNomPrenom() {
     // États pour les données
     const [etudiants, setEtudiants] = useState([]);
+    const [facultes, setFacultes] = useState([]);
+    const [domaines, setDomaines] = useState([]);
+    const [mentions, setMentions] = useState([]);
     const [doublons, setDoublons] = useState({
         nomPrenom: [],
         cin: [],
@@ -55,32 +58,107 @@ export default function DoublonNomPrenom() {
     const [selectedDoublon, setSelectedDoublon] = useState(null);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [etudiantToDelete, setEtudiantToDelete] = useState(null);
-    const [activeTab, setActiveTab] = useState("nomPrenom"); // nomPrenom, cin, telephone, all
+    const [activeTab, setActiveTab] = useState("nomPrenom");
     
     // États pour la pagination
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(10);
+
+    // Fonctions helpers pour obtenir les noms à partir des IDs
+    const getNomFaculte = (id, facultesList) => {
+        if (!id) return "-";
+        
+        const idNum = typeof id === 'string' ? parseInt(id, 10) : id;
+        const fac = facultesList.find(f => f.id === idNum);
+        
+        return fac ? fac.nom : `Faculté ${id}`;
+    };
+
+    const getNomDomaine = (id, domainesList) => {
+        if (!id) return "-";
+        
+        const idNum = typeof id === 'string' ? parseInt(id, 10) : id;
+        const dom = domainesList.find(d => d.id === idNum);
+        
+        return dom ? dom.nom : `Domaine ${id}`;
+    };
+
+    const getNomMention = (id, mentionsList) => {
+        if (!id) return "-";
+        
+        const idNum = typeof id === 'string' ? parseInt(id, 10) : id;
+        const men = mentionsList.find(m => m.id === idNum);
+        
+        return men ? men.nom : `Mention ${id}`;
+    };
     
-    // Charger tous les étudiants et détecter les doublons
-    const fetchEtudiants = async () => {
+    // Charger toutes les données en une seule fonction
+    const fetchAllData = async () => {
         setLoading(true);
         setError(null);
 
         try {
-            const response = await etudiantApi.getEtudiants({ page_size: 1000 });
-            let data = [];
+            console.log("Début du chargement de toutes les données...");
+            
+            // Étape 1: Charger les références (facultés, domaines, mentions)
+            console.log("Étape 1: Chargement des références...");
+            
+            const [facResponse, domResponse, menResponse] = await Promise.all([
+                faculteApi.getFacultes({ page_size: 100 }),
+                domaineApi.getDomaines({ page_size: 100 }),
+                mentionApi.getMentions({ page_size: 100 })
+            ]);
+            
+            const facData = Array.isArray(facResponse.data) ? facResponse.data : 
+                          facResponse.data?.results || [];
+            const domData = Array.isArray(domResponse.data) ? domResponse.data : 
+                          domResponse.data?.results || [];
+            const menData = Array.isArray(menResponse.data) ? menResponse.data : 
+                          menResponse.data?.results || [];
+            
+            console.log("Références chargées:", {
+                facultes: facData.length,
+                domaines: domData.length,
+                mentions: menData.length
+            });
+            
+            // Mettre à jour les états des références
+            setFacultes(facData);
+            setDomaines(domData);
+            setMentions(menData);
+            
+            // Étape 2: Charger les étudiants
+            console.log("Étape 2: Chargement des étudiants...");
+            const etudResponse = await etudiantApi.getEtudiants({ page_size: 1000 });
+            let etudData = [];
 
-            if (response.data && Array.isArray(response.data.results)) {
-                data = response.data.results;
-            } else if (Array.isArray(response.data)) {
-                data = response.data;
+            if (etudResponse.data && Array.isArray(etudResponse.data.results)) {
+                etudData = etudResponse.data.results;
+            } else if (Array.isArray(etudResponse.data)) {
+                etudData = etudResponse.data;
             }
 
-            setEtudiants(data);
-            detecterTousLesDoublons(data);
+            console.log(`${etudData.length} étudiants chargés`);
+            
+            // Étape 3: Enrichir les données des étudiants avec les noms
+            console.log("Étape 3: Enrichissement des données...");
+            const enrichedData = etudData.map(etudiant => ({
+                ...etudiant,
+                faculte_nom: getNomFaculte(etudiant.faculte, facData),
+                domaine_nom: getNomDomaine(etudiant.domaine, domData),
+                mention_nom: getNomMention(etudiant.mention, menData)
+            }));
+
+            console.log("Données enrichies:", enrichedData.length);
+            console.log("Exemple étudiant enrichi:", enrichedData[0]);
+            
+            // Étape 4: Mettre à jour l'état et détecter les doublons
+            setEtudiants(enrichedData);
+            detecterTousLesDoublons(enrichedData);
+            
         } catch (err) {
-            console.error("Erreur:", err);
-            setError("Erreur lors du chargement des étudiants");
+            console.error("Erreur lors du chargement des données:", err);
+            setError("Erreur lors du chargement des données");
         } finally {
             setLoading(false);
         }
@@ -118,7 +196,6 @@ export default function DoublonNomPrenom() {
             }
         });
 
-        // Filtrer pour garder seulement les doublons (2+ occurrences)
         const doublonsArray = [];
         Object.keys(doublonsMap).forEach(cle => {
             if (doublonsMap[cle].length > 1) {
@@ -135,7 +212,6 @@ export default function DoublonNomPrenom() {
             }
         });
 
-        // Trier par nombre de doublons (décroissant)
         doublonsArray.sort((a, b) => b.count - a.count);
         return doublonsArray;
     };
@@ -206,12 +282,11 @@ export default function DoublonNomPrenom() {
         return doublonsArray;
     };
     
-    // Fonction pour combiner tous les doublons (sans répétition d'étudiants)
+    // Fonction pour combiner tous les doublons
     const combinerTousLesDoublons = (data) => {
         const etudiantsEnDoublon = new Set();
         const tousDoublons = [];
         
-        // Identifier tous les étudiants qui apparaissent dans au moins un type de doublon
         [...detecterDoublonsNomPrenom(data), ...detecterDoublonsCIN(data), ...detecterDoublonsTelephone(data)]
             .forEach(doublon => {
                 doublon.etudiants.forEach(etudiant => {
@@ -219,7 +294,6 @@ export default function DoublonNomPrenom() {
                 });
             });
         
-        // Regrouper les étudiants par cause de doublon
         const doublonsParEtudiant = {};
         
         data.forEach(etudiant => {
@@ -230,7 +304,6 @@ export default function DoublonNomPrenom() {
                 const cin = etudiant.cin?.toLowerCase().trim();
                 const tel = etudiant.telephone?.toLowerCase().trim();
                 
-                // Vérifier chaque cause potentielle
                 if (nom && prenom) {
                     causes.push(`Nom: ${etudiant.nom} ${etudiant.prenom}`);
                 }
@@ -250,7 +323,6 @@ export default function DoublonNomPrenom() {
             }
         });
         
-        // Convertir en tableau pour l'affichage
         Object.values(doublonsParEtudiant).forEach(item => {
             tousDoublons.push({
                 type: "multiple",
@@ -267,7 +339,7 @@ export default function DoublonNomPrenom() {
 
     // Charger les données au démarrage
     useEffect(() => {
-        fetchEtudiants();
+        fetchAllData();
     }, []);
     
     // Obtenir les doublons selon l'onglet actif
@@ -287,7 +359,7 @@ export default function DoublonNomPrenom() {
     const currentDoublons = filteredDoublons.slice(indexOfFirstItem, indexOfLastItem);
     const totalPages = Math.ceil(filteredDoublons.length / itemsPerPage);
 
-    // Gérer la sélection d'un doublon pour voir les détails
+    // Gérer la sélection d'un doublon
     const handleSelectDoublon = (doublon) => {
         setSelectedDoublon(selectedDoublon?.cle === doublon.cle ? null : doublon);
     };
@@ -304,7 +376,7 @@ export default function DoublonNomPrenom() {
         try {
             await etudiantApi.deleteEtudiant(etudiantToDelete.id);
             // Recharger les données après suppression
-            fetchEtudiants();
+            fetchAllData();
             setShowDeleteModal(false);
             setEtudiantToDelete(null);
             setSelectedDoublon(null);
@@ -375,68 +447,8 @@ export default function DoublonNomPrenom() {
                     </p>
                 </div>
             </div>
-
-            {/* Statistiques */}
-            <div className="row mb-4">
-                <div className="col-md-3">
-                    <Card className="border-danger shadow-sm">
-                        <Card.Body className="p-3">
-                            <Card.Title className="text-danger h6 mb-2">
-                                <FaUsers className="me-1" />
-                                Doublons Nom-Prénom
-                            </Card.Title>
-                            <div className="h2 text-danger">{stats.totalDoublonsNomPrenom}</div>
-                            <small className="text-muted">
-                                {stats.doublonsParType.nomPrenom} étudiant(s)
-                            </small>
-                        </Card.Body>
-                    </Card>
-                </div>
-                <div className="col-md-3">
-                    <Card className="border-warning shadow-sm">
-                        <Card.Body className="p-3">
-                            <Card.Title className="text-warning h6 mb-2">
-                                <FaAddressCard className="me-1" />
-                                Doublons CIN
-                            </Card.Title>
-                            <div className="h2 text-warning">{stats.totalDoublonsCIN}</div>
-                            <small className="text-muted">
-                                {stats.doublonsParType.cin} étudiant(s)
-                            </small>
-                        </Card.Body>
-                    </Card>
-                </div>
-                <div className="col-md-3">
-                    <Card className="border-info shadow-sm">
-                        <Card.Body className="p-3">
-                            <Card.Title className="text-info h6 mb-2">
-                                <FaPhone className="me-1" />
-                                Doublons Téléphone
-                            </Card.Title>
-                            <div className="h2 text-info">{stats.totalDoublonsTelephone}</div>
-                            <small className="text-muted">
-                                {stats.doublonsParType.telephone} étudiant(s)
-                            </small>
-                        </Card.Body>
-                    </Card>
-                </div>
-                <div className="col-md-3">
-                    <Card className="border-success shadow-sm">
-                        <Card.Body className="p-3">
-                            <Card.Title className="text-success h6 mb-2">
-                                <FaUsers className="me-1" />
-                                Total Étudiants
-                            </Card.Title>
-                            <div className="h2 text-success">{stats.totalEtudiantsEnDoublon}</div>
-                            <small className="text-muted">
-                                étudiants concernés
-                            </small>
-                        </Card.Body>
-                    </Card>
-                </div>
-            </div>
             
-            {/* Onglets pour les différents types de doublons */}
+            {/* Onglets */}
             <Card className="mb-4 shadow-sm">
                 <Card.Body className="p-0">
                     <Tabs
@@ -461,19 +473,7 @@ export default function DoublonNomPrenom() {
                                     )}
                                 </>
                             }
-                        >
-                            <div className="p-3">
-                                <Alert variant="danger" className="mb-3">
-                                    <Alert.Heading>
-                                        <FaExclamationTriangle className="me-2" />
-                                        Doublons par Nom et Prénom
-                                    </Alert.Heading>
-                                    <p className="mb-0">
-                                        Ces étudiants ont exactement le même nom et prénom. Cela peut indiquer des inscriptions multiples ou des erreurs de saisie.
-                                    </p>
-                                </Alert>
-                            </div>
-                        </Tab>
+                        />
                         
                         <Tab
                             eventKey="cin"
@@ -488,19 +488,7 @@ export default function DoublonNomPrenom() {
                                     )}
                                 </>
                             }
-                        >
-                            <div className="p-3">
-                                <Alert variant="warning" className="mb-3">
-                                    <Alert.Heading>
-                                        <FaAddressCard className="me-2" />
-                                        Doublons par Numéro CIN
-                                    </Alert.Heading>
-                                    <p className="mb-0">
-                                        Ces étudiants ont le même numéro de Carte d'Identité Nationale. Un même individu peut avoir été enregistré plusieurs fois.
-                                    </p>
-                                </Alert>
-                            </div>
-                        </Tab>
+                        />
                         
                         <Tab
                             eventKey="telephone"
@@ -515,19 +503,7 @@ export default function DoublonNomPrenom() {
                                     )}
                                 </>
                             }
-                        >
-                            <div className="p-3">
-                                <Alert variant="info" className="mb-3">
-                                    <Alert.Heading>
-                                        <FaPhone className="me-2" />
-                                        Doublons par Numéro de Téléphone
-                                    </Alert.Heading>
-                                    <p className="mb-0">
-                                        Ces étudiants ont le même numéro de téléphone. Cela peut indiquer des frères/sœurs ou des erreurs de saisie.
-                                    </p>
-                                </Alert>
-                            </div>
-                        </Tab>
+                        />
                         
                         <Tab
                             eventKey="all"
@@ -542,19 +518,7 @@ export default function DoublonNomPrenom() {
                                     )}
                                 </>
                             }
-                        >
-                            <div className="p-3">
-                                <Alert variant="secondary" className="mb-3">
-                                    <Alert.Heading>
-                                        <FaList className="me-2" />
-                                        Vue Consolidée
-                                    </Alert.Heading>
-                                    <p className="mb-0">
-                                        Liste de tous les étudiants apparaissant dans au moins un type de doublon, avec les causes détaillées.
-                                    </p>
-                                </Alert>
-                            </div>
-                        </Tab>
+                        />
                     </Tabs>
                 </Card.Body>
             </Card>
@@ -590,15 +554,7 @@ export default function DoublonNomPrenom() {
                             </Form.Group>
                         </Col>
                         <Col md={6} className="d-flex align-items-end gap-2">
-                            <Button
-                                variant="outline-danger"
-                                onClick={fetchEtudiants}
-                                className="d-flex align-items-center"
-                                disabled={loading}
-                            >
-                                <FaSync className="me-2" />
-                                Actualiser
-                            </Button>
+
                             <div className="text-muted ms-auto">
                                 <small>
                                     Affichage {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredDoublons.length)} sur {filteredDoublons.length} doublons
@@ -614,7 +570,7 @@ export default function DoublonNomPrenom() {
                 <Alert variant="danger" onClose={() => setError(null)} dismissible className="mb-3">
                     <Alert.Heading>Erreur !</Alert.Heading>
                     <p>{error}</p>
-                    <Button variant="outline-danger" onClick={fetchEtudiants}>
+                    <Button variant="outline-danger" onClick={fetchAllData}>
                         Réessayer
                     </Button>
                 </Alert>
@@ -765,7 +721,9 @@ export default function DoublonNomPrenom() {
                                                                                                         {etudiant.telephone || 'Non renseigné'}
                                                                                                     </Badge>
                                                                                                 </td>
-                                                                                                <td>{etudiant.faculte || '-'}</td>
+                                                                                                <td>
+                                                                                                    {etudiant.faculte_nom || '-'}
+                                                                                                </td>
                                                                                                 <td>
                                                                                                     <Badge bg="primary">{etudiant.niveau}</Badge>
                                                                                                 </td>
@@ -803,7 +761,7 @@ export default function DoublonNomPrenom() {
                                                                                 </Table>
                                                                             </div>
                                                                             <div className="mt-3 p-3 bg-warning bg-opacity-10 border-start border-warning border-5">
-                                                                                <small className="text-warning">
+                                                                                <small className="text-dark">
                                                                                     <strong>Cause du doublon :</strong> {doublon.details}
                                                                                 </small>
                                                                             </div>
@@ -895,7 +853,7 @@ export default function DoublonNomPrenom() {
                             <li>Matricule: {etudiantToDelete?.matricule}</li>
                             <li>CIN: {etudiantToDelete?.cin || 'Non renseigné'}</li>
                             <li>Téléphone: {etudiantToDelete?.telephone || 'Non renseigné'}</li>
-                            <li>Faculté: {etudiantToDelete?.faculte || 'Non renseignée'}</li>
+                            <li>Faculté: {etudiantToDelete?.faculte_nom || 'Non renseignée'}</li>
                         </ul>
                     </div>
                 </Modal.Body>

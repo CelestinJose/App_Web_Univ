@@ -678,52 +678,6 @@ export default function AccepBourses() {
         </div>
       </div>
       
-      {/* Statistiques */}
-      <div className="row mb-4">
-        <div className="col-md-3">
-          <Card className="text-center border-success border-start-3 shadow">
-            <Card.Body>
-              <FaUserCheck className="text-success display-6 mb-3" />
-              <Card.Title className="text-success">Bourses Acceptées</Card.Title>
-              <h2 className="text-dark">{stats.total_acceptees}</h2>
-            </Card.Body>
-          </Card>
-        </div>
-        <div className="col-md-3">
-          <Card className="text-center border-primary border-start-3 shadow">
-            <Card.Body>
-              <FaMoneyCheckAlt className="text-primary display-6 mb-3" />
-              <Card.Title className="text-primary">Montant Total</Card.Title>
-              <h2 className="text-dark">
-                {stats.montant_total.toLocaleString('fr-FR')} MGA
-              </h2>
-            </Card.Body>
-          </Card>
-        </div>
-        <div className="col-md-3">
-          <Card className="text-center border-warning border-start-3 shadow">
-            <Card.Body>
-              <FaUniversity className="text-warning display-6 mb-3" />
-              <Card.Title className="text-warning">Facultés</Card.Title>
-              <h2 className="text-dark">
-                {Object.keys(stats.par_faculte).length}
-              </h2>
-            </Card.Body>
-          </Card>
-        </div>
-        <div className="col-md-3">
-          <Card className="text-center border-info border-start-3 shadow">
-            <Card.Body>
-              <FaGraduationCap className="text-info display-6 mb-3" />
-              <Card.Title className="text-info">Niveaux</Card.Title>
-              <h2 className="text-dark">
-                {Object.keys(stats.par_niveau).length}
-              </h2>
-            </Card.Body>
-          </Card>
-        </div>
-      </div>
-      
       {/* Barre de filtres */}
       <div className="card mb-4">
         <div className="card-body">
