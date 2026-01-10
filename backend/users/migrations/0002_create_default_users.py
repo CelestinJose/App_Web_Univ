@@ -9,8 +9,8 @@ def create_default_users(apps, schema_editor):
         {'username': 'admin', 'role': 'administrateur', 'email': 'admin@example.com', 'password': '123456'},
         {'username': 'scolarite_informatique', 'role': 'scolarite', 'faculte': 'Faculté des Sciences et Technologies', 'email': 'scolarite_info@example.com', 'password': 'info123'},
         {'username': 'scolarite_medecine', 'role': 'scolarite', 'faculte': 'Faculté de Médecine et de Santé', 'email': 'scolarite_med@example.com', 'password': 'med123'},
-        {'username': 'scolarite_droit', 'role': 'scolarite', 'faculte': 'Droit', 'email': 'scolarite_droit@example.com', 'password': 'droit123'},
-        {'username': 'scolarite_economie', 'role': 'scolarite', 'Faculté de faculte': 'Faculté des Sciences Économiques et de Gestion', 'email': 'scolarite_eco@example.com', 'password': 'eco123'},
+        {'username': 'scolarite_droit', 'role': 'scolarite', 'faculte': 'Faculté de Droit', 'email': 'scolarite_droit@example.com', 'password': 'droit123'},
+        {'username': 'scolarite_economie', 'role': 'scolarite', 'faculte': 'Faculté des Sciences Économiques et de Gestion', 'email': 'scolarite_eco@example.com', 'password': 'eco123'},
         {'username': 'bourse', 'role': 'bourse', 'email': 'bourse@example.com', 'password': 'bourse123'},
         {'username': 'finance', 'role': 'finance', 'email': 'finance@example.com', 'password': 'finance123'},
     ]

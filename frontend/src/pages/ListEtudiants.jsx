@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   FaSearch, FaIdCard, FaFileAlt, FaPrint, FaDownload,
   FaEye, FaFilter, FaUserGraduate, FaUniversity, FaDatabase,
-  FaBook
+  FaBook, FaSync
 } from "react-icons/fa";
 import Modal from 'react-bootstrap/Modal';
 import Button from 'react-bootstrap/Button';
@@ -15,20 +15,14 @@ import Pagination from 'react-bootstrap/Pagination';
 import Spinner from 'react-bootstrap/Spinner';
 import { jsPDF } from "jspdf"
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { etudiantApi } from "../api";
+import { etudiantApi, faculteApi, domaineApi, mentionApi } from "../api";
 import QRCode from 'qrcode';
 
 // Importez votre logo ici (assurez-vous d'avoir le fichier dans votre projet)
 import logoUnivToliara from '../assets/logo-univ-toliara.png';
 // Import des logos des facultés
 import logoFaculteSciences from '../assets/logos/faculte-sciences.png';
-// import logoFaculteLettres from '../assets/logos/faculte-lettres.png';
-// import logoFaculteDroit from '../assets/logos/faculte-droit.png';
 import logoFaculteMedecine from '../assets/logos/faculte-medecine.png';
-// import logoFaculteEconomie from '../assets/logos/faculte-economie.png';
-// import logoEcoleIngenieurs from '../assets/logos/ecole-ingenieurs.png';
-// import logoInstitutTechnologie from '../assets/logos/institut-technologie.png';
-// Ajoutez d'autres logos selon vos facultés
 
 export default function ListEtudiants() {
   // État pour les données
@@ -37,12 +31,19 @@ export default function ListEtudiants() {
   const [error, setError] = useState(null);
   const [stats, setStats] = useState(null);
 
+  // États pour les données de référence (API)
+  const [facultes, setFacultes] = useState([]);
+  const [domaines, setDomaines] = useState([]);
+  const [mentions, setMentions] = useState([]);
+  const [loadingReferences, setLoadingReferences] = useState(false);
+
   // États pour les filtres
   const [searchTerm, setSearchTerm] = useState("");
   const [filterNiveau, setFilterNiveau] = useState("");
   const [filterFaculte, setFilterFaculte] = useState("");
-  const [filterBoursier, setFilterBoursier] = useState("");
+  const [filterDomaine, setFilterDomaine] = useState("");
   const [filterMention, setFilterMention] = useState("");
+  const [filterBoursier, setFilterBoursier] = useState("");
 
   // États pour la pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -59,6 +60,7 @@ export default function ListEtudiants() {
   useEffect(() => {
     fetchEtudiants();
     fetchStats();
+    fetchReferences();
   }, []);
 
   // Fonction pour charger les étudiants
@@ -89,6 +91,34 @@ export default function ListEtudiants() {
     }
   };
 
+  // Fonction pour charger les références (facultés, domaines, mentions)
+  const fetchReferences = async () => {
+    setLoadingReferences(true);
+    try {
+      // Charger les facultés
+      const facultesResponse = await faculteApi.getFacultes();
+      if (facultesResponse.data && Array.isArray(facultesResponse.data)) {
+        setFacultes(facultesResponse.data);
+      }
+
+      // Charger les domaines
+      const domainesResponse = await domaineApi.getDomaines();
+      if (domainesResponse.data && Array.isArray(domainesResponse.data)) {
+        setDomaines(domainesResponse.data);
+      }
+
+      // Charger les mentions
+      const mentionsResponse = await mentionApi.getMentions();
+      if (mentionsResponse.data && Array.isArray(mentionsResponse.data)) {
+        setMentions(mentionsResponse.data);
+      }
+    } catch (error) {
+      console.error("Erreur lors du chargement des références:", error);
+    } finally {
+      setLoadingReferences(false);
+    }
+  };
+
   // Fonction pour charger les statistiques
   const fetchStats = async () => {
     try {
@@ -107,8 +137,9 @@ export default function ListEtudiants() {
     if (searchTerm) params.search = searchTerm;
     if (filterNiveau) params.niveau = filterNiveau;
     if (filterFaculte) params.faculte = filterFaculte;
-    if (filterBoursier) params.boursier = filterBoursier;
+    if (filterDomaine) params.domaine = filterDomaine;
     if (filterMention) params.mention = filterMention;
+    if (filterBoursier) params.boursier = filterBoursier;
 
     setCurrentPage(1);
     fetchEtudiants(params);
@@ -119,16 +150,15 @@ export default function ListEtudiants() {
     setSearchTerm("");
     setFilterNiveau("");
     setFilterFaculte("");
-    setFilterBoursier("");
+    setFilterDomaine("");
     setFilterMention("");
+    setFilterBoursier("");
     setCurrentPage(1);
     fetchEtudiants();
   };
 
-  // Options pour les filtres
+  // Options pour les filtres (dynamiques depuis les étudiants)
   const niveaux = [...new Set(etudiants.map(e => e.niveau).filter(Boolean))];
-  const facultes = [...new Set(etudiants.map(e => e.faculte).filter(Boolean))];
-  const mentions = [...new Set(etudiants.map(e => e.mention).filter(Boolean))];
 
   // Filtrer les étudiants localement
   const filteredEtudiants = etudiants.filter(etudiant => {
@@ -141,10 +171,11 @@ export default function ListEtudiants() {
 
     const matchesNiveau = filterNiveau ? etudiant.niveau === filterNiveau : true;
     const matchesFaculte = filterFaculte ? etudiant.faculte === filterFaculte : true;
-    const matchesBoursier = filterBoursier ? etudiant.boursier === filterBoursier : true;
+    const matchesDomaine = filterDomaine ? etudiant.domaine === filterDomaine : true;
     const matchesMention = filterMention ? etudiant.mention === filterMention : true;
+    const matchesBoursier = filterBoursier ? etudiant.boursier === filterBoursier : true;
 
-    return matchesSearch && matchesNiveau && matchesFaculte && matchesBoursier && matchesMention;
+    return matchesSearch && matchesNiveau && matchesFaculte && matchesDomaine && matchesMention && matchesBoursier;
   });
 
   // Logique de pagination locale
@@ -174,6 +205,128 @@ export default function ListEtudiants() {
     setShowCertificatModal(true);
   };
 
+  // Fonction pour obtenir le logo de la faculté
+const getLogoFaculte = (faculte) => {
+  if (!faculte) return logoUnivToliara;
+
+  // Si objet (backend)
+  if (typeof faculte === "object") {
+    faculte = faculte.nom || faculte.libelle || "";
+  }
+
+  // Si ID (number)
+  if (typeof faculte === "number") {
+    faculte = getNomFaculte(faculte); // ta fonction existante
+  }
+
+  // Forcer en string
+  const faculteLower = String(faculte).toLowerCase();
+
+  // Mapping des logos par faculté
+  const logosMap = {
+    // Sciences
+    'sciences': logoFaculteSciences,
+    'faculté des sciences': logoFaculteSciences,
+    'faculte des sciences': logoFaculteSciences,
+    'science': logoFaculteSciences,
+
+    // Médecine
+    'médecine': logoFaculteMedecine,
+    'medecine': logoFaculteMedecine,
+    'faculté de médecine': logoFaculteMedecine,
+    'faculte de medecine': logoFaculteMedecine,
+    'santé': logoFaculteMedecine,
+  };
+
+  // Chercher le logo correspondant
+  for (const [key, logo] of Object.entries(logosMap)) {
+    if (faculteLower.includes(key)) {
+      return logo;
+    }
+  }
+
+  // Logo par défaut
+  return logoUnivToliara;
+};
+
+
+  // Fonction helper pour le fallback avec initiales
+  const drawInitialsFallback = (doc, etudiant, x, y, width, height) => {
+    // Fond du cercle
+    doc.setFillColor(240, 240, 240);
+    doc.circle(x + width / 2, y + height / 2, (width - 4) / 2, 'F');
+
+    // Bordure du cercle
+    doc.setDrawColor(0, 102, 204);
+    doc.setLineWidth(0.8);
+    doc.circle(x + width / 2, y + height / 2, (width - 4) / 2);
+
+    // Calculer les initiales
+    const nomInitial = etudiant.nom?.charAt(0)?.toUpperCase() || '';
+    const prenomInitial = etudiant.prenom?.charAt(0)?.toUpperCase() || '';
+    const initials = nomInitial + prenomInitial || '??';
+
+    // Ajuster la taille de police selon la longueur
+    const fontSize = initials.length > 1 ? 9 : 10;
+    doc.setFontSize(fontSize);
+    doc.setTextColor(0, 51, 102);
+    doc.setFont('helvetica', 'bold');
+    doc.text(initials, x + width / 2, y + height / 2 + 1, { align: 'center' });
+  };
+
+  // Fonction pour obtenir le chemin correct de la photo
+  const getCorrectPhotoPath = (photoPath) => {
+    if (!photoPath) return null;
+
+    console.log("Chemin photo original:", photoPath);
+
+    // Si c'est déjà une URL complète (http:// ou https://)
+    if (photoPath.startsWith('http://') || photoPath.startsWith('https://')) {
+      // Extraire le chemin après le domaine
+      const urlObj = new URL(photoPath);
+      const path = urlObj.pathname;
+
+      // Si le chemin commence par /media/, le retourner
+      if (path.startsWith('/media/')) {
+        return path;
+      }
+
+      // Sinon, ajouter /media/ devant
+      return `/media/${path.startsWith('/') ? path.substring(1) : path}`;
+    }
+
+    // Si c'est un chemin commençant par /media/
+    if (photoPath.startsWith('/media/')) {
+      return photoPath;
+    }
+
+    // Si c'est un chemin commençant par media/ (sans slash)
+    if (photoPath.startsWith('media/')) {
+      return `/${photoPath}`;
+    }
+
+    // Si c'est un chemin dans Etudiant/
+    if (photoPath.startsWith('Etudiant/') || photoPath.includes('Etudiant/')) {
+      return `/media/${photoPath}`;
+    }
+
+    // Par défaut, considérer que c'est dans media/Etudiant/
+    return `/media/Etudiant/${photoPath}`;
+  };
+
+  // Fonction pour obtenir l'URL complète de la photo
+  const getPhotoUrl = (photoPath) => {
+    const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+    const correctPath = getCorrectPhotoPath(photoPath);
+
+    if (!correctPath) return null;
+
+    // Assurer qu'il n'y a pas de double slash
+    const url = `${baseUrl}${correctPath}`;
+    console.log("URL photo générée:", url);
+    return url;
+  };
+
   // Générer la carte étudiante en PDF
   const genererCarteEtudiantPDF = async () => {
     if (!selectedEtudiant) return;
@@ -187,38 +340,37 @@ export default function ListEtudiants() {
     // Dimensions utiles
     const cardWidth = 86;
     const cardHeight = 54;
-    const margin = 2; // Marge générale
+    const margin = 2;
 
     // Zone de la photo
-    const photoWidth = 20; // Largeur de la photo
-    const photoHeight = 25; // Hauteur de la photo
-    const photoX = margin + 2; // Position X de la photo
-    const photoY = 16; // Position Y de la photo
+    const photoWidth = 20;
+    const photoHeight = 25;
+    const photoX = margin + 2;
+    const photoY = 16;
 
-    // Zone des informations - AUGMENTÉE pour noms longs
-    const infoX = photoX + photoWidth + 3; // Position X des informations
-    const infoWidth = 38; // Largeur augmentée pour les informations
+    // Zone des informations
+    const infoX = photoX + photoWidth + 3;
+    const infoWidth = 38;
 
-    // Zone QR code - RÉDUITE pour compenser
-    const qrSize = 16; // Taille du QR code réduite
-    const qrX = infoX + infoWidth + 2; // Position X du QR code
-    const qrY = photoY + 2; // Position Y du QR code
+    // Zone QR code
+    const qrSize = 16;
+    const qrX = infoX + infoWidth + 2;
+    const qrY = photoY + 2;
 
-    // 1. FOND DE LA CARTE - Dégradé bleu
+    // 1. FOND DE LA CARTE
     doc.setFillColor(230, 240, 255);
     doc.rect(0, 0, cardWidth, cardHeight, 'F');
 
-    // Bande supérieure (bleu foncé)
+    // Bande supérieure
     doc.setFillColor(0, 51, 102);
     doc.rect(0, 0, cardWidth, 10, 'F');
 
-    // Bande inférieure (bleu moyen)
+    // Bande inférieure
     doc.setFillColor(0, 102, 204);
     doc.rect(0, cardHeight - 8, cardWidth, 8, 'F');
 
-    // 2. LOGO UNIVERSITÉ - dans le bandeau supérieur
+    // 2. LOGO UNIVERSITÉ
     try {
-      // Logo université à gauche
       const logoUnivWidth = 15;
       const logoUnivHeight = 8;
       const logoUnivX = margin + 2;
@@ -237,7 +389,7 @@ export default function ListEtudiants() {
     doc.setFont('helvetica', 'bold');
     doc.text("UNIVERSITÉ DE TOLIARA", cardWidth / 2, 6, { align: 'center' });
 
-    // 4. LOGO DE LA FACULTÉ - dans le bandeau supérieur à droite
+    // 4. LOGO DE LA FACULTÉ
     try {
       const logoFaculte = getLogoFaculte(selectedEtudiant.faculte);
       if (logoFaculte) {
@@ -251,152 +403,49 @@ export default function ListEtudiants() {
       console.warn("Logo faculté non chargé:", error);
     }
 
-    // Fonction pour obtenir le chemin correct de la photo
-    const getCorrectPhotoPath = (photoPath) => {
-      if (!photoPath) return null;
-
-      console.log("Chemin photo original:", photoPath);
-
-      // Si c'est déjà une URL complète (http:// ou https://)
-      if (photoPath.startsWith('http://') || photoPath.startsWith('https://')) {
-        // Extraire le chemin après le domaine
-        const urlObj = new URL(photoPath);
-        const path = urlObj.pathname;
-
-        // Si le chemin commence par /media/, le retourner
-        if (path.startsWith('/media/')) {
-          return path;
-        }
-
-        // Sinon, ajouter /media/ devant
-        return `/media/${path.startsWith('/') ? path.substring(1) : path}`;
-      }
-
-      // Si c'est un chemin commençant par /media/
-      if (photoPath.startsWith('/media/')) {
-        return photoPath;
-      }
-
-      // Si c'est un chemin commençant par media/ (sans slash)
-      if (photoPath.startsWith('media/')) {
-        return `/${photoPath}`;
-      }
-
-      // Si c'est un chemin dans Etudiant/
-      if (photoPath.startsWith('Etudiant/') || photoPath.includes('Etudiant/')) {
-        return `/media/${photoPath}`;
-      }
-
-      // Par défaut, considérer que c'est dans media/Etudiant/
-      return `/media/Etudiant/${photoPath}`;
-    };
-
-    // Fonction pour obtenir l'URL complète
-    const getPhotoUrl = (photoPath) => {
-      const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-      const correctPath = getCorrectPhotoPath(photoPath);
-
-      if (!correctPath) return null;
-
-      // Assurer qu'il n'y a pas de double slash
-      const url = `${baseUrl}${correctPath}`;
-      console.log("URL photo générée:", url);
-      return url;
-    };
-
-    // 5. CADRE PHOTO AVEC EFFET 3D
+    // 5. CADRE PHOTO
     doc.setFillColor(255, 255, 255);
     doc.roundedRect(photoX, photoY, photoWidth, photoHeight, 1, 1, 'F');
-
-    doc.setFillColor(220, 220, 220);
-    doc.roundedRect(photoX + 0.5, photoY + 0.5, photoWidth, photoHeight, 1, 1, 'F');
-
-    doc.setFillColor(255, 255, 255);
-    doc.roundedRect(photoX, photoY, photoWidth, photoHeight, 1, 1, 'F');
-
     doc.setDrawColor(0, 102, 204);
     doc.setLineWidth(0.3);
     doc.roundedRect(photoX + 1, photoY + 1, photoWidth - 2, photoHeight - 2, 0.5, 0.5);
 
-    // AJOUTEZ CETTE SECTION POUR LA PHOTO DE L'ÉTUDIANT - CORRIGÉE
+    // Photo de l'étudiant
     if (selectedEtudiant.photo) {
       try {
-        // Utiliser la nouvelle fonction pour obtenir l'URL correcte
         const photoUrl = getPhotoUrl(selectedEtudiant.photo);
         console.log("URL utilisée pour PDF:", photoUrl);
 
         if (photoUrl) {
-          // Tester si l'image existe
           const img = new Image();
-          img.crossOrigin = 'anonymous'; // Important pour les images CORS
+          img.crossOrigin = 'anonymous';
 
-          // Utiliser une promesse pour gérer le chargement
           const loadImage = new Promise((resolve, reject) => {
             img.onload = () => resolve(img);
             img.onerror = () => reject(new Error('Échec du chargement de l\'image'));
             img.src = photoUrl;
-
-            // Timeout après 2 secondes
             setTimeout(() => reject(new Error('Timeout de chargement')), 2000);
           });
 
           await loadImage;
-
-          // Ajouter l'image au PDF
           doc.addImage(img, 'JPEG', photoX + 2, photoY + 2, photoWidth - 4, photoHeight - 4, undefined, 'FAST');
-
-          // Ajouter un masque arrondi sur la photo
-          doc.setDrawColor(255, 255, 255);
-          doc.setFillColor(255, 255, 255, 0);
-          doc.roundedRect(photoX + 1, photoY + 1, photoWidth - 2, photoHeight - 2, 1, 1);
-
-          console.log("Photo chargée avec succès dans le PDF");
         }
-
       } catch (error) {
         console.warn("Impossible de charger la photo de l'étudiant:", error);
-
-        // Fallback: Afficher des initiales stylisées
         drawInitialsFallback(doc, selectedEtudiant, photoX, photoY, photoWidth, photoHeight);
       }
     } else {
-      // Si pas de photo, afficher des initiales
       drawInitialsFallback(doc, selectedEtudiant, photoX, photoY, photoWidth, photoHeight);
     }
-
-    // Fonction helper pour le fallback avec initiales
-    const drawInitialsFallback = (doc, etudiant, x, y, width, height) => {
-      // Fond du cercle
-      doc.setFillColor(240, 240, 240);
-      doc.circle(x + width / 2, y + height / 2, (width - 4) / 2, 'F');
-
-      // Bordure du cercle
-      doc.setDrawColor(0, 102, 204);
-      doc.setLineWidth(0.8);
-      doc.circle(x + width / 2, y + height / 2, (width - 4) / 2);
-
-      // Calculer les initiales
-      const nomInitial = etudiant.nom?.charAt(0)?.toUpperCase() || '';
-      const prenomInitial = etudiant.prenom?.charAt(0)?.toUpperCase() || '';
-      const initials = nomInitial + prenomInitial || '??';
-
-      // Ajuster la taille de police selon la longueur
-      const fontSize = initials.length > 1 ? 9 : 10;
-      doc.setFontSize(fontSize);
-      doc.setTextColor(0, 51, 102);
-      doc.setFont('helvetica', 'bold');
-      doc.text(initials, x + width / 2, y + height / 2 + 1, { align: 'center' });
-    };
 
     doc.setFontSize(5);
     doc.setTextColor(150, 150, 150);
     doc.setFont('helvetica', 'italic');
     doc.text("PHOTO", photoX + photoWidth / 2, photoY + photoHeight - 2, { align: 'center' });
 
-    // 6. ZONE DES INFORMATIONS - AGRANDIE
+    // 6. ZONE DES INFORMATIONS
     doc.setFillColor(255, 255, 255, 230);
     doc.roundedRect(infoX - 1, photoY - 1, infoWidth + 2, photoHeight + 2, 2, 2, 'F');
-
     doc.setDrawColor(0, 102, 204);
     doc.setLineWidth(0.3);
     doc.roundedRect(infoX - 1, photoY - 1, infoWidth + 2, photoHeight + 2, 2, 2);
@@ -419,131 +468,49 @@ export default function ListEtudiants() {
 
     let currentY = photoY + 7;
 
-    // FONCTION AMÉLIORÉE POUR LES NOMS LONGS
-    const wrapText = (text, maxWidth, x, y, lineHeight = 3.5) => {
-      if (!text) return y;
-
-      const words = text.split(' ');
-      let line = '';
-      let currentY = y;
-      let isFirstLine = true;
-
-      for (let i = 0; i < words.length; i++) {
-        const testLine = line + (line ? ' ' : '') + words[i];
-        const testWidth = doc.getTextWidth(testLine);
-
-        if (testWidth > maxWidth && i > 0) {
-          // Écrire la ligne actuelle
-          doc.text(line, x, currentY);
-          currentY += lineHeight;
-          line = words[i];
-          isFirstLine = false;
-        } else {
-          line = testLine;
-        }
-      }
-
-      // Écrire la dernière ligne
-      doc.text(line, x, currentY);
-
-      // Retourner la prochaine position Y
-      return currentY + lineHeight;
-    };
-
-    // FONCTION POUR TRONQUER LES TEXTES TRÈS LONGS (sans couper les mots)
-    const truncateTextSmart = (text, maxChars) => {
-      if (!text) return '';
-      if (text.length <= maxChars) return text;
-
-      // Tronquer aux maxChars, mais chercher le dernier espace
-      let truncated = text.substring(0, maxChars);
-      const lastSpace = truncated.lastIndexOf(' ');
-
-      if (lastSpace > maxChars - 10) { // Si on a un espace proche de la fin
-        truncated = truncated.substring(0, lastSpace);
-      }
-
-      return truncated + '...';
-    };
-
-    // 1. NOM COMPLET - Gestion spéciale pour les noms longs
+    // NOM
     const nom = selectedEtudiant.nom?.toUpperCase() || '';
     const prenom = selectedEtudiant.prenom || '';
-
-    // STRATÉGIE : Afficher d'abord le nom en entier, puis le prénom tronqué si nécessaire
-    const maxCharsForLine = 28; // Augmenté pour les noms longs
-
-    // Calculer la largeur disponible pour le texte
-    const labelWidth = 8; // "NOM:"
-    const textStartX = infoX + labelWidth;
-    const maxTextWidth = infoWidth - labelWidth - 2; // Largeur disponible pour le texte
-
-    // Option 1: Nom seul (si très long)
-    let nomToDisplay = nom;
-    let nomWidth = doc.getTextWidth(nomToDisplay);
-
-    // Option 2: Nom + initiale du prénom (pour économiser de la place)
-    if (nomWidth > maxTextWidth && prenom) {
-      const initiale = prenom.charAt(0).toUpperCase() + '.';
-      nomToDisplay = `${nom} ${initiale}`;
-      nomWidth = doc.getTextWidth(nomToDisplay);
-    }
-
-    // Option 3: Tronquer intelligemment
-    if (nomWidth > maxTextWidth) {
-      nomToDisplay = truncateTextSmart(nomToDisplay, maxCharsForLine);
-    }
+    const nomToDisplay = nom.length > 20 ? nom.substring(0, 20) + '...' : nom;
 
     doc.setFont('helvetica', 'bold');
     doc.text("NOM:", infoX, currentY);
     doc.setFont('helvetica', 'normal');
+    doc.text(nomToDisplay, infoX + 8, currentY);
+    currentY += 3.5;
 
-    // Vérifier si le texte dépasse encore
-    const finalWidth = doc.getTextWidth(nomToDisplay);
-    if (finalWidth > maxTextWidth) {
-      // Utiliser wrapText pour les cas extrêmes
-      currentY = wrapText(nomToDisplay, maxTextWidth, textStartX, currentY, 3);
-    } else {
-      doc.text(nomToDisplay, textStartX, currentY);
-      currentY += 3.5;
-    }
-
-    // 2. PRÉNOM COMPLET (sur une ligne séparée si le nom est tronqué)
-    if (prenom && (nom.length > 15 || finalWidth > maxTextWidth - 5)) {
-      // Afficher le prénom sur une ligne séparée
-      const prenomTruncated = truncateTextSmart(prenom, 22);
+    // PRÉNOM (si le nom n'est pas tronqué)
+    if (nom.length <= 20 && prenom) {
+      const prenomDisplay = prenom.length > 15 ? prenom.substring(0, 15) + '...' : prenom;
       doc.setFont('helvetica', 'bold');
       doc.text("PRÉNOM:", infoX, currentY);
       doc.setFont('helvetica', 'normal');
-      doc.text(prenomTruncated, infoX + 12, currentY);
+      doc.text(prenomDisplay, infoX + 12, currentY);
       currentY += 3.5;
     }
 
-    // 3. MATRICULE
+    // MATRICULE
     doc.setFont('helvetica', 'bold');
     doc.text("MATRICULE:", infoX, currentY);
     doc.setFont('helvetica', 'normal');
     doc.text(selectedEtudiant.matricule || '-', infoX + 14, currentY);
     currentY += 3.5;
 
-    // 4. NIVEAU - Taille de police réduite pour les noms longs
-    const levelFontSize = (nom.length > 20) ? 4.5 : 5;
-    doc.setFontSize(levelFontSize);
+    // NIVEAU
     doc.setFont('helvetica', 'bold');
     doc.text("NIVEAU:", infoX, currentY);
     doc.setFont('helvetica', 'normal');
     doc.text(selectedEtudiant.niveau || '-', infoX + 12, currentY);
     currentY += 3.5;
 
-    // 5. FACULTÉ - Tronquer si nécessaire
+    // FACULTÉ
     if (selectedEtudiant.faculte) {
-      let faculteDisplay = selectedEtudiant.faculte;
-      const faculteWidth = doc.getTextWidth(faculteDisplay);
-      const maxFaculteWidth = infoWidth - 12 - 2; // Largeur disponible
+      const faculteNom = getNomFaculte(selectedEtudiant.faculte);
 
-      if (faculteWidth > maxFaculteWidth) {
-        faculteDisplay = truncateTextSmart(faculteDisplay, 20);
-      }
+      const faculteDisplay = faculteNom.length > 20
+        ? faculteNom.substring(0, 20) + '...'
+        : faculteNom;
+
 
       doc.setFont('helvetica', 'bold');
       doc.text("FACULTÉ:", infoX, currentY);
@@ -552,14 +519,14 @@ export default function ListEtudiants() {
       currentY += 3.5;
     }
 
-    // 6. ANNÉE ACADÉMIQUE
+    // ANNÉE ACADÉMIQUE
     doc.setFont('helvetica', 'bold');
     doc.text("ANNÉE:", infoX, currentY);
     doc.setFont('helvetica', 'normal');
     doc.text("2024-2025", infoX + 10, currentY);
     currentY += 3.5;
 
-    // 7. CODE QR - Taille réduite pour compenser l'espace du nom
+    // 7. CODE QR
     try {
       const qrContent = JSON.stringify({
         universite: "Université de Toliara",
@@ -579,14 +546,10 @@ export default function ListEtudiants() {
         }
       });
 
-      // Fond blanc pour le QR code
       doc.setFillColor(255, 255, 255);
       doc.roundedRect(qrX - 1, qrY - 1, qrSize + 2, qrSize + 2, 1, 1, 'F');
-
-      // Ajouter le QR code
       doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
 
-      // Légende sous le QR code
       doc.setFontSize(3.5);
       doc.setTextColor(0, 51, 102);
       doc.setFont('helvetica', 'italic');
@@ -601,18 +564,14 @@ export default function ListEtudiants() {
       doc.text("QR", qrX + qrSize / 2, qrY + qrSize / 2, { align: 'center' });
     }
 
-    // 8. INFORMATIONS DE CONTACT (en bas)
+    // 8. INFORMATIONS DE CONTACT
     doc.setFontSize(4);
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'italic');
-
-    // À gauche : site web
     doc.text("www.univ-toliara.mg", margin + 5, cardHeight - 2.5);
-
-    // À droite : email
     doc.text("contact@univ-toliara.mg", cardWidth - margin - 5, cardHeight - 2.5, { align: 'right' });
 
-    // 9. BORDURE FINALE ET EFFETS
+    // 9. BORDURE FINALE
     doc.setDrawColor(255, 255, 255);
     doc.setLineWidth(0.3);
     doc.rect(0.5, 0.5, cardWidth - 1, cardHeight - 1);
@@ -625,70 +584,6 @@ export default function ListEtudiants() {
     doc.save(`carte-etudiant-${selectedEtudiant.matricule}-${new Date().getFullYear()}.pdf`);
   };
 
-  // Fonction pour obtenir le logo de la faculté
-  const getLogoFaculte = (faculte) => {
-    if (!faculte) return null;
-
-    const faculteLower = faculte.toLowerCase();
-
-    // Mapping des logos par faculté
-    const logosMap = {
-      // Sciences
-      'sciences': logoFaculteSciences,
-      'faculté des sciences': logoFaculteSciences,
-      'faculte des sciences': logoFaculteSciences,
-      'science': logoFaculteSciences,
-
-      // Lettres
-      // 'lettres': logoFaculteLettres,
-      // 'faculté des lettres': logoFaculteLettres,
-      // 'faculte des lettres': logoFaculteLettres,
-      // 'lettres et sciences humaines': logoFaculteLettres,
-
-      // Droit
-      // 'droit': logoFaculteDroit,
-      // 'faculté de droit': logoFaculteDroit,
-      // 'faculte de droit': logoFaculteDroit,
-      // 'droit et sciences politiques': logoFaculteDroit,
-
-      // Médecine
-      'médecine': logoFaculteMedecine,
-      'medecine': logoFaculteMedecine,
-      'faculté de médecine': logoFaculteMedecine,
-      'faculte de medecine': logoFaculteMedecine,
-      'santé': logoFaculteMedecine,
-
-      // Économie
-      // 'économie': logoFaculteEconomie,
-      // 'economie': logoFaculteEconomie,
-      // 'faculté des sciences économiques': logoFaculteEconomie,
-      // 'faculte des sciences economiques': logoFaculteEconomie,
-      // 'sciences économiques': logoFaculteEconomie,
-
-      // École d'ingénieurs
-      // 'ingénierie': logoEcoleIngenieurs,
-      // 'ingenierie': logoEcoleIngenieurs,
-      // 'école d\'ingénieurs': logoEcoleIngenieurs,
-      // 'ecole d\'ingenieurs': logoEcoleIngenieurs,
-      // 'génie': logoEcoleIngenieurs,
-
-      // Institut de technologie
-      // 'technologie': logoInstitutTechnologie,
-      // 'institut de technologie': logoInstitutTechnologie,
-      // 'iut': logoInstitutTechnologie,
-    };
-
-    // Chercher le logo correspondant
-    for (const [key, logo] of Object.entries(logosMap)) {
-      if (faculteLower.includes(key)) {
-        return logo;
-      }
-    }
-
-    // Logo par défaut (logo de l'université)
-    return logoUnivToliara;
-  };
-
   // Générer le certificat de scolarité officiel en PDF
   const genererCertificatScolaritePDF = async () => {
     if (!selectedEtudiant) return;
@@ -698,31 +593,25 @@ export default function ListEtudiants() {
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 15;
 
-    // Logo de l'université - à remplacer par votre vrai logo
+    // Logo de l'université
     doc.addImage(logoUnivToliara, 'PNG', margin, margin, 30, 30);
 
-    // Logo de la faculté de l'étudiant - à droite
+    // Logo de la faculté
     const logoFaculte = getLogoFaculte(selectedEtudiant.faculte);
     if (logoFaculte) {
-      const logoFaculteWidth = 30;
-      const logoFaculteHeight = 30;
-      const logoFaculteX = pageWidth - margin - logoFaculteWidth;
-      const logoFaculteY = margin;
-      doc.addImage(logoFaculte, 'PNG', logoFaculteX, logoFaculteY, logoFaculteWidth, logoFaculteHeight);
+      doc.addImage(logoFaculte, 'PNG', pageWidth - margin - 30, margin, 30, 30);
     }
 
-    // CADRE SIMPLE POUR PHOTO 4x4 - en bas du logo de la faculté
-    const photoWidth = 25; // Largeur du cadre photo en mm
-    const photoHeight = 32; // Hauteur du cadre photo en mm
-    const photoX = pageWidth - margin - photoWidth; // Même alignement à droite que le logo
-    const photoY = margin + 35; // 5mm sous le logo (30mm + 5mm d'espace)
+    // Cadre photo
+    const photoWidth = 25;
+    const photoHeight = 32;
+    const photoX = pageWidth - margin - photoWidth;
+    const photoY = margin + 35;
 
-    // Dessiner le cadre simple de la photo
-    doc.setDrawColor(0, 0, 0); // Couleur noire
-    doc.setLineWidth(0.5); // Épaisseur moyenne
-    doc.rect(photoX, photoY, photoWidth, photoHeight); // Cadre simple
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.5);
+    doc.rect(photoX, photoY, photoWidth, photoHeight);
 
-    // Ajouter le texte "PHOTO 4x4" sous le cadre
     doc.setFontSize(6);
     doc.setFont('times', 'normal');
     doc.setTextColor(100, 100, 100);
@@ -735,28 +624,19 @@ export default function ListEtudiants() {
     doc.text("REPOBLIKAN'I MADAGASIKARA", pageWidth / 2, margin + 5, { align: 'center' });
 
     doc.setFontSize(9);
-    doc.setFont('times', 'normal');
     doc.text("Fitiavana – Tanindrazana – Fandrosoana", pageWidth / 2, margin + 10, { align: 'center' });
 
     doc.setFontSize(8);
-    const asteriskLine1 = "* * * * * * * * * * * * * * * * * * * * * *";
-    doc.text(asteriskLine1, pageWidth / 2, margin + 13, { align: 'center' });
+    doc.text("* * * * * * * * * * * * * * * * * * * * * *", pageWidth / 2, margin + 13, { align: 'center' });
 
-    // Ligne 1 du ministère
     doc.setFontSize(10);
     doc.text("MINISTERE DE L'ENSEIGNEMENT SUPERIEUR ET DE LA", pageWidth / 2, margin + 18, { align: 'center' });
-
-    // Ligne 2 du ministère
     doc.text("RECHERCHE SCIENTIFIQUE", pageWidth / 2, margin + 24, { align: 'center' });
 
-    // Université
     doc.setFontSize(11);
-    doc.setFont('times');
     doc.text("UNIVERSITE DE TOLIARA", pageWidth / 2, margin + 30, { align: 'center' });
 
-    // Direction
     doc.setFontSize(9);
-    doc.setFont('times', 'normal');
     doc.text("Direction des Systèmes d'Information et du Numérique", pageWidth / 2, margin + 35, { align: 'center' });
     doc.text("Service de la Scolarité Centrale", pageWidth / 2, margin + 40, { align: 'center' });
 
@@ -765,22 +645,21 @@ export default function ListEtudiants() {
     doc.setFont('times', 'bold');
     doc.text("CERTIFICAT DE LA SCOLARITE", pageWidth / 2, margin + 53, { align: 'center' });
 
-    // Référence - CORRECTION: placé au centre en dessous du titre
+    // Référence
     doc.setFontSize(9);
     doc.setFont('times', 'normal');
     const currentYear = new Date().getFullYear();
     const refText = `Ref :                    /${currentYear}/MEsupRes/U.U/DSIN/Sco.Cent`;
     doc.text(refText, pageWidth / 2, margin + 61, { align: 'center' });
 
-    // Texte d'introduction - CORRECTION: position ajustée
+    // Texte d'introduction
     doc.setFontSize(10);
     doc.text("Le Directeur des Systèmes d'Information et du Numérique certifie par la présente que", margin, margin + 70);
 
     // Informations de l'étudiant
     let yPosition = margin + 80;
 
-    // Mr/Mme/Mlle
-    doc.setFont('times');
+    // Civilité
     let civilite = "Mr/Mme/Mlle";
     if (selectedEtudiant.sexe === 'F') {
       civilite = selectedEtudiant.statut_matrimonial === 'MARIÉ(E)' ? "Mme" : "Mlle";
@@ -788,14 +667,12 @@ export default function ListEtudiants() {
       civilite = "Mr";
     }
     doc.text(`${civilite} :`, margin, yPosition);
-    doc.setFont('times', 'normal');
     doc.text(`${selectedEtudiant.nom} ${selectedEtudiant.prenom}`, margin + 25, yPosition);
     yPosition += 10;
 
-    // Date et lieu de naissance - SUR UNE LIGNE
+    // Date et lieu de naissance
     const formatDateNaissance = (dateString) => {
       if (!dateString) return "";
-
       try {
         const date = new Date(dateString);
         const jour = date.getDate();
@@ -803,30 +680,25 @@ export default function ListEtudiants() {
         const annee = date.getFullYear();
         return `${jour} ${mois} ${annee}`;
       } catch (error) {
-        console.error("Erreur de formatage de date:", error);
-        return dateString; // Retourne la date originale si erreur
+        return dateString;
       }
     };
 
     const dateNaissance = formatDateNaissance(selectedEtudiant.date_naissance);
     const lieuNaissance = selectedEtudiant.lieu_naissance || "";
-    doc.setFont('times');
     doc.text(`Date et lieu de naissance : ${dateNaissance} à ${lieuNaissance}`, margin, yPosition);
     yPosition += 10;
 
-    // CN (CIN) - SUR UNE LIGNE
+    // CIN
     if (selectedEtudiant.cin) {
-      doc.setFont('times');
       doc.text(`CN : ${selectedEtudiant.cin}`, margin, yPosition);
       yPosition += 10;
     }
 
-    // Parents - SUR UNE LIGNE
-    doc.setFont('times');
+    // Parents
     doc.text(`Fils/Fille de : ${selectedEtudiant.nom_pere || "[Nom du père]"}`, margin, yPosition);
     yPosition += 10;
 
-    doc.setFont('times');
     doc.text(`Et de : ${selectedEtudiant.nom_mere || "[Nom de la mère]"}`, margin, yPosition);
     yPosition += 10;
 
@@ -834,73 +706,28 @@ export default function ListEtudiants() {
     doc.text("Est inscrit(e) régulièrement au sein de l'Université de Toliara pour l'Année Universitaire 2024-2025", margin, yPosition);
     yPosition += 10;
 
-    // Liste des informations académiques - Format une seule colonne
+    // Informations académiques
     const infoAcademiques = [
-      { label: "Sous le numéro d'inscription :", value: selectedEtudiant.numero_inscription || 'N/A' },
-      { label: "Faculté/Ecole/Institut :", value: selectedEtudiant.faculte || 'N/A' },
-      { label: "Domaine :", value: selectedEtudiant.domaine || 'N/A' },
-      { label: "Mention :", value: selectedEtudiant.mention || 'N/A' },
+      { label: "Faculté/Ecole/Institut :", value: getNomFaculte(selectedEtudiant.faculte) },
+      { label: "Domaine :", value: getNomDomaine(selectedEtudiant.domaine) },
+      { label: "Mention :", value: getNomMention(selectedEtudiant.mention) },
       { label: "Parcours :", value: selectedEtudiant.parcours || 'N/A' },
       { label: "Grade :", value: selectedEtudiant.grade || 'N/A' },
       { label: "Niveau :", value: selectedEtudiant.niveau || 'N/A' }
     ];
 
     let currentY = yPosition;
-
     infoAcademiques.forEach((info) => {
-      // Texte complet sur une ligne : label + valeur
       const fullText = `${info.label} ${info.value}`;
-
-      // Si le texte est trop long, diviser en plusieurs lignes
-      const maxWidth = pageWidth - 2 * margin;
-      const textWidth = doc.getTextWidth(fullText);
-
-      if (textWidth > maxWidth) {
-        // Diviser le texte
-        const words = fullText.split(' ');
-        let line = '';
-        let lineCount = 0;
-
-        for (const word of words) {
-          const testLine = line + (line ? ' ' : '') + word;
-          const testWidth = doc.getTextWidth(testLine);
-
-          if (testWidth <= maxWidth) {
-            line = testLine;
-          } else {
-            if (lineCount === 0) {
-              // Première ligne : label + début de la valeur
-              doc.text(line, margin, currentY);
-            } else {
-              // Lignes suivantes : continuation de la valeur
-              doc.text(line, margin + 20, currentY); // Indenter les lignes suivantes
-            }
-            line = word;
-            lineCount++;
-            currentY += 5;
-          }
-        }
-
-        if (line) {
-          if (lineCount === 0) {
-            doc.text(line, margin, currentY);
-          } else {
-            doc.text(line, margin + 20, currentY); // Indenter les lignes suivantes
-          }
-        }
-        currentY += 8;
-      } else {
-        // Texte tient sur une ligne
-        doc.text(fullText, margin, currentY);
-        currentY += 8;
-      }
+      doc.text(fullText, margin, currentY);
+      currentY += 8;
     });
 
-    // Ligne de signature
+    // Signature
     const signatureY = currentY + 2;
     doc.text("En foi de quoi, le présent certificat est délivré pour servir et valoir ce que de droit.", margin, signatureY);
 
-    // Date et signature
+    // Date
     const today = new Date();
     const dateStr = today.toLocaleDateString('fr-FR', {
       day: 'numeric',
@@ -909,7 +736,6 @@ export default function ListEtudiants() {
     });
 
     const dateSignatureY = signatureY + 10;
-    // Texte complet sur une seule ligne
     doc.text(`Fait à Toliara, le ${dateStr}`, pageWidth - margin, dateSignatureY, { align: 'right' });
 
     // Code QR
@@ -918,7 +744,6 @@ export default function ListEtudiants() {
     const qrY = dateSignatureY + 10;
 
     try {
-      // 1. Construisez la chaîne de données
       const qrContent = JSON.stringify({
         universite: "Université de Toliara",
         numero_inscription: selectedEtudiant.numero_inscription,
@@ -928,7 +753,6 @@ export default function ListEtudiants() {
         date_emission: new Date().toISOString().split('T')[0]
       });
 
-      // 2. Générez l'image du QR code en Data URL (base64)
       const qrDataUrl = await QRCode.toDataURL(qrContent, {
         width: qrSize * 4,
         margin: 1,
@@ -938,17 +762,13 @@ export default function ListEtudiants() {
         }
       });
 
-      // 3. Ajoutez l'image au PDF
       doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
-
-      // 4. Ajoutez une légende (optionnel)
       doc.setFontSize(6);
       doc.setTextColor(100, 100, 100);
       doc.text("Code de vérification", qrX + qrSize / 2, qrY + qrSize + 5, { align: 'center' });
 
     } catch (error) {
       console.error("Erreur lors de la génération du QR Code :", error);
-      // Fallback simple en cas d'erreur
       doc.setFillColor(255, 255, 255);
       doc.rect(qrX, qrY, qrSize, qrSize, 'FD');
       doc.setFontSize(8);
@@ -983,8 +803,25 @@ export default function ListEtudiants() {
   const refreshData = () => {
     fetchEtudiants();
     fetchStats();
+    fetchReferences();
     setCurrentPage(1);
   };
+
+  const getNomFaculte = (id) => {
+    const fac = facultes.find(f => f.id === id);
+    return fac ? fac.nom : "N/A";
+  };
+
+  const getNomDomaine = (id) => {
+    const dom = domaines.find(d => d.id === id);
+    return dom ? dom.nom : "N/A";
+  };
+
+  const getNomMention = (id) => {
+    const men = mentions.find(m => m.id === id);
+    return men ? men.nom : "N/A";
+  };
+
 
   return (
     <div className="container-fluid py-4">
@@ -1034,10 +871,27 @@ export default function ListEtudiants() {
                   <Form.Select
                     value={filterFaculte}
                     onChange={(e) => setFilterFaculte(e.target.value)}
+                    disabled={loadingReferences}
                   >
                     <option value="">Toutes facultés</option>
                     {facultes.map((faculte, index) => (
-                      <option key={index} value={faculte}>{faculte}</option>
+                      <option key={index} value={faculte.nom}>
+                        {faculte.nom}
+                      </option>
+                    ))}
+                  </Form.Select>
+                </div>
+                <div className="col-md-2">
+                  <Form.Select
+                    value={filterDomaine}
+                    onChange={(e) => setFilterDomaine(e.target.value)}
+                    disabled={loadingReferences}
+                  >
+                    <option value="">Tous domaines</option>
+                    {domaines.map((domaine, index) => (
+                      <option key={index} value={domaine.nom}>
+                        {domaine.nom}
+                      </option>
                     ))}
                   </Form.Select>
                 </div>
@@ -1045,10 +899,13 @@ export default function ListEtudiants() {
                   <Form.Select
                     value={filterMention}
                     onChange={(e) => setFilterMention(e.target.value)}
+                    disabled={loadingReferences}
                   >
                     <option value="">Toutes mentions</option>
                     {mentions.map((mention, index) => (
-                      <option key={index} value={mention}>{mention}</option>
+                      <option key={index} value={mention.nom}>
+                        {mention.nom}
+                      </option>
                     ))}
                   </Form.Select>
                 </div>
@@ -1060,20 +917,6 @@ export default function ListEtudiants() {
                     <option value="">Tous statuts</option>
                     <option value="OUI">Boursiers</option>
                     <option value="NON">Non boursiers</option>
-                  </Form.Select>
-                </div>
-                <div className="col-md-2">
-                  <Form.Select
-                    value={itemsPerPage}
-                    onChange={(e) => {
-                      setItemsPerPage(parseInt(e.target.value));
-                      setCurrentPage(1);
-                    }}
-                  >
-                    <option value="10">10 par page</option>
-                    <option value="25">25 par page</option>
-                    <option value="50">50 par page</option>
-                    <option value="100">100 par page</option>
                   </Form.Select>
                 </div>
               </div>
@@ -1089,6 +932,9 @@ export default function ListEtudiants() {
                   </Button>
                   <Button variant="outline-secondary" className="ms-2" onClick={resetFilters}>
                     <FaFilter className="me-2" /> Réinitialiser
+                  </Button>
+                  <Button variant="outline-info" className="ms-2" onClick={refreshData}>
+                    <FaSync className="me-2" /> Actualiser
                   </Button>
                 </div>
                 <div>
@@ -1123,7 +969,7 @@ export default function ListEtudiants() {
             </Alert>
           )}
 
-          {loading ? (
+          {loading || loadingReferences ? (
             <div className="text-center py-5">
               <Spinner animation="border" variant="primary" />
               <p className="mt-3 text-muted">Chargement des données...</p>
@@ -1139,6 +985,7 @@ export default function ListEtudiants() {
                       <th>Statut</th>
                       <th>Niveau</th>
                       <th>Faculté</th>
+                      <th>Domaine</th>
                       <th>Mention</th>
                       <th className="text-center">Documents</th>
                       <th className="text-center">Actions</th>
@@ -1147,7 +994,7 @@ export default function ListEtudiants() {
                   <tbody>
                     {currentItems.length === 0 ? (
                       <tr>
-                        <td colSpan="9" className="text-center py-5">
+                        <td colSpan="10" className="text-center py-5">
                           {etudiants.length === 0 ? (
                             <>
                               <FaDatabase className="text-muted mb-3" size={48} />
@@ -1156,7 +1003,6 @@ export default function ListEtudiants() {
                             </>
                           ) : (
                             <>
-                              {/* <FaSearch className="text-muted mb-3" size={48} /> */}
                               <p className="text-muted">Aucun étudiant trouvé avec ces filtres</p>
                               <Button variant="outline-primary" size="sm" onClick={resetFilters}>
                                 Réinitialiser les filtres
@@ -1200,27 +1046,13 @@ export default function ListEtudiants() {
                               </Badge>
                             </td>
                             <td>
-                              <div>{etudiant.faculte || 'N/A'}</div>
-                              {etudiant.domaine && (
-                                <div className="text-muted small">{etudiant.domaine}</div>
-                              )}
+                              {getNomFaculte(etudiant.faculte)}
                             </td>
                             <td>
-                              {etudiant.mention ? (
-                                <div>
-                                  <small className="text-muted" style={{
-                                    maxWidth: '200px',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                    display: 'inline-block'
-                                  }}>
-                                    {etudiant.mention}
-                                  </small>
-                                </div>
-                              ) : (
-                                <span className="text-muted">-</span>
-                              )}
+                              {getNomDomaine(etudiant.domaine)}
+                            </td>
+                            <td>
+                              {getNomMention(etudiant.mention)}
                             </td>
                             <td className="text-center">
                               <div className="btn-group btn-group-sm" role="group">
