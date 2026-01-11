@@ -536,7 +536,14 @@ export default function Reinscription() {
     }
 
     const requiredFields = ['matricule', 'nom', 'niveau', 'faculte'];
-    const missingFields = requiredFields.filter(field => !form[field]?.trim());
+    const missingFields = requiredFields.filter(field => {
+      const value = form[field];
+      // Vérifier que le champ a une valeur
+      if (typeof value === 'string') {
+        return !value.trim();
+      }
+      return !value;
+    });
 
     if (missingFields.length > 0) {
       showToast(`Veuillez remplir les champs obligatoires: ${missingFields.join(', ')}`, 'warning');
@@ -1545,7 +1552,7 @@ export default function Reinscription() {
               </div>
             </div>
 
-            {form.boursier === "OUI" && (
+            {/* {form.boursier === "OUI" && (
               <div className="row">
                 <div className="col-md-12 mb-3">
                   <Alert variant="info" className="mb-0">
@@ -1565,7 +1572,7 @@ export default function Reinscription() {
                   </Alert>
                 </div>
               </div>
-            )}
+            )} */}
           </Form>
         </Modal.Body>
         <Modal.Footer>

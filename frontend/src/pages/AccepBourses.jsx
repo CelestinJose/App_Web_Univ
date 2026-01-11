@@ -33,6 +33,12 @@ export default function AccepBourses() {
   const [error, setError] = useState(null);
   const [userRole, setUserRole] = useState(null);
   
+  // États pour les données de référence
+  const [facultesList, setFacultesList] = useState([]);
+  const [domainesList, setDomainesList] = useState([]);
+  const [mentionsList, setMentionsList] = useState([]);
+  const [loadingReferences, setLoadingReferences] = useState(false);
+  
   // États pour les notifications Toast
   const [showToast, setShowToast] = useState(false);
   const [toastConfig, setToastConfig] = useState({
@@ -96,6 +102,85 @@ export default function AccepBourses() {
     setTimeout(() => setShowToast(false), 5000);
   };
   
+  // Fonctions pour obtenir les noms à partir des IDs
+  const getNomFaculte = (faculteData) => {
+    if (!faculteData) return "N/A";
+    
+    // Si c'est déjà une chaîne, la nettoyer
+    if (typeof faculteData === 'string') {
+      // Enlever le code si présent (ex: "FASEG - Faculté Administration et Sciences Économiques")
+      const cleaned = faculteData.replace(/^[A-Z]+ - /, '');
+      return cleaned || faculteData;
+    }
+    
+    // Si c'est un objet avec propriété 'nom'
+    if (typeof faculteData === 'object' && faculteData !== null) {
+      const nomComplet = faculteData.nom_faculte || faculteData.nom || faculteData.name || '';
+      const cleaned = nomComplet.replace(/^[A-Z]+ - /, '');
+      return cleaned || nomComplet || "N/A";
+    }
+    
+    // Si c'est un ID numérique, chercher dans la liste
+    const faculteId = typeof faculteData === 'object' ? faculteData.id : faculteData;
+    const faculte = facultesList.find(f => f.id == faculteId);
+    
+    if (faculte) {
+      const nomComplet = faculte.nom_faculte || faculte.nom || faculte.name || '';
+      const cleaned = nomComplet.replace(/^[A-Z]+ - /, '');
+      return cleaned || nomComplet || `Faculté ${faculteId}`;
+    }
+    
+    return `Faculté ${faculteId}`;
+  };
+
+  const getNomDomaine = (domaineData) => {
+    if (!domaineData) return "N/A";
+    
+    // Si c'est déjà une chaîne
+    if (typeof domaineData === 'string') {
+      return domaineData;
+    }
+    
+    // Si c'est un objet
+    if (typeof domaineData === 'object' && domaineData !== null) {
+      return domaineData.nom_domaine || domaineData.nom || domaineData.name || "N/A";
+    }
+    
+    // Si c'est un ID numérique
+    const domaineId = typeof domaineData === 'object' ? domaineData.id : domaineData;
+    const domaine = domainesList.find(d => d.id == domaineId);
+    
+    if (domaine) {
+      return domaine.nom_domaine || domaine.nom || domaine.name || `Domaine ${domaineId}`;
+    }
+    
+    return `Domaine ${domaineId}`;
+  };
+
+  const getNomMention = (mentionData) => {
+    if (!mentionData) return "N/A";
+    
+    // Si c'est déjà une chaîne
+    if (typeof mentionData === 'string') {
+      return mentionData;
+    }
+    
+    // Si c'est un objet
+    if (typeof mentionData === 'object' && mentionData !== null) {
+      return mentionData.nom_mention || mentionData.nom || mentionData.name || "N/A";
+    }
+    
+    // Si c'est un ID numérique
+    const mentionId = typeof mentionData === 'object' ? mentionData.id : mentionData;
+    const mention = mentionsList.find(m => m.id == mentionId);
+    
+    if (mention) {
+      return mention.nom_mention || mention.nom || mention.name || `Mention ${mentionId}`;
+    }
+    
+    return `Mention ${mentionId}`;
+  };
+  
   // Récupérer le rôle de l'utilisateur
   useEffect(() => {
     const role = localStorage.getItem("user_role");
@@ -108,6 +193,56 @@ export default function AccepBourses() {
       }, 2000);
     }
   }, []);
+  
+  // Fonction pour charger les données de référence
+  const fetchReferences = async () => {
+    setLoadingReferences(true);
+    try {
+      // Charger les facultés
+      const faculteResponse = await api.get('/facultes/');
+      let facultesData = [];
+      if (faculteResponse.data) {
+        if (Array.isArray(faculteResponse.data)) {
+          facultesData = faculteResponse.data;
+        } else if (faculteResponse.data.results && Array.isArray(faculteResponse.data.results)) {
+          facultesData = faculteResponse.data.results;
+        }
+      }
+      setFacultesList(facultesData);
+      console.log("Facultés chargées:", facultesData.length);
+      
+      // Charger les domaines
+      const domaineResponse = await api.get('/domaines/');
+      let domainesData = [];
+      if (domaineResponse.data) {
+        if (Array.isArray(domaineResponse.data)) {
+          domainesData = domaineResponse.data;
+        } else if (domaineResponse.data.results && Array.isArray(domaineResponse.data.results)) {
+          domainesData = domaineResponse.data.results;
+        }
+      }
+      setDomainesList(domainesData);
+      console.log("Domaines chargés:", domainesData.length);
+      
+      // Charger les mentions
+      const mentionResponse = await api.get('/mentions/');
+      let mentionsData = [];
+      if (mentionResponse.data) {
+        if (Array.isArray(mentionResponse.data)) {
+          mentionsData = mentionResponse.data;
+        } else if (mentionResponse.data.results && Array.isArray(mentionResponse.data.results)) {
+          mentionsData = mentionResponse.data.results;
+        }
+      }
+      setMentionsList(mentionsData);
+      console.log("Mentions chargées:", mentionsData.length);
+      
+    } catch (error) {
+      console.error("Erreur lors du chargement des références:", error);
+    } finally {
+      setLoadingReferences(false);
+    }
+  };
   
   // Charger les données
   const fetchData = async () => {
@@ -180,9 +315,9 @@ export default function AccepBourses() {
       const montantBourses = etudiant.bourses.reduce((sum, b) => sum + parseFloat(b.montant || 0), 0);
       statsObj.montant_total += montantBourses;
       
-      // Par faculté
-      const faculte = etudiant.faculte || 'Non spécifié';
-      statsObj.par_faculte[faculte] = (statsObj.par_faculte[faculte] || 0) + 1;
+      // Par faculté (en utilisant getNomFaculte)
+      const faculteNom = getNomFaculte(etudiant.faculte);
+      statsObj.par_faculte[faculteNom] = (statsObj.par_faculte[faculteNom] || 0) + 1;
       
       // Par niveau
       const niveau = etudiant.niveau || 'Non spécifié';
@@ -208,7 +343,12 @@ export default function AccepBourses() {
     const anneesSet = new Set();
     
     etudiantsData.forEach(etudiant => {
-      if (etudiant.faculte) facultesSet.add(etudiant.faculte);
+      // Utiliser getNomFaculte pour avoir le nom propre
+      const faculteNom = getNomFaculte(etudiant.faculte);
+      if (faculteNom && faculteNom !== "N/A") {
+        facultesSet.add(faculteNom);
+      }
+      
       if (etudiant.niveau) niveauxSet.add(etudiant.niveau);
       
       // Extraire l'année académique des bourses
@@ -219,6 +359,7 @@ export default function AccepBourses() {
       });
     });
     
+    // Trier alphabétiquement
     setFacultes(Array.from(facultesSet).sort());
     setNiveaux(Array.from(niveauxSet).sort());
     setAnnees(Array.from(anneesSet).sort((a, b) => b.localeCompare(a)));
@@ -239,11 +380,12 @@ export default function AccepBourses() {
       );
     }
     
-    // Filtre par faculté
+    // Filtre par faculté (utiliser getNomFaculte pour la comparaison)
     if (filterFaculte) {
-      filtered = filtered.filter(etudiant => 
-        etudiant.faculte === filterFaculte
-      );
+      filtered = filtered.filter(etudiant => {
+        const faculteNom = getNomFaculte(etudiant.faculte);
+        return faculteNom === filterFaculte;
+      });
     }
     
     // Filtre par niveau
@@ -285,6 +427,17 @@ export default function AccepBourses() {
     setShowDetailsModal(true);
   };
   
+  // Fonction pour formater la date
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('fr-FR');
+    } catch (error) {
+      return dateString;
+    }
+  };
+  
   // Exporter en Excel
   const exportToExcel = () => {
     setExporting(true);
@@ -306,9 +459,9 @@ export default function AccepBourses() {
           'Date Naissance': etudiant.date_naissance ? new Date(etudiant.date_naissance).toLocaleDateString('fr-FR') : '',
           'Téléphone': etudiant.telephone || '',
           'Email': etudiant.email || '',
-          'Faculté': etudiant.faculte || '',
-          'Domaine': etudiant.domaine || '',
-          'Mention': etudiant.mention || '',
+          'Faculté': getNomFaculte(etudiant.faculte), // Utiliser getNomFaculte
+          'Domaine': getNomDomaine(etudiant.domaine), // Utiliser getNomDomaine
+          'Mention': getNomMention(etudiant.mention), // Utiliser getNomMention
           'Niveau': etudiant.niveau || '',
           'Montant Bourse': bourse ? `${parseFloat(bourse.montant).toLocaleString('fr-FR')} MGA` : '0 MGA',
           'Année Académique': bourse ? bourse.annee_academique : '',
@@ -339,17 +492,6 @@ export default function AccepBourses() {
         setExporting(false);
         setExportProgress(0);
       }, 1000);
-    }
-  };
-  
-  // Fonction pour formater la date
-  const formatDate = (dateString) => {
-    if (!dateString) return '';
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('fr-FR');
-    } catch (error) {
-      return dateString;
     }
   };
   
@@ -394,8 +536,8 @@ export default function AccepBourses() {
       doc.setFont("helvetica", "normal");
       
       // Informations à gauche
-      doc.text(`Faculté: ${'Toutes facultés'}`, 15, 60);
-      doc.text(`Niveau: ${'Tous niveaux'}`, 15, 67);
+      doc.text(`Faculté: ${filterFaculte || 'Toutes facultés'}`, 15, 60);
+      doc.text(`Niveau: ${filterNiveau || 'Tous niveaux'}`, 15, 67);
       doc.text(`Année académique: ${filterAnnee || 'Toutes années'}`, 15, 74);
       
       // Statistiques à droite
@@ -437,9 +579,9 @@ export default function AccepBourses() {
         return {
           matricule: etudiant.matricule || '-',
           nom_complet: `${etudiant.nom || ''} ${etudiant.prenom || ''}`.trim(),
-          faculte: etudiant.faculte || '-',
+          faculte: getNomFaculte(etudiant.faculte), // Utiliser getNomFaculte
           niveau: etudiant.niveau || '-',
-          mention: etudiant.mention || '-',
+          mention: getNomMention(etudiant.mention), // Utiliser getNomMention
           montant: montantFormatted + ' MGA',
           annee_academique: bourse ? bourse.annee_academique || '-' : '-',
           periode: periode,
@@ -528,7 +670,7 @@ export default function AccepBourses() {
       });
 
       // Nom du fichier avec date et mention
-      const fileName = `Bourses_Acceptees_${filterFaculte?.replace(/\s+/g, '_') || firstStudent.faculte?.replace(/\s+/g, '_') || 'TUL'}_${filterAnnee || new Date().getFullYear()}_${new Date().toISOString().split('T')[0]}.pdf`;
+      const fileName = `Bourses_Acceptees_${filterFaculte?.replace(/\s+/g, '_') || getNomFaculte(firstStudent.faculte)?.replace(/\s+/g, '_') || 'TUL'}_${filterAnnee || new Date().getFullYear()}_${new Date().toISOString().split('T')[0]}.pdf`;
       doc.save(fileName);
       
       showNotification("Succès", "Exportation PDF terminée", 'success', <FaFilePdf />);
@@ -610,6 +752,7 @@ export default function AccepBourses() {
   // Initialiser les données
   useEffect(() => {
     fetchData();
+    fetchReferences();
   }, []);
   
   // Appliquer les filtres quand ils changent
@@ -656,15 +799,16 @@ export default function AccepBourses() {
                 onClick={() => setShowExportModal(true)}
                 className="me-2"
               >
-                <FaFilePdf className="me-1" /> Exporter
+                <FaFilePdf className="me-1" /> Exporter PDF
               </Button>
-              {/* <Button
+              <Button
                 variant="outline-success"
-                onClick={() => setShowExportModal(true)}
+                onClick={exportToExcel}
+                disabled={exporting || totalCount === 0}
                 className="me-2"
               >
                 <FaFileExcel className="me-1" /> Exporter Excel
-              </Button> */}
+              </Button>
               <Button
                 variant="outline-primary"
                 onClick={fetchData}
@@ -735,6 +879,22 @@ export default function AccepBourses() {
               >
                 <FaFilter className="me-1" /> Effacer filtres
               </Button>
+              {/* Bouton debug temporaire */}
+              <Button
+                variant="outline-warning"
+                onClick={() => {
+                  console.log("=== DEBUG ===");
+                  console.log("FacultesList:", facultesList);
+                  console.log("Premier étudiant:", etudiants[0]);
+                  if (etudiants[0]) {
+                    console.log("Faculté ID:", etudiants[0].faculte);
+                    console.log("Faculté Nom:", getNomFaculte(etudiants[0].faculte));
+                  }
+                }}
+                className="me-2"
+              >
+                Debug
+              </Button>
               <Badge bg="info" className="align-middle py-2">
                 {totalCount} étudiant(s) trouvé(s)
               </Badge>
@@ -746,7 +906,7 @@ export default function AccepBourses() {
       {/* Tableau principal */}
       <div className="card">
         <div className="card-body">
-          {loading ? (
+          {loading || loadingReferences ? (
             <div className="text-center py-5">
               <Spinner animation="border" variant="primary" />
               <p className="mt-3 text-muted">Chargement des bourses acceptées...</p>
@@ -873,8 +1033,8 @@ export default function AccepBourses() {
                           </td>
                           <td>
                             <div className="small">
-                              <div className="fw-medium">{etudiant.faculte}</div>
-                              <div>{etudiant.mention}</div>
+                              <div className="fw-medium">{getNomFaculte(etudiant.faculte)}</div>
+                              <div>{getNomMention(etudiant.mention)}</div>
                               <Badge bg="info" className="mt-1">
                                 {etudiant.niveau}
                               </Badge>
@@ -1080,15 +1240,15 @@ export default function AccepBourses() {
                   <div className="row">
                     <div className="col-md-4">
                       <strong>Faculté:</strong>
-                      <p>{selectedEtudiant.faculte}</p>
+                      <p>{getNomFaculte(selectedEtudiant.faculte)}</p>
                     </div>
                     <div className="col-md-4">
                       <strong>Domaine:</strong>
-                      <p>{selectedEtudiant.domaine}</p>
+                      <p>{getNomDomaine(selectedEtudiant.domaine)}</p>
                     </div>
                     <div className="col-md-4">
                       <strong>Mention:</strong>
-                      <p>{selectedEtudiant.mention}</p>
+                      <p>{getNomMention(selectedEtudiant.mention)}</p>
                     </div>
                   </div>
                   <div className="row">
