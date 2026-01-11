@@ -56,69 +56,85 @@ export default function ListEtudiants() {
   const [showCertificatModal, setShowCertificatModal] = useState(false);
   const [selectedEtudiant, setSelectedEtudiant] = useState(null);
 
-  // FONCTIONS DE MAPPING AMÉLIORÉES
-  const getNomFaculte = (faculte) => {
-    if (!faculte) return "N/A";
-    
-    // Si faculte est déjà une string (nom)
-    if (typeof faculte === 'string') {
-      return faculte;
-    }
-    
-    // Si c'est un ID numérique, chercher dans les références
-    if (typeof faculte === 'number') {
-      const fac = facultes.find(f => f.id === faculte);
-      return fac ? fac.nom_faculte || fac.nom || fac.libelle || fac.name || `Faculté ${faculte}` : `Faculté ${faculte}`;
-    }
-    
-    // Si c'est un objet avec propriété 'nom' ou 'nom_faculte'
-    if (faculte && typeof faculte === 'object') {
-      return faculte.nom_faculte || faculte.nom || faculte.libelle || faculte.name || 
-             faculte.nom_complet || faculte.toString() || "N/A";
-    }
-    
-    return "N/A";
-  };
+// FONCTIONS DE MAPPING CORRIGÉES
+const getNomFaculte = (faculteData) => {
+  console.log("getNomFaculte reçoit:", faculteData);
+  
+  if (!faculteData) return "N/A";
+  
+  // Cas 1: Faculté envoyée comme objet complet depuis l'API
+  if (typeof faculteData === 'object' && faculteData !== null) {
+    // Vérifier différentes propriétés possibles
+    return faculteData.nom_faculte || faculteData.nom || 
+           faculteData.libelle || faculteData.name || 
+           (typeof faculteData === 'string' ? faculteData : "N/A");
+  }
+  
+  // Cas 2: C'est juste un ID (nombre)
+  if (typeof faculteData === 'number') {
+    const fac = facultes.find(f => f.id === faculteData);
+    return fac ? (fac.nom_faculte || fac.nom || `Faculté ${faculteData}`) : `Faculté ${faculteData}`;
+  }
+  
+  // Cas 3: C'est une string (déjà le nom)
+  if (typeof faculteData === 'string') {
+    return faculteData;
+  }
+  
+  return "N/A";
+};
 
-  const getNomDomaine = (domaine) => {
-    if (!domaine) return "N/A";
-    
-    if (typeof domaine === 'string') {
-      return domaine;
-    }
-    
-    if (typeof domaine === 'number') {
-      const dom = domaines.find(d => d.id === domaine);
-      return dom ? dom.nom_domaine || dom.nom || dom.libelle || dom.name || `Domaine ${domaine}` : `Domaine ${domaine}`;
-    }
-    
-    if (domaine && typeof domaine === 'object') {
-      return domaine.nom_domaine || domaine.nom || domaine.libelle || domaine.name || 
-             domaine.toString() || "N/A";
-    }
-    
-    return "N/A";
-  };
+const getNomDomaine = (domaineData) => {
+  console.log("getNomDomaine reçoit:", domaineData);
+  
+  if (!domaineData) return "N/A";
+  
+  // Cas 1: Domaine envoyé comme objet complet
+  if (typeof domaineData === 'object' && domaineData !== null) {
+    return domaineData.nom_domaine || domaineData.nom || 
+           domaineData.libelle || domaineData.name || 
+           (typeof domaineData === 'string' ? domaineData : "N/A");
+  }
+  
+  // Cas 2: C'est un ID
+  if (typeof domaineData === 'number') {
+    const dom = domaines.find(d => d.id === domaineData);
+    return dom ? (dom.nom_domaine || dom.nom || `Domaine ${domaineData}`) : `Domaine ${domaineData}`;
+  }
+  
+  // Cas 3: C'est une string
+  if (typeof domaineData === 'string') {
+    return domaineData;
+  }
+  
+  return "N/A";
+};
 
-  const getNomMention = (mention) => {
-    if (!mention) return "N/A";
-    
-    if (typeof mention === 'string') {
-      return mention;
-    }
-    
-    if (typeof mention === 'number') {
-      const men = mentions.find(m => m.id === mention);
-      return men ? men.nom_mention || men.nom || men.libelle || men.name || `Mention ${mention}` : `Mention ${mention}`;
-    }
-    
-    if (mention && typeof mention === 'object') {
-      return mention.nom_mention || mention.nom || mention.libelle || mention.name || 
-             mention.toString() || "N/A";
-    }
-    
-    return "N/A";
-  };
+const getNomMention = (mentionData) => {
+  console.log("getNomMention reçoit:", mentionData);
+  
+  if (!mentionData) return "N/A";
+  
+  // Cas 1: Mention envoyée comme objet complet
+  if (typeof mentionData === 'object' && mentionData !== null) {
+    return mentionData.nom_mention || mentionData.nom || 
+           mentionData.libelle || mentionData.name || 
+           (typeof mentionData === 'string' ? mentionData : "N/A");
+  }
+  
+  // Cas 2: C'est un ID
+  if (typeof mentionData === 'number') {
+    const men = mentions.find(m => m.id === mentionData);
+    return men ? (men.nom_mention || men.nom || `Mention ${mentionData}`) : `Mention ${mentionData}`;
+  }
+  
+  // Cas 3: C'est une string
+  if (typeof mentionData === 'string') {
+    return mentionData;
+  }
+  
+  return "N/A";
+};
 
   // Fonction pour obtenir le logo avec les IDs
   const getLogoFaculte = (faculte) => {
@@ -205,127 +221,130 @@ export default function ListEtudiants() {
     }
   };
 
-  // Fonction pour charger les références (facultés, domaines, mentions)
-  const fetchReferences = async () => {
-    setLoadingReferences(true);
-    try {
-      console.log("Chargement des références...");
-      
-      // Charger les facultés
-      const facultesResponse = await faculteApi.getFacultes();
-      console.log("Facultés reçues:", facultesResponse.data);
-      if (facultesResponse.data && Array.isArray(facultesResponse.data)) {
-        setFacultes(facultesResponse.data);
-      } else if (Array.isArray(facultesResponse.data.results)) {
-        setFacultes(facultesResponse.data.results);
-      } else if (facultesResponse.data && typeof facultesResponse.data === 'object') {
-        // Si c'est un objet avec une propriété results
-        const data = facultesResponse.data.results || facultesResponse.data;
-        if (Array.isArray(data)) {
-          setFacultes(data);
-        }
+// Fonction pour charger les références (facultés, domaines, mentions)
+const fetchReferences = async () => {
+  setLoadingReferences(true);
+  try {
+    console.log("Chargement des références...");
+    
+    // Charger les facultés
+    const facultesResponse = await faculteApi.getFacultes();
+    console.log("Facultés brutes:", facultesResponse.data);
+    
+    // EXTRACT DATA - Cette partie est cruciale
+    let facultesData = [];
+    if (facultesResponse.data) {
+      // Essayer différents formats
+      if (Array.isArray(facultesResponse.data)) {
+        facultesData = facultesResponse.data;
+      } else if (facultesResponse.data.results && Array.isArray(facultesResponse.data.results)) {
+        facultesData = facultesResponse.data.results;
+      } else if (typeof facultesResponse.data === 'object') {
+        // Si c'est un objet avec des propriétés
+        facultesData = Object.values(facultesResponse.data);
       }
-      
-      // Charger les domaines
-      const domainesResponse = await domaineApi.getDomaines();
-      console.log("Domaines reçus:", domainesResponse.data);
-      if (domainesResponse.data && Array.isArray(domainesResponse.data)) {
-        setDomaines(domainesResponse.data);
-      } else if (Array.isArray(domainesResponse.data.results)) {
-        setDomaines(domainesResponse.data.results);
-      } else if (domainesResponse.data && typeof domainesResponse.data === 'object') {
-        const data = domainesResponse.data.results || domainesResponse.data;
-        if (Array.isArray(data)) {
-          setDomaines(data);
-        }
-      }
-      
-      // Charger les mentions
-      const mentionsResponse = await mentionApi.getMentions();
-      console.log("Mentions reçues:", mentionsResponse.data);
-      if (mentionsResponse.data && Array.isArray(mentionsResponse.data)) {
-        setMentions(mentionsResponse.data);
-      } else if (Array.isArray(mentionsResponse.data.results)) {
-        setMentions(mentionsResponse.data.results);
-      } else if (mentionsResponse.data && typeof mentionsResponse.data === 'object') {
-        const data = mentionsResponse.data.results || mentionsResponse.data;
-        if (Array.isArray(data)) {
-          setMentions(data);
-        }
-      }
-      
-      console.log("Références chargées:");
-      console.log("Facultés:", facultes.length);
-      console.log("Domaines:", domaines.length);
-      console.log("Mentions:", mentions.length);
-      
-      // Si aucune donnée, créer des données factices pour le débogage
-      if (facultes.length === 0 || domaines.length === 0 || mentions.length === 0) {
-        console.warn("Aucune donnée de référence chargée, création de données factices");
-        
-        const facs = [
-          { id: 1, nom_faculte: "Faculté des Sciences", nom: "Faculté des Sciences" },
-          { id: 2, nom_faculte: "Faculté de Médecine", nom: "Faculté de Médecine" },
-          { id: 3, nom_faculte: "Faculté de Droit", nom: "Faculté de Droit" },
-          { id: 4, nom_faculte: "Faculté des Lettres", nom: "Faculté des Lettres" }
-        ];
-        
-        const doms = [
-          { id: 1, nom_domaine: "Sciences Exactes", nom: "Sciences Exactes" },
-          { id: 2, nom_domaine: "Sciences de la Vie", nom: "Sciences de la Vie" },
-          { id: 3, nom_domaine: "Sciences Humaines", nom: "Sciences Humaines" },
-          { id: 4, nom_domaine: "Sciences Sociales", nom: "Sciences Sociales" }
-        ];
-        
-        const mens = [
-          { id: 1, nom_mention: "Mathématiques", nom: "Mathématiques" },
-          { id: 2, nom_mention: "Informatique", nom: "Informatique" },
-          { id: 3, nom_mention: "Physique", nom: "Physique" },
-          { id: 4, nom_mention: "Chimie", nom: "Chimie" },
-          { id: 5, nom_mention: "Biologie", nom: "Biologie" },
-          { id: 6, nom_mention: "Médecine", nom: "Médecine" }
-        ];
-        
-        if (facultes.length === 0) setFacultes(facs);
-        if (domaines.length === 0) setDomaines(doms);
-        if (mentions.length === 0) setMentions(mens);
-      }
-      
-    } catch (error) {
-      console.error("Erreur lors du chargement des références:", error);
-      
-      // Solution de secours : créer des données factices pour le débogage
-      const facs = [
-        { id: 1, nom_faculte: "Faculté des Sciences", nom: "Faculté des Sciences" },
-        { id: 2, nom_faculte: "Faculté de Médecine", nom: "Faculté de Médecine" },
-        { id: 3, nom_faculte: "Faculté de Droit", nom: "Faculté de Droit" },
-        { id: 4, nom_faculte: "Faculté des Lettres", nom: "Faculté des Lettres" }
-      ];
-      
-      const doms = [
-        { id: 1, nom_domaine: "Sciences Exactes", nom: "Sciences Exactes" },
-        { id: 2, nom_domaine: "Sciences de la Vie", nom: "Sciences de la Vie" },
-        { id: 3, nom_domaine: "Sciences Humaines", nom: "Sciences Humaines" },
-        { id: 4, nom_domaine: "Sciences Sociales", nom: "Sciences Sociales" }
-      ];
-      
-      const mens = [
-        { id: 1, nom_mention: "Mathématiques", nom: "Mathématiques" },
-        { id: 2, nom_mention: "Informatique", nom: "Informatique" },
-        { id: 3, nom_mention: "Physique", nom: "Physique" },
-        { id: 4, nom_mention: "Chimie", nom: "Chimie" },
-        { id: 5, nom_mention: "Biologie", nom: "Biologie" },
-        { id: 6, nom_mention: "Médecine", nom: "Médecine" }
-      ];
-      
-      setFacultes(facs);
-      setDomaines(doms);
-      setMentions(mens);
-      console.warn("Utilisation de données factices pour le débogage");
-    } finally {
-      setLoadingReferences(false);
     }
-  };
+    
+    console.log("Facultés traitées:", facultesData);
+    setFacultes(facultesData);
+    
+    // Charger les domaines
+    const domainesResponse = await domaineApi.getDomaines();
+    console.log("Domaines bruts:", domainesResponse.data);
+    
+    let domainesData = [];
+    if (domainesResponse.data) {
+      if (Array.isArray(domainesResponse.data)) {
+        domainesData = domainesResponse.data;
+      } else if (domainesResponse.data.results && Array.isArray(domainesResponse.data.results)) {
+        domainesData = domainesResponse.data.results;
+      } else if (typeof domainesResponse.data === 'object') {
+        domainesData = Object.values(domainesResponse.data);
+      }
+    }
+    
+    console.log("Domaines traités:", domainesData);
+    setDomaines(domainesData);
+    
+    // Charger les mentions
+    const mentionsResponse = await mentionApi.getMentions();
+    console.log("Mentions brutes:", mentionsResponse.data);
+    
+    let mentionsData = [];
+    if (mentionsResponse.data) {
+      if (Array.isArray(mentionsResponse.data)) {
+        mentionsData = mentionsResponse.data;
+      } else if (mentionsResponse.data.results && Array.isArray(mentionsResponse.data.results)) {
+        mentionsData = mentionsResponse.data.results;
+      } else if (typeof mentionsResponse.data === 'object') {
+        mentionsData = Object.values(mentionsResponse.data);
+      }
+    }
+    
+    console.log("Mentions traitées:", mentionsData);
+    setMentions(mentionsData);
+    
+    console.log("Références chargées:");
+    console.log("Facultés:", facultesData.length);
+    console.log("Domaines:", domainesData.length);
+    console.log("Mentions:", mentionsData.length);
+    
+    // Si aucune faculté chargée, essayer un autre endpoint
+    if (facultesData.length === 0) {
+      console.log("Essai de chargement alternatif des facultés...");
+      try {
+        const altResponse = await fetch('http://localhost:8000/api/facultes/');
+        const altData = await altResponse.json();
+        console.log("Données facultés alternatives:", altData);
+        
+        if (altData && Array.isArray(altData)) {
+          setFacultes(altData);
+          console.log("Facultés chargées via fetch:", altData.length);
+        }
+      } catch (altError) {
+        console.error("Erreur chargement alternatif:", altError);
+      }
+    }
+    
+  } catch (error) {
+    console.error("Erreur lors du chargement des références:", error);
+    
+    // Charger des données de test si l'API échoue
+    const testFacultes = [
+      { id: 4, nom: "FASEG - Faculté Administration et Sciences Économiques" },
+      { id: 6, nom: "FLSH - Faculté des Lettres et Sciences Humaines" },
+      { id: 1, nom: "FS - Faculté des Sciences" },
+      { id: 2, nom: "FM - Faculté de Médecine" },
+      { id: 3, nom: "FD - Faculté de Droit" }
+    ];
+    
+    const testDomaines = [
+      { id: 9, nom: "Sciences Économiques et de Gestion", faculte_id: 4 },
+      { id: 12, nom: "Lettres et Sciences Humaines", faculte_id: 6 },
+      { id: 1, nom: "Sciences Exactes", faculte_id: 1 },
+      { id: 2, nom: "Sciences de la Vie", faculte_id: 1 },
+      { id: 3, nom: "Sciences Médicales", faculte_id: 2 }
+    ];
+    
+    const testMentions = [
+      { id: 25, nom: "Gestion", domaine_id: 9 },
+      { id: 34, nom: "Histoire", domaine_id: 12 },
+      { id: 1, nom: "Mathématiques", domaine_id: 1 },
+      { id: 2, nom: "Physique", domaine_id: 1 },
+      { id: 3, nom: "Chimie", domaine_id: 1 },
+      { id: 4, nom: "Biologie", domaine_id: 2 },
+      { id: 5, nom: "Médecine Générale", domaine_id: 3 }
+    ];
+    
+    setFacultes(testFacultes);
+    setDomaines(testDomaines);
+    setMentions(testMentions);
+    
+    console.log("Données de test chargées pour le débogage");
+  } finally {
+    setLoadingReferences(false);
+  }
+};
 
   // Fonction pour charger les statistiques
   const fetchStats = async () => {

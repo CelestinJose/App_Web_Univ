@@ -1,9 +1,7 @@
 from rest_framework import serializers
 from .models import Etudiant
 from bourses.models import Bourse
-from facultes.models import Faculte
-from facultes.models import Domaine
-from facultes.models import Mention
+from facultes.models import Faculte, Domaine, Mention
 from datetime import date
 
 class EtudiantSerializer(serializers.ModelSerializer):
@@ -13,15 +11,27 @@ class EtudiantSerializer(serializers.ModelSerializer):
     domaine_id = serializers.IntegerField(write_only=True, required=False)
     mention_id = serializers.IntegerField(write_only=True, required=False)
     
-    # AJOUTEZ CES CHAMPS POUR AFFICHER LES NOMS
+    # MODIFIÉ: Pour afficher seulement le nom sans le code
     faculte_nom = serializers.CharField(source='faculte.nom', read_only=True)
     domaine_nom = serializers.CharField(source='domaine.nom', read_only=True)
     mention_nom = serializers.CharField(source='mention.nom', read_only=True)
     
-    # Pour affichage
-    faculte = serializers.StringRelatedField(read_only=True)
-    domaine = serializers.StringRelatedField(read_only=True)
-    mention = serializers.StringRelatedField(read_only=True)
+    # MODIFIÉ: Changer de StringRelatedField à PrimaryKeyRelatedField pour l'écriture
+    faculte = serializers.PrimaryKeyRelatedField(
+        queryset=Faculte.objects.all(), 
+        read_only=False, 
+        required=False
+    )
+    domaine = serializers.PrimaryKeyRelatedField(
+        queryset=Domaine.objects.all(), 
+        read_only=False, 
+        required=False
+    )
+    mention = serializers.PrimaryKeyRelatedField(
+        queryset=Mention.objects.all(), 
+        read_only=False, 
+        required=False
+    )
     
     class Meta:
         model = Etudiant
@@ -34,11 +44,10 @@ class EtudiantSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
             # IDs pour le filtrage (écriture uniquement)
             'faculte_id', 'domaine_id', 'mention_id',
-            # AJOUTEZ CES CHAMPS
+            # Noms pour l'affichage
             'faculte_nom', 'domaine_nom', 'mention_nom'
         ]
-        read_only_fields = ['created_at', 'updated_at', 'numero_inscription', 'bourse']
-    
+        read_only_fields = ['created_at', 'updated_at', 'numero_inscription', 'bourse']  
     def validate(self, data):
         """Validation des données"""
         required_fields = ['matricule', 'nom', 'prenom', 'niveau', 'code_redoublement', 'boursier']

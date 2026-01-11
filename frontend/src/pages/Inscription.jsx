@@ -399,16 +399,24 @@ export default function Inscription() {
   }, []);
 
   // Fonction pour obtenir le nom d'une faculté
-  const getFaculteName = (faculteId) => {
-    if (!faculteId) return '-';
+// Fonction pour obtenir le nom d'une faculté
+const getFaculteName = (faculteId) => {
+  if (!faculteId) return '-';
 
-    if (typeof faculteId === 'object' && faculteId !== null) {
-      return faculteId.nom || faculteId.code || '-';
-    }
+  // Si c'est un objet avec un nom
+  if (typeof faculteId === 'object' && faculteId !== null) {
+    return faculteId.nom || '-';
+  }
 
-    const faculte = facultes.find(f => f.id == faculteId);
-    return faculte ? faculte.nom : `Faculté #${faculteId}`;
-  };
+  const faculte = facultes.find(f => f.id == faculteId);
+  
+  if (faculte) {
+    // Retourne uniquement le nom, sans le code
+    return faculte.nom;
+  }
+  
+  return `Faculté #${faculteId}`;
+};
 
   // Fonction pour obtenir le nom d'un domaine
   const getDomaineName = (domaineId) => {
