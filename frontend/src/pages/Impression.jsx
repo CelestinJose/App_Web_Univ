@@ -62,20 +62,20 @@ export default function Impression() {
         const domainesSet = new Set();
         const mentionsSet = new Set();
         const niveauxSet = new Set();
-        
+
         etudiantsData.forEach(etudiant => {
             if (etudiant.faculte_nom) facultesSet.add(etudiant.faculte_nom);
             else if (etudiant.faculte) facultesSet.add(etudiant.faculte);
-            
+
             if (etudiant.domaine_nom) domainesSet.add(etudiant.domaine_nom);
             else if (etudiant.domaine) domainesSet.add(etudiant.domaine);
-            
+
             if (etudiant.mention_nom) mentionsSet.add(etudiant.mention_nom);
             else if (etudiant.mention) mentionsSet.add(etudiant.mention);
-            
+
             if (etudiant.niveau) niveauxSet.add(etudiant.niveau);
         });
-        
+
         setFacultesList(Array.from(facultesSet).sort());
         setDomainesList(Array.from(domainesSet).sort());
         setMentionsList(Array.from(mentionsSet).sort());
@@ -113,19 +113,19 @@ export default function Impression() {
         try {
             const response = await etudiantApi.getEtudiants({ page_size: 1000 });
             let etudiantsData = [];
-            
+
             if (response.data && Array.isArray(response.data.results)) {
                 etudiantsData = response.data.results;
             } else if (Array.isArray(response.data)) {
                 etudiantsData = response.data;
             }
-            
+
             setEtudiants(etudiantsData);
             setFilteredEtudiants(etudiantsData);
-            
+
             // Extraire les données pour les filtres
             extractFilterData(etudiantsData);
-            
+
         } catch (err) {
             console.error("Erreur:", err);
             setError("Erreur lors du chargement des étudiants");
@@ -145,24 +145,24 @@ export default function Impression() {
 
         // Filtre par faculté
         if (selectedFaculte) {
-            filtered = filtered.filter(e => 
-                (e.faculte_nom && e.faculte_nom === selectedFaculte) || 
+            filtered = filtered.filter(e =>
+                (e.faculte_nom && e.faculte_nom === selectedFaculte) ||
                 (e.faculte && e.faculte === selectedFaculte)
             );
         }
 
         // Filtre par domaine
         if (selectedDomaine) {
-            filtered = filtered.filter(e => 
-                (e.domaine_nom && e.domaine_nom === selectedDomaine) || 
+            filtered = filtered.filter(e =>
+                (e.domaine_nom && e.domaine_nom === selectedDomaine) ||
                 (e.domaine && e.domaine === selectedDomaine)
             );
         }
 
         // Filtre par mention
         if (selectedMention) {
-            filtered = filtered.filter(e => 
-                (e.mention_nom && e.mention_nom === selectedMention) || 
+            filtered = filtered.filter(e =>
+                (e.mention_nom && e.mention_nom === selectedMention) ||
                 (e.mention && e.mention === selectedMention)
             );
         }
@@ -193,26 +193,26 @@ export default function Impression() {
         setSelectedDomaine("");
         setSelectedMention("");
         setSelectedNiveau("");
-        
+
         // Extraire les domaines, mentions et niveaux pour cette faculté
         const domainesSet = new Set();
         const mentionsSet = new Set();
         const niveauxSet = new Set();
-        
+
         etudiants.forEach(etudiant => {
-            const faculteMatch = (etudiant.faculte_nom && etudiant.faculte_nom === faculteValue) || 
-                               (etudiant.faculte && etudiant.faculte === faculteValue);
+            const faculteMatch = (etudiant.faculte_nom && etudiant.faculte_nom === faculteValue) ||
+                (etudiant.faculte && etudiant.faculte === faculteValue);
             if (faculteMatch) {
                 if (etudiant.domaine_nom) domainesSet.add(etudiant.domaine_nom);
                 else if (etudiant.domaine) domainesSet.add(etudiant.domaine);
-                
+
                 if (etudiant.mention_nom) mentionsSet.add(etudiant.mention_nom);
                 else if (etudiant.mention) mentionsSet.add(etudiant.mention);
-                
+
                 if (etudiant.niveau) niveauxSet.add(etudiant.niveau);
             }
         });
-        
+
         setDomainesList(Array.from(domainesSet).sort());
         setMentionsList(Array.from(mentionsSet).sort());
         setNiveauxList(Array.from(niveauxSet).sort());
@@ -224,25 +224,25 @@ export default function Impression() {
         setSelectedDomaine(domaineValue);
         setSelectedMention("");
         setSelectedNiveau("");
-        
+
         // Extraire les mentions et niveaux pour ce domaine
         const mentionsSet = new Set();
         const niveauxSet = new Set();
-        
+
         etudiants.forEach(etudiant => {
-            const faculteMatch = (etudiant.faculte_nom && etudiant.faculte_nom === selectedFaculte) || 
-                               (etudiant.faculte && etudiant.faculte === selectedFaculte);
-            const domaineMatch = (etudiant.domaine_nom && etudiant.domaine_nom === domaineValue) || 
-                               (etudiant.domaine && etudiant.domaine === domaineValue);
-            
+            const faculteMatch = (etudiant.faculte_nom && etudiant.faculte_nom === selectedFaculte) ||
+                (etudiant.faculte && etudiant.faculte === selectedFaculte);
+            const domaineMatch = (etudiant.domaine_nom && etudiant.domaine_nom === domaineValue) ||
+                (etudiant.domaine && etudiant.domaine === domaineValue);
+
             if (faculteMatch && domaineMatch) {
                 if (etudiant.mention_nom) mentionsSet.add(etudiant.mention_nom);
                 else if (etudiant.mention) mentionsSet.add(etudiant.mention);
-                
+
                 if (etudiant.niveau) niveauxSet.add(etudiant.niveau);
             }
         });
-        
+
         setMentionsList(Array.from(mentionsSet).sort());
         setNiveauxList(Array.from(niveauxSet).sort());
     };
@@ -252,23 +252,23 @@ export default function Impression() {
         const mentionValue = e.target.value;
         setSelectedMention(mentionValue);
         setSelectedNiveau("");
-        
+
         // Extraire les niveaux pour cette mention
         const niveauxSet = new Set();
-        
+
         etudiants.forEach(etudiant => {
-            const faculteMatch = (etudiant.faculte_nom && etudiant.faculte_nom === selectedFaculte) || 
-                               (etudiant.faculte && etudiant.faculte === selectedFaculte);
-            const domaineMatch = (etudiant.domaine_nom && etudiant.domaine_nom === selectedDomaine) || 
-                               (etudiant.domaine && etudiant.domaine === selectedDomaine);
-            const mentionMatch = (etudiant.mention_nom && etudiant.mention_nom === mentionValue) || 
-                               (etudiant.mention && etudiant.mention === mentionValue);
-            
+            const faculteMatch = (etudiant.faculte_nom && etudiant.faculte_nom === selectedFaculte) ||
+                (etudiant.faculte && etudiant.faculte === selectedFaculte);
+            const domaineMatch = (etudiant.domaine_nom && etudiant.domaine_nom === selectedDomaine) ||
+                (etudiant.domaine && etudiant.domaine === selectedDomaine);
+            const mentionMatch = (etudiant.mention_nom && etudiant.mention_nom === mentionValue) ||
+                (etudiant.mention && etudiant.mention === mentionValue);
+
             if (faculteMatch && domaineMatch && mentionMatch) {
                 if (etudiant.niveau) niveauxSet.add(etudiant.niveau);
             }
         });
-        
+
         setNiveauxList(Array.from(niveauxSet).sort());
     };
 
@@ -520,13 +520,13 @@ export default function Impression() {
         if (type === 'pdf' && !isPdfEnabled()) {
             const missingFilters = getMissingFilters();
             let errorMessage = "Impossible d'exporter en PDF : ";
-            
+
             if (missingFilters.length > 0) {
                 errorMessage += `Filtres requis manquants : ${missingFilters.join(', ')}.`;
             } else {
                 errorMessage += "Conditions d'exportation PDF non remplies.";
             }
-            
+
             setExportError(errorMessage);
             setTimeout(() => setExportError(null), 5000);
             return;
@@ -1165,7 +1165,7 @@ export default function Impression() {
                     )}
                 </Modal.Body>
                 <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowExportModal(false)}>
+                    <Button variant="danger" onClick={() => setShowExportModal(false)}>
                         Annuler
                     </Button>
                     <Button

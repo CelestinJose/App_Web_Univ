@@ -282,40 +282,40 @@ class EtudiantViewSet(viewsets.ModelViewSet):
         
         return queryset
     
-    def get_queryset(self):
-        user = self.request.user
-        queryset = Etudiant.objects.all()
+    # def get_queryset(self):
+    #     user = self.request.user
+    #     queryset = Etudiant.objects.all()
 
-        print("==== DEBUG FILTRAGE ETUDIANTS ====")
-        print("User connecté :", user.username)
-        print("Rôle :", user.role)
-        print("Faculté user :", user.faculte)
+    #     print("==== DEBUG FILTRAGE ETUDIANTS ====")
+    #     print("User connecté :", user.username)
+    #     print("Rôle :", user.role)
+    #     print("Faculté user :", user.faculte)
 
-        if user.role == "administrateur":
-            print("➡ ADMIN : accès à tous les étudiants")
-            return queryset
+    #     if user.role == "administrateur":
+    #         print("➡ ADMIN : accès à tous les étudiants")
+    #         return queryset
 
-        if user.role == "scolarite":
+    #     if user.role == "scolarite":
 
-            if not user.faculte:
-                print("❌ Aucune faculté associée au user")
-                return Etudiant.objects.none()
+    #         if not user.faculte:
+    #             print("❌ Aucune faculté associée au user")
+    #             return Etudiant.objects.none()
 
-            faculte_obj = Faculte.objects.filter(nom=user.faculte).first()
-            print("Faculté trouvée en base :", faculte_obj)
+    #         faculte_obj = Faculte.objects.filter(nom=user.faculte).first()
+    #         print("Faculté trouvée en base :", faculte_obj)
 
-            if not faculte_obj:
-                print("❌ Faculté inexistante en base")
-                return Etudiant.objects.none()
+    #         if not faculte_obj:
+    #             print("❌ Faculté inexistante en base")
+    #             return Etudiant.objects.none()
 
-            etudiants = queryset.filter(faculte=faculte_obj)
-            print("Étudiants retournés :", etudiants)
-            print("Nombre :", etudiants.count())
+    #         etudiants = queryset.filter(faculte=faculte_obj)
+    #         print("Étudiants retournés :", etudiants)
+    #         print("Nombre :", etudiants.count())
 
-            return etudiants
+    #         return etudiants
 
-        print("⛔ Accès refusé pour ce rôle")
-        return Etudiant.objects.none()
+    #     print("⛔ Accès refusé pour ce rôle")
+    #     return Etudiant.objects.none()
 
 
 

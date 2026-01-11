@@ -1416,7 +1416,7 @@ export default function Inscription() {
 
       {/* Modal Ajout/Modification */}
       <Modal show={showModal} onHide={() => setShowModal(false)} size="lg" centered>
-        <Modal.Header closeButton className={editId ? "bg-warning text-dark" : "bg-primary text-white"}>
+        <Modal.Header closeButton className={editId ? "bg-success text-dark" : "bg-primary text-white"}>
           <Modal.Title>
             {editId ? "Modifier l'inscription" : "Nouvelle inscription"}
           </Modal.Title>
@@ -1790,11 +1790,11 @@ export default function Inscription() {
           </Form>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowModal(false)}>
+          <Button variant="danger" onClick={() => setShowModal(false)}>
             Annuler
           </Button>
           <Button
-            variant={editId ? "warning" : "primary"}
+            variant={editId ? "success" : "primary"}
             onClick={saveEtudiant}
             disabled={!form.matricule || !form.nom || !form.prenom || !form.niveau || !form.faculte}
           >

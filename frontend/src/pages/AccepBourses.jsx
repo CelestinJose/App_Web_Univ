@@ -1118,7 +1118,7 @@ export default function AccepBourses() {
           )}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowDetailsModal(false)}>
+          <Button variant="danger" onClick={() => setShowDetailsModal(false)}>
             Fermer
           </Button>
         </Modal.Footer>
@@ -1206,7 +1206,7 @@ export default function AccepBourses() {
           )}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowExportModal(false)}>
+          <Button variant="danger" onClick={() => setShowExportModal(false)}>
             Fermer
           </Button>
         </Modal.Footer>
@@ -1248,7 +1248,7 @@ export default function AccepBourses() {
       
       {/* Modal Modifier Bourse */}
       <Modal show={showModifyModal} onHide={() => setShowModifyModal(false)} size="lg">
-        <Modal.Header closeButton className="bg-warning text-dark">
+        <Modal.Header closeButton className="bg-success text-dark">
           <Modal.Title>Modifier la bourse</Modal.Title>
         </Modal.Header>
         <Modal.Body>
@@ -1328,10 +1328,10 @@ export default function AccepBourses() {
           )}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowModifyModal(false)}>
+          <Button variant="danger" onClick={() => setShowModifyModal(false)}>
             Annuler
           </Button>
-          <Button variant="warning" onClick={handleModifyBourse}>
+          <Button variant="success" onClick={handleModifyBourse}>
             <FaEdit className="me-1" /> Mettre à jour
           </Button>
         </Modal.Footer>

@@ -1369,7 +1369,7 @@ export default function Bourses() {
                             ) : (
                               <>
                                 <Button
-                                  variant="outline-warning"
+                                  variant="outline-success"
                                   onClick={() => openEditBourseModal(etudiant)}
                                   title="Modifier la bourse"
                                   size="sm"
@@ -1519,12 +1519,12 @@ export default function Bourses() {
         </Modal.Body>
         <Modal.Footer>
           <div className="d-flex justify-content-between w-100">
-            <Button variant="secondary" onClick={() => setShowDetailModal(false)}>
+            <Button variant="danger" onClick={() => setShowDetailModal(false)}>
               Fermer
             </Button>
             <div>
               {selectedEtudiant && selectedBourse && (
-                <Button variant="danger" onClick={() => generateStudentPDF(selectedEtudiant)} className="me-2">
+                <Button variant="secondary" onClick={() => generateStudentPDF(selectedEtudiant)} className="me-2">
                   <FaFilePdf className="me-1" /> PDF Étudiant
                 </Button>
               )}
@@ -1543,7 +1543,7 @@ export default function Bourses() {
 
       {/* Modal Modification de bourse */}
       <Modal show={showEditBourseModal} onHide={() => setShowEditBourseModal(false)} size="lg">
-        <Modal.Header closeButton className="bg-warning text-dark">
+        <Modal.Header closeButton className="bg-success text-dark">
           <Modal.Title>
             {selectedBourse ? "Modifier la bourse" : "Créer une bourse"}
           </Modal.Title>
@@ -1781,7 +1781,7 @@ export default function Bourses() {
           )}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowAttributionModal(false)}>
+          <Button variant="danger" onClick={() => setShowAttributionModal(false)}>
             Annuler
           </Button>
           <Button

@@ -71,13 +71,16 @@ export default function Reinscription() {
   // États pour la recherche
   const [searchTerm, setSearchTerm] = useState("");
   const [filterNiveau, setFilterNiveau] = useState("");
-  const [filterCode, setFilterCode] = useState(""); // Nouveau filtre pour le code redoublement
+  const [filterCode, setFilterCode] = useState("");
 
   // États pour la pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+
+  // Référence pour le délai de recherche
+  const [searchTimeout, setSearchTimeout] = useState(null);
 
   // Fonctions pour récupérer les données de référence
   const fetchFacultes = async () => {
@@ -107,16 +110,6 @@ export default function Reinscription() {
     }
   };
 
-  // Fonction pour filtrer les mentions par domaine
-  const filterMentionsByDomaine = (domaineId) => {
-    if (!domaineId) {
-      setFilteredMentions([]);
-      return;
-    }
-    const filtered = mentions.filter(mention => mention.domaine == domaineId);
-    setFilteredMentions(filtered);
-  };
-
   const fetchUserInfo = async () => {
     try {
       const response = await etudiantApi.getCurrentUser();
@@ -132,6 +125,16 @@ export default function Reinscription() {
         role: storedRole || ''
       });
     }
+  };
+
+  // Fonction pour filtrer les mentions par domaine
+  const filterMentionsByDomaine = (domaineId) => {
+    if (!domaineId) {
+      setFilteredMentions([]);
+      return;
+    }
+    const filtered = mentions.filter(mention => mention.domaine == domaineId);
+    setFilteredMentions(filtered);
   };
 
   // Fonction pour calculer la bourse
@@ -198,7 +201,6 @@ export default function Reinscription() {
         console.error("Erreur chargement domaines:", err);
       }
     } else {
-      // Si aucune faculté sélectionnée, charger tous les domaines
       fetchDomaines();
     }
   };
@@ -243,7 +245,7 @@ export default function Reinscription() {
     return [];
   };
 
-  // CORRIGÉ : Charger les étudiants - Recherche TOUS les étudiants, pas seulement redoublants
+  // Fonction pour charger les étudiants
   const fetchEtudiants = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -267,13 +269,11 @@ export default function Reinscription() {
       // Filtre par code redoublement si spécifié
       if (filterCode) {
         if (filterCode === 'R_T') {
-          // Filtrer R et T
           params.code_redoublement__in = 'R,T';
         } else {
           params.code_redoublement = filterCode;
         }
       } else {
-        // Par défaut, montrer tous les codes (N, R, T)
         params.code_redoublement__in = 'N,R,T';
       }
 
@@ -343,12 +343,21 @@ export default function Reinscription() {
 
   // Recharger les étudiants quand les critères de recherche changent
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
+    // Annuler le délai précédent
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+
+    // Définir un nouveau délai
+    const timeout = setTimeout(() => {
       setCurrentPage(1);
       fetchEtudiants();
-    }, 300); // Délai de 300ms pour éviter trop d'appels API
+    }, 500); // Délai de 500ms
 
-    return () => clearTimeout(timeoutId);
+    setSearchTimeout(timeout);
+
+    // Nettoyer le timeout
+    return () => clearTimeout(timeout);
   }, [searchTerm, filterNiveau, filterCode, itemsPerPage]);
 
   // Charger les stats après le chargement initial
@@ -383,7 +392,7 @@ export default function Reinscription() {
     return relation;
   };
 
-  // CORRIGÉ : Ouvrir modal d'édition - récupère correctement les données
+  // Ouvrir modal d'édition
   const openEditModal = async (etudiant) => {
     console.log("Étudiant à modifier:", etudiant);
     
@@ -392,7 +401,6 @@ export default function Reinscription() {
     let domaineId = "";
     let mentionId = "";
     
-    // Récupérer l'ID de la faculté
     if (etudiant.faculte) {
       if (typeof etudiant.faculte === 'object') {
         faculteId = etudiant.faculte.id;
@@ -403,7 +411,6 @@ export default function Reinscription() {
       }
     }
     
-    // Récupérer l'ID du domaine
     if (etudiant.domaine) {
       if (typeof etudiant.domaine === 'object') {
         domaineId = etudiant.domaine.id;
@@ -414,7 +421,6 @@ export default function Reinscription() {
       }
     }
     
-    // Récupérer l'ID de la mention
     if (etudiant.mention) {
       if (typeof etudiant.mention === 'object') {
         mentionId = etudiant.mention.id;
@@ -424,8 +430,6 @@ export default function Reinscription() {
         mentionId = etudiant.mention;
       }
     }
-    
-    console.log("IDs récupérés:", { faculteId, domaineId, mentionId });
     
     // Charger les domaines pour cette faculté
     if (faculteId) {
@@ -460,8 +464,6 @@ export default function Reinscription() {
       nationalite: etudiant.nationalite || "Malagasy",
       mention: mentionId || "",
     };
-    
-    console.log("Données du formulaire:", formattedEtudiant);
     
     setForm(formattedEtudiant);
     setEditId(etudiant.id);
@@ -560,8 +562,6 @@ export default function Reinscription() {
         dataToSend.bourse = 0;
       }
 
-      console.log("Données à envoyer:", dataToSend);
-      
       await etudiantApi.updateEtudiant(editId, dataToSend);
       showToast("Étudiant modifié avec succès!", 'success');
 
@@ -600,7 +600,6 @@ export default function Reinscription() {
       const { nouveauNiveau, codeRedoublement } =
         calculatePromotionDetails(etudiantForPromotion.niveau, promotionDecision, etudiantForPromotion.boursier);
 
-      // Récupérer les IDs des relations
       let faculteId = "";
       let domaineId = "";
       let mentionId = "";
@@ -648,8 +647,6 @@ export default function Reinscription() {
         mention: mentionId,
       };
 
-      console.log("Données de promotion à envoyer:", updatedData);
-      
       try {
         await etudiantApi.patchEtudiant(etudiantForPromotion.id, updatedData);
       } catch (patchError) {
@@ -723,7 +720,7 @@ export default function Reinscription() {
     }
   };
 
-  // Gérer la recherche
+  // Gérer la recherche manuelle (bouton)
   const handleSearch = () => {
     setCurrentPage(1);
     fetchEtudiants();
@@ -919,7 +916,10 @@ export default function Reinscription() {
                     <Form.Control
                       placeholder="Rechercher (matricule, nom, prénom, CIN...)"
                       value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        setCurrentPage(1);
+                      }}
                       onKeyPress={handleKeyPress}
                     />
                     <Button
@@ -1325,9 +1325,9 @@ export default function Reinscription() {
         </div>
       </div>
 
-      {/* Modal Ajout/Modification CORRIGÉ */}
+      {/* Modal Ajout/Modification */}
       <Modal show={showModal} onHide={() => setShowModal(false)} size="lg" centered>
-        <Modal.Header closeButton className="bg-warning text-dark">
+        <Modal.Header closeButton className="bg-success text-dark">
           <Modal.Title>Modifier l'étudiant</Modal.Title>
         </Modal.Header>
         <Modal.Body>
@@ -1569,11 +1569,11 @@ export default function Reinscription() {
           </Form>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowModal(false)}>
+          <Button variant="danger" onClick={() => setShowModal(false)}>
             Annuler
           </Button>
           <Button
-            variant="warning"
+            variant="success"
             onClick={saveEtudiant}
           >
             Modifier
@@ -1754,7 +1754,7 @@ export default function Reinscription() {
           )}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowPromotionModal(false)}>
+          <Button variant="danger" onClick={() => setShowPromotionModal(false)}>
             Annuler
           </Button>
           <Button variant="primary" onClick={handlePromotion}>

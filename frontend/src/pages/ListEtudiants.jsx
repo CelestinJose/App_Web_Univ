@@ -1426,7 +1426,7 @@ export default function ListEtudiants() {
           )}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowDetailModal(false)}>
+          <Button variant="danger" onClick={() => setShowDetailModal(false)}>
             Fermer
           </Button>
           <Button variant="info" onClick={() => {
@@ -1489,7 +1489,7 @@ export default function ListEtudiants() {
           )}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowCardModal(false)}>
+          <Button variant="danger" onClick={() => setShowCardModal(false)}>
             Annuler
           </Button>
           <Button variant="info" onClick={previewCarteEtudiant}>
@@ -1586,7 +1586,7 @@ export default function ListEtudiants() {
           )}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowCertificatModal(false)}>
+          <Button variant="danger" onClick={() => setShowCertificatModal(false)}>
             Annuler
           </Button>
           <Button variant="success" onClick={previewCertificat}>
