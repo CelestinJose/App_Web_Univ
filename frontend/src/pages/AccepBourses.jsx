@@ -749,16 +749,25 @@ export default function AccepBourses() {
   
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
   
-  // Initialiser les données
+  // Initialiser les données: charger d'abord les références puis les étudiants
   useEffect(() => {
-    fetchData();
-    fetchReferences();
+    const init = async () => {
+      try {
+        await fetchReferences();
+      } catch (e) {
+        console.warn('Erreur lors du chargement des références au démarrage', e);
+      }
+
+      await fetchData();
+    };
+
+    init();
   }, []);
-  
-  // Appliquer les filtres quand ils changent
+
+  // Appliquer les filtres quand ils changent ou lorsque les données chargées sont mises à jour
   useEffect(() => {
     applyFilters();
-  }, [searchTerm, filterFaculte, filterNiveau, filterAnnee]);
+  }, [searchTerm, filterFaculte, filterNiveau, filterAnnee, etudiantsBoursesAcceptees]);
   
   return (
     <div className="container-fluid py-4">
@@ -799,16 +808,16 @@ export default function AccepBourses() {
                 onClick={() => setShowExportModal(true)}
                 className="me-2"
               >
-                <FaFilePdf className="me-1" /> Exporter PDF
+                <FaFilePdf className="me-1" /> Exporter
               </Button>
-              <Button
+              {/* <Button
                 variant="outline-success"
                 onClick={exportToExcel}
                 disabled={exporting || totalCount === 0}
                 className="me-2"
               >
                 <FaFileExcel className="me-1" /> Exporter Excel
-              </Button>
+              </Button> */}
               <Button
                 variant="outline-primary"
                 onClick={fetchData}
@@ -878,22 +887,6 @@ export default function AccepBourses() {
                 className="me-2"
               >
                 <FaFilter className="me-1" /> Effacer filtres
-              </Button>
-              {/* Bouton debug temporaire */}
-              <Button
-                variant="outline-warning"
-                onClick={() => {
-                  console.log("=== DEBUG ===");
-                  console.log("FacultesList:", facultesList);
-                  console.log("Premier étudiant:", etudiants[0]);
-                  if (etudiants[0]) {
-                    console.log("Faculté ID:", etudiants[0].faculte);
-                    console.log("Faculté Nom:", getNomFaculte(etudiants[0].faculte));
-                  }
-                }}
-                className="me-2"
-              >
-                Debug
               </Button>
               <Badge bg="info" className="align-middle py-2">
                 {totalCount} étudiant(s) trouvé(s)

@@ -34,6 +34,12 @@ export default function NonBourses() {
   const [error, setError] = useState(null);
   const [userRole, setUserRole] = useState(null);
   
+  // États pour les données de référence
+  const [facultesList, setFacultesList] = useState([]);
+  const [domainesList, setDomainesList] = useState([]);
+  const [mentionsList, setMentionsList] = useState([]);
+  const [loadingReferences, setLoadingReferences] = useState(false);
+  
   // États pour les notifications Toast
   const [showToast, setShowToast] = useState(false);
   const [toastConfig, setToastConfig] = useState({
@@ -101,6 +107,85 @@ export default function NonBourses() {
     setTimeout(() => setShowToast(false), 5000);
   };
   
+  // Fonctions pour obtenir les noms à partir des IDs
+  const getNomFaculte = (faculteData) => {
+    if (!faculteData) return "N/A";
+    
+    // Si c'est déjà une chaîne, la nettoyer
+    if (typeof faculteData === 'string') {
+      // Enlever le code si présent (ex: "FASEG - Faculté Administration et Sciences Économiques")
+      const cleaned = faculteData.replace(/^[A-Z]+ - /, '');
+      return cleaned || faculteData;
+    }
+    
+    // Si c'est un objet avec propriété 'nom'
+    if (typeof faculteData === 'object' && faculteData !== null) {
+      const nomComplet = faculteData.nom_faculte || faculteData.nom || faculteData.name || '';
+      const cleaned = nomComplet.replace(/^[A-Z]+ - /, '');
+      return cleaned || nomComplet || "N/A";
+    }
+    
+    // Si c'est un ID numérique, chercher dans la liste
+    const faculteId = typeof faculteData === 'object' ? faculteData.id : faculteData;
+    const faculte = facultesList.find(f => f.id == faculteId);
+    
+    if (faculte) {
+      const nomComplet = faculte.nom_faculte || faculte.nom || faculte.name || '';
+      const cleaned = nomComplet.replace(/^[A-Z]+ - /, '');
+      return cleaned || nomComplet || `Faculté ${faculteId}`;
+    }
+    
+    return `Faculté ${faculteId}`;
+  };
+
+  const getNomDomaine = (domaineData) => {
+    if (!domaineData) return "N/A";
+    
+    // Si c'est déjà une chaîne
+    if (typeof domaineData === 'string') {
+      return domaineData;
+    }
+    
+    // Si c'est un objet
+    if (typeof domaineData === 'object' && domaineData !== null) {
+      return domaineData.nom_domaine || domaineData.nom || domaineData.name || "N/A";
+    }
+    
+    // Si c'est un ID numérique
+    const domaineId = typeof domaineData === 'object' ? domaineData.id : domaineData;
+    const domaine = domainesList.find(d => d.id == domaineId);
+    
+    if (domaine) {
+      return domaine.nom_domaine || domaine.nom || domaine.name || `Domaine ${domaineId}`;
+    }
+    
+    return `Domaine ${domaineId}`;
+  };
+
+  const getNomMention = (mentionData) => {
+    if (!mentionData) return "N/A";
+    
+    // Si c'est déjà une chaîne
+    if (typeof mentionData === 'string') {
+      return mentionData;
+    }
+    
+    // Si c'est un objet
+    if (typeof mentionData === 'object' && mentionData !== null) {
+      return mentionData.nom_mention || mentionData.nom || mentionData.name || "N/A";
+    }
+    
+    // Si c'est un ID numérique
+    const mentionId = typeof mentionData === 'object' ? mentionData.id : mentionData;
+    const mention = mentionsList.find(m => m.id == mentionId);
+    
+    if (mention) {
+      return mention.nom_mention || mention.nom || mention.name || `Mention ${mentionId}`;
+    }
+    
+    return `Mention ${mentionId}`;
+  };
+  
   // Récupérer le rôle de l'utilisateur
   useEffect(() => {
     const role = localStorage.getItem("user_role");
@@ -113,6 +198,67 @@ export default function NonBourses() {
       }, 2000);
     }
   }, []);
+  
+  // Fonction pour charger les données de référence
+  const fetchReferences = async () => {
+    setLoadingReferences(true);
+    try {
+      console.log("=== DEBUT fetchReferences ===");
+      
+      // Charger les facultés
+      const faculteResponse = await api.get('/facultes/');
+      console.log("Réponse API facultés:", faculteResponse);
+      
+      let facultesData = [];
+      if (faculteResponse.data) {
+        if (Array.isArray(faculteResponse.data)) {
+          facultesData = faculteResponse.data;
+        } else if (faculteResponse.data.results && Array.isArray(faculteResponse.data.results)) {
+          facultesData = faculteResponse.data.results;
+        } else if (typeof faculteResponse.data === 'object') {
+          // Essayer d'extraire toutes les valeurs
+          facultesData = Object.values(faculteResponse.data);
+        }
+      }
+      
+      console.log("Données facultés extraites:", facultesData);
+      setFacultesList(facultesData);
+      
+      // Charger les domaines
+      const domaineResponse = await api.get('/domaines/');
+      let domainesData = [];
+      if (domaineResponse.data) {
+        if (Array.isArray(domaineResponse.data)) {
+          domainesData = domaineResponse.data;
+        } else if (domaineResponse.data.results && Array.isArray(domaineResponse.data.results)) {
+          domainesData = domaineResponse.data.results;
+        }
+      }
+      setDomainesList(domainesData);
+      
+      // Charger les mentions
+      const mentionResponse = await api.get('/mentions/');
+      let mentionsData = [];
+      if (mentionResponse.data) {
+        if (Array.isArray(mentionResponse.data)) {
+          mentionsData = mentionResponse.data;
+        } else if (mentionResponse.data.results && Array.isArray(mentionResponse.data.results)) {
+          mentionsData = mentionResponse.data.results;
+        }
+      }
+      setMentionsList(mentionsData);
+      
+      console.log("=== FIN fetchReferences ===");
+      console.log("Facultés chargées:", facultesData.length);
+      console.log("Domaines chargés:", domainesData.length);
+      console.log("Mentions chargées:", mentionsData.length);
+      
+    } catch (error) {
+      console.error("Erreur lors du chargement des références:", error);
+    } finally {
+      setLoadingReferences(false);
+    }
+  };
   
   // Charger les données
   const fetchData = async () => {
@@ -221,9 +367,9 @@ export default function NonBourses() {
     
     // Statistiques pour les bourses rejetées
     boursesRejetees.forEach(etudiant => {
-      // Par faculté
-      const faculte = etudiant.faculte || 'Non spécifié';
-      statsObj.par_faculte[faculte] = (statsObj.par_faculte[faculte] || 0) + 1;
+      // Par faculté (utiliser getNomFaculte)
+      const faculteNom = getNomFaculte(etudiant.faculte);
+      statsObj.par_faculte[faculteNom] = (statsObj.par_faculte[faculteNom] || 0) + 1;
       
       // Par niveau
       const niveau = etudiant.niveau || 'Non spécifié';
@@ -268,7 +414,12 @@ export default function NonBourses() {
     const anneesSet = new Set();
     
     etudiantsData.forEach(etudiant => {
-      if (etudiant.faculte) facultesSet.add(etudiant.faculte);
+      // Utiliser getNomFaculte pour avoir le nom propre
+      const faculteNom = getNomFaculte(etudiant.faculte);
+      if (faculteNom && faculteNom !== "N/A" && faculteNom !== `Faculté ${etudiant.faculte}`) {
+        facultesSet.add(faculteNom);
+      }
+      
       if (etudiant.niveau) niveauxSet.add(etudiant.niveau);
       
       // Extraire l'année académique des bourses
@@ -279,7 +430,11 @@ export default function NonBourses() {
       });
     });
     
-    setFacultes(Array.from(facultesSet).sort());
+    // Trier alphabétiquement
+    const sortedFacultes = Array.from(facultesSet).sort();
+    console.log("Facultés extraites pour filtres:", sortedFacultes);
+    
+    setFacultes(sortedFacultes);
     setNiveaux(Array.from(niveauxSet).sort());
     setAnnees(Array.from(anneesSet).sort((a, b) => b.localeCompare(a)));
   };
@@ -299,11 +454,12 @@ export default function NonBourses() {
       );
     }
     
-    // Filtre par faculté
+    // Filtre par faculté (utiliser getNomFaculte pour la comparaison)
     if (filterFaculte) {
-      filtered = filtered.filter(etudiant => 
-        etudiant.faculte === filterFaculte
-      );
+      filtered = filtered.filter(etudiant => {
+        const faculteNom = getNomFaculte(etudiant.faculte);
+        return faculteNom === filterFaculte;
+      });
     }
     
     // Filtre par niveau
@@ -461,6 +617,17 @@ export default function NonBourses() {
     }
   };
   
+  // Fonction pour formater la date
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('fr-FR');
+    } catch (error) {
+      return dateString;
+    }
+  };
+  
   // Exporter en Excel
   const exportToExcel = () => {
     setExporting(true);
@@ -479,19 +646,19 @@ export default function NonBourses() {
           'Nom': etudiant.nom || '',
           'Prénom': etudiant.prenom || '',
           'CIN': etudiant.cin || '',
-          'Date Naissance': etudiant.date_naissance ? new Date(etudiant.date_naissance).toLocaleDateString('fr-FR') : '',
+          'Date Naissance': etudiant.date_naissance ? formatDate(etudiant.date_naissance) : '',
           'Téléphone': etudiant.telephone || '',
           'Email': etudiant.email || '',
-          'Faculté': etudiant.faculte || '',
-          'Domaine': etudiant.domaine || '',
-          'Mention': etudiant.mention || '',
+          'Faculté': getNomFaculte(etudiant.faculte), // Utiliser getNomFaculte
+          'Domaine': getNomDomaine(etudiant.domaine), // Utiliser getNomDomaine
+          'Mention': getNomMention(etudiant.mention), // Utiliser getNomMention
           'Niveau': etudiant.niveau || ''
         };
         
         if (activeTab === 'rejetees' && bourse) {
           data['Montant Bourse'] = `${parseFloat(bourse.montant || 0).toLocaleString('fr-FR')} MGA`;
           data['Année Académique'] = bourse.annee_academique || '';
-          data['Date Décision'] = bourse.date_decision ? new Date(bourse.date_decision).toLocaleDateString('fr-FR') : '';
+          data['Date Décision'] = bourse.date_decision ? formatDate(bourse.date_decision) : '';
           data['Statut'] = 'REJETEE';
           data['Raison'] = bourse.conditions || 'Non spécifiée';
         } else {
@@ -535,10 +702,31 @@ export default function NonBourses() {
   
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
   
-  // Initialiser les données
+  // Initialiser les données: charger d'abord les références puis les étudiants
   useEffect(() => {
-    fetchData();
+    const init = async () => {
+      try {
+        await fetchReferences();
+      } catch (e) {
+        console.warn('Erreur lors du chargement des références au démarrage', e);
+      }
+
+      // Attendre un peu pour être sûr que les références sont chargées
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      await fetchData();
+    };
+
+    init();
   }, []);
+
+  // Re-extraire les filtres quand facultesList est chargée
+  useEffect(() => {
+    if (facultesList.length > 0 && etudiantsRejetes.length > 0) {
+      console.log("Re-extraction des filtres après chargement des facultes");
+      extractFilterLists(etudiantsRejetes);
+    }
+  }, [facultesList]);
   
   // Appliquer les filtres quand ils changent
   useEffect(() => {
@@ -793,9 +981,9 @@ export default function NonBourses() {
               >
                 <FaFilter className="me-1" /> Effacer
               </Button>
-              {/* <Badge bg={activeTab === 'rejetees' ? 'danger' : 'secondary'} className="align-middle py-2">
+              <Badge bg={activeTab === 'rejetees' ? 'danger' : 'secondary'} className="align-middle py-2">
                 {totalCount} étudiant(s) trouvé(s)
-              </Badge> */}
+              </Badge>
             </div>
           </div>
         </div>
@@ -804,7 +992,7 @@ export default function NonBourses() {
       {/* Tableau principal */}
       <div className="card">
         <div className="card-body">
-          {loading ? (
+          {loading || loadingReferences ? (
             <div className="text-center py-5">
               <Spinner animation="border" variant={activeTab === 'rejetees' ? 'danger' : 'secondary'} />
               <p className="mt-3 text-muted">
@@ -926,7 +1114,7 @@ export default function NonBourses() {
                               {etudiant.date_naissance && (
                                 <div>
                                   <FaCalendarAlt className="me-1" />
-                                  {new Date(etudiant.date_naissance).toLocaleDateString('fr-FR')}
+                                  {formatDate(etudiant.date_naissance)}
                                 </div>
                               )}
                               {etudiant.telephone && (
@@ -942,8 +1130,8 @@ export default function NonBourses() {
                           </td>
                           <td>
                             <div className="small">
-                              <div className="fw-medium">{etudiant.faculte}</div>
-                              <div>{etudiant.mention}</div>
+                              <div className="fw-medium">{getNomFaculte(etudiant.faculte)}</div>
+                              <div>{getNomMention(etudiant.mention)}</div>
                               <Badge bg="info" className="mt-1">
                                 {etudiant.niveau}
                               </Badge>
@@ -967,7 +1155,7 @@ export default function NonBourses() {
                                   <div className="small">
                                     <div>
                                       <FaCalendarAlt className="me-1" />
-                                      {new Date(bourse.date_decision).toLocaleDateString('fr-FR')}
+                                      {formatDate(bourse.date_decision)}
                                     </div>
                                     <Button
                                       variant="link"
@@ -1110,7 +1298,7 @@ export default function NonBourses() {
                       <th>Date naissance:</th>
                       <td>
                         {selectedEtudiant.date_naissance 
-                          ? new Date(selectedEtudiant.date_naissance).toLocaleDateString('fr-FR')
+                          ? formatDate(selectedEtudiant.date_naissance)
                           : 'Non spécifié'
                         }
                       </td>
@@ -1152,7 +1340,7 @@ export default function NonBourses() {
                         <th>Date décision:</th>
                         <td>
                           {selectedBourse.date_decision
-                            ? new Date(selectedBourse.date_decision).toLocaleDateString('fr-FR')
+                            ? formatDate(selectedBourse.date_decision)
                             : 'Non spécifié'
                           }
                         </td>
@@ -1168,15 +1356,15 @@ export default function NonBourses() {
                   <div className="row">
                     <div className="col-md-4">
                       <strong>Faculté:</strong>
-                      <p>{selectedEtudiant.faculte}</p>
+                      <p>{getNomFaculte(selectedEtudiant.faculte)}</p>
                     </div>
                     <div className="col-md-4">
                       <strong>Domaine:</strong>
-                      <p>{selectedEtudiant.domaine}</p>
+                      <p>{getNomDomaine(selectedEtudiant.domaine)}</p>
                     </div>
                     <div className="col-md-4">
                       <strong>Mention:</strong>
-                      <p>{selectedEtudiant.mention}</p>
+                      <p>{getNomMention(selectedEtudiant.mention)}</p>
                     </div>
                   </div>
                   <div className="row">
@@ -1243,7 +1431,7 @@ export default function NonBourses() {
               <Alert variant="info" className="mt-3">
                 <FaHistory className="me-2" />
                 Date de décision: {selectedBourse.date_decision 
-                  ? new Date(selectedBourse.date_decision).toLocaleDateString('fr-FR')
+                  ? formatDate(selectedBourse.date_decision)
                   : 'Non spécifiée'
                 }
               </Alert>
