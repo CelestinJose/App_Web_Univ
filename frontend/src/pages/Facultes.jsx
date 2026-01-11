@@ -19,7 +19,9 @@ export default function Facultes() {
   
   // États pour le modal
   const [showModal, setShowModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [modalMode, setModalMode] = useState('add'); // 'add' ou 'edit'
+  const [faculteToDelete, setFaculteToDelete] = useState(null);
   const [currentFaculte, setCurrentFaculte] = useState({
     id: null,
     nom: '',
@@ -168,15 +170,23 @@ export default function Facultes() {
     }
   };
   
-  // Supprimer une faculté
-  const handleDelete = async (id) => {
-    if (window.confirm('Êtes-vous sûr de vouloir supprimer cette faculté ?')) {
-      try {
-        await api.delete(`/facultes/${id}/`);
-        fetchFacultes();
-      } catch (err) {
-        setError('Erreur lors de la suppression');
-      }
+  // Ouvrir la modale de suppression
+  const handleDeleteOpen = (faculte) => {
+    setFaculteToDelete(faculte);
+    setShowDeleteModal(true);
+  };
+
+  // Confirmer la suppression
+  const handleDeleteConfirm = async () => {
+    if (!faculteToDelete) return;
+    try {
+      await api.delete(`/facultes/${faculteToDelete.id}/`);
+      fetchFacultes();
+      setShowDeleteModal(false);
+      setFaculteToDelete(null);
+      setError('');
+    } catch (err) {
+      setError('Erreur lors de la suppression');
     }
   };
   
@@ -332,7 +342,7 @@ export default function Facultes() {
                       <td>
                         <div className="d-flex gap-2">
                           <Button
-                            variant="outline-primary"
+                            variant="outline-success"
                             size="sm"
                             onClick={() => handleEdit(faculte)}
                             title="Modifier"
@@ -342,7 +352,7 @@ export default function Facultes() {
                           <Button
                             variant="outline-danger"
                             size="sm"
-                            onClick={() => handleDelete(faculte.id)}
+                            onClick={() => handleDeleteOpen(faculte)}
                             title="Supprimer"
                             disabled={!faculte.id}
                           >
@@ -377,7 +387,7 @@ export default function Facultes() {
       
       {/* Modal pour ajouter/modifier */}
       <Modal show={showModal} onHide={() => setShowModal(false)} centered>
-        <Modal.Header closeButton className="bg-primary text-white">
+        <Modal.Header closeButton className={modalMode === 'add' ? "bg-primary text-white" : "bg-success text-white"}>
           <Modal.Title>
             {modalMode === 'add' ? 'Ajouter une Faculté' : 'Modifier la Faculté'}
           </Modal.Title>
@@ -436,11 +446,61 @@ export default function Facultes() {
           </Form>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowModal(false)}>
+          <Button variant="danger" onClick={() => setShowModal(false)}>
             Annuler
           </Button>
-          <Button variant="primary" onClick={handleSave}>
+          <Button variant={modalMode === 'add' ? "primary" : "success"} onClick={handleSave}>
             {modalMode === 'add' ? 'Créer la faculté' : 'Modifier la faculté'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Modal de confirmation de suppression */}
+      <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered>
+        <Modal.Header closeButton className="bg-danger text-white">
+          <Modal.Title>
+            <FaExclamationTriangle className="me-2" />
+            Confirmer la suppression
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {faculteToDelete && (
+            <div>
+              <p className="text-danger fw-bold mb-3">
+                Êtes-vous sûr de vouloir supprimer cette faculté ?
+              </p>
+              <div className="bg-light p-3 rounded">
+                <p className="mb-1">
+                  <strong>Code:</strong> {faculteToDelete.code}
+                </p>
+                <p className="mb-1">
+                  <strong>Nom:</strong> {faculteToDelete.nom}
+                </p>
+                {faculteToDelete.description && (
+                  <p className="mb-0">
+                    <strong>Description:</strong> {faculteToDelete.description}
+                  </p>
+                )}
+              </div>
+              <p className="text-muted mt-3 small">
+                Cette action ne peut pas être annulée.
+              </p>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => setShowDeleteModal(false)}
+          >
+            Annuler
+          </Button>
+          <Button
+            variant="danger"
+            onClick={handleDeleteConfirm}
+          >
+            <FaTrash className="me-2" />
+            Supprimer
           </Button>
         </Modal.Footer>
       </Modal>

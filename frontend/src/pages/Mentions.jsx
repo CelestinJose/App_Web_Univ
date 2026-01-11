@@ -33,7 +33,9 @@ export default function Mentions() {
   
   // États pour le modal
   const [showModal, setShowModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [modalMode, setModalMode] = useState('add'); // 'add' ou 'edit'
+  const [mentionToDelete, setMentionToDelete] = useState(null);
   const [currentMention, setCurrentMention] = useState({
     id: null,
     code: '',
@@ -247,14 +249,22 @@ export default function Mentions() {
   };
   
   // Supprimer une mention
-  const handleDelete = async (id) => {
-    if (window.confirm('Êtes-vous sûr de vouloir supprimer cette mention ?')) {
-      try {
-        await api.delete(`/mentions/${id}/`);
-        fetchMentions();
-      } catch (err) {
-        setError('Erreur lors de la suppression');
-      }
+  // Ouvrir la modale de suppression
+  const handleDeleteOpen = (mention) => {
+    setMentionToDelete(mention);
+    setShowDeleteModal(true);
+  };
+
+  // Confirmer la suppression
+  const handleDeleteConfirm = async () => {
+    if (!mentionToDelete) return;
+    try {
+      await api.delete(`/mentions/${mentionToDelete.id}/`);
+      fetchMentions();
+      setShowDeleteModal(false);
+      setError('');
+    } catch (err) {
+      setError('Erreur lors de la suppression');
     }
   };
   
@@ -595,13 +605,13 @@ export default function Mentions() {
                 <>
                   <div className="table-responsive">
                     <Table striped hover className="mb-0">
-                      <thead className="table-primary">
+                      <thead className="table-primary text-dark">
                         <tr>
                           <th style={{ width: '5%' }}>#</th>
                           <th style={{ width: '10%' }}>
                             <Button 
                               variant="link" 
-                              className="p-0 text-white text-decoration-none"
+                              className="p-0 text-dark text-decoration-none"
                               onClick={() => handleSort('code')}
                               disabled={!Array.isArray(sortedMentions) || sortedMentions.length === 0}
                             >
@@ -611,7 +621,7 @@ export default function Mentions() {
                           <th style={{ width: '25%' }}>
                             <Button 
                               variant="link" 
-                              className="p-0 text-white text-decoration-none"
+                              className="p-0 text-dark text-decoration-none"
                               onClick={() => handleSort('nom')}
                               disabled={!Array.isArray(sortedMentions) || sortedMentions.length === 0}
                             >
@@ -621,31 +631,31 @@ export default function Mentions() {
                           <th style={{ width: '20%' }}>
                             <Button 
                               variant="link" 
-                              className="p-0 text-white text-decoration-none"
+                              className="p-0 text-dark text-decoration-none"
                               onClick={() => handleSort('domaine_nom')}
                               disabled={!Array.isArray(sortedMentions) || sortedMentions.length === 0}
                             >
-                              <FaBook className="me-1" /> Domaine <FaSort />
+                            Domaine <FaSort />
                             </Button>
                           </th>
                           <th style={{ width: '15%' }}>
                             <Button 
                               variant="link" 
-                              className="p-0 text-white text-decoration-none"
+                              className="p-0 text-dark text-decoration-none"
                               onClick={() => handleSort('faculte_nom')}
                               disabled={!Array.isArray(sortedMentions) || sortedMentions.length === 0}
                             >
-                              <FaUniversity className="me-1" /> Faculté <FaSort />
+                               Faculté <FaSort />
                             </Button>
                           </th>
                           <th style={{ width: '10%' }}>
                             <Button 
                               variant="link" 
-                              className="p-0 text-white text-decoration-none"
+                              className="p-0 text-dark text-decoration-none"
                               onClick={() => handleSort('duree_etude')}
                               disabled={!Array.isArray(sortedMentions) || sortedMentions.length === 0}
                             >
-                              <FaCalendarAlt className="me-1" /> Durée <FaSort />
+                           Durée <FaSort />
                             </Button>
                           </th>
                           <th style={{ width: '10%' }}>Statut</th>
@@ -667,7 +677,7 @@ export default function Mentions() {
                                   <strong>{mention.nom || 'N/A'}</strong>
                                   {mention.description && (
                                     <div className="small text-muted">
-                                      <FaInfoCircle className="me-1" />
+                        
                                       {mention.description.length > 40 
                                         ? `${mention.description.substring(0, 40)}...` 
                                         : mention.description}
@@ -677,7 +687,7 @@ export default function Mentions() {
                               </td>
                               <td>
                                 <div className="d-flex align-items-center">
-                                  <FaBook className="me-2 text-secondary" />
+                                 
                                   <div>
                                     <div><strong>{domaineCode}</strong></div>
                                     <div className="small">{domaineNom}</div>
@@ -686,7 +696,7 @@ export default function Mentions() {
                               </td>
                               <td>
                                 <div className="d-flex align-items-center">
-                                  <FaUniversity className="me-2 text-secondary" />
+                                  
                                   <div>
                                     <div><strong>{faculteCode}</strong></div>
                                     <div className="small">{faculteNom}</div>
@@ -695,7 +705,7 @@ export default function Mentions() {
                               </td>
                               <td>
                                 <Badge bg="info">
-                                  <FaCalendarAlt className="me-1" />
+                                 
                                   {mention.duree_etude || 3} an(s)
                                 </Badge>
                               </td>
@@ -717,7 +727,7 @@ export default function Mentions() {
                                   <Button
                                     variant="outline-danger"
                                     size="sm"
-                                    onClick={() => handleDelete(mention.id)}
+                                    onClick={() => handleDeleteOpen(mention)}
                                     title="Supprimer"
                                     disabled={!mention.id}
                                   >
@@ -902,7 +912,7 @@ export default function Mentions() {
       
       {/* Modal pour ajouter/modifier */}
       <Modal show={showModal} onHide={() => setShowModal(false)} centered size="lg">
-        <Modal.Header closeButton className="bg-primary text-white">
+        <Modal.Header closeButton className={modalMode === 'add' ? "bg-primary text-white" : "bg-success text-white"}>
           <Modal.Title>
             {modalMode === 'add' ? 'Ajouter une Mention' : 'Modifier la Mention'}
           </Modal.Title>
@@ -1022,15 +1032,68 @@ export default function Mentions() {
           </Form>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowModal(false)}>
+          <Button variant="danger" onClick={() => setShowModal(false)}>
             Annuler
           </Button>
           <Button 
-            variant="primary" 
+            variant={modalMode === 'add' ? "primary" : "success"}
             onClick={handleSave}
             disabled={!Array.isArray(domaines) || domaines.length === 0}
           >
             {modalMode === 'add' ? 'Créer la mention' : 'Modifier la mention'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Modal de confirmation de suppression */}
+      <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered>
+        <Modal.Header closeButton className="bg-danger text-white">
+          <Modal.Title>
+            <FaExclamationTriangle className="me-2" />
+            Confirmer la suppression
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {mentionToDelete && (
+            <div>
+              <p className="text-danger fw-bold mb-3">
+                Êtes-vous sûr de vouloir supprimer cette mention ?
+              </p>
+              <div className="bg-light p-3 rounded">
+                <p className="mb-1">
+                  <strong>Code:</strong> {mentionToDelete.code}
+                </p>
+                <p className="mb-1">
+                  <strong>Nom:</strong> {mentionToDelete.nom}
+                </p>
+                {mentionToDelete.description && (
+                  <p className="mb-1">
+                    <strong>Description:</strong> {mentionToDelete.description.substring(0, 100)}...
+                  </p>
+                )}
+                <p className="mb-0">
+                  <strong>Durée d'étude:</strong> {mentionToDelete.duree_etude} an(s)
+                </p>
+              </div>
+              <p className="text-muted mt-3 small">
+                Cette action ne peut pas être annulée.
+              </p>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => setShowDeleteModal(false)}
+          >
+            Annuler
+          </Button>
+          <Button
+            variant="danger"
+            onClick={handleDeleteConfirm}
+          >
+            <FaTrash className="me-2" />
+            Supprimer
           </Button>
         </Modal.Footer>
       </Modal>
