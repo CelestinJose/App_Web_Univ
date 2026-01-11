@@ -542,7 +542,7 @@ export default function AccepBourses() {
       
       // Statistiques à droite
       doc.text(`Nombre d'étudiants: ${filteredEtudiants.length}`, 240, 60, { align: 'right' });
-      doc.text(`Montant total: ${stats.montant_total.toLocaleString('fr-FR')} MGA`, 240, 67, { align: 'right' });
+      doc.text(`Montant total: ${stats.montant_total.toLocaleString('fr-FR')}`, 240, 67, { align: 'right' });
       doc.text(`Date: ${currentDate}`, 240, 74, { align: 'right' });
 
       // Tableau des bourses acceptées
