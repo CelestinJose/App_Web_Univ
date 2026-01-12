@@ -14,7 +14,8 @@ import {
     FaPhone,
     FaAddressCard,
     FaUsers,
-    FaList
+    FaList,
+    FaEdit
 } from "react-icons/fa";
 import {
     Button,
@@ -59,6 +60,17 @@ export default function DoublonNomPrenom() {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [etudiantToDelete, setEtudiantToDelete] = useState(null);
     const [activeTab, setActiveTab] = useState("nomPrenom");
+    
+    // États pour la modale d'édition
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [etudiantToEdit, setEtudiantToEdit] = useState(null);
+    const [editFieldValue, setEditFieldValue] = useState("");
+    const [editFieldType, setEditFieldType] = useState(""); // 'nom', 'prenom', 'cin', 'telephone'
+    const [editLoading, setEditLoading] = useState(false);
+    
+    // États pour la modale de fiche complète
+    const [showFicheModal, setShowFicheModal] = useState(false);
+    const [etudiantFiche, setEtudiantFiche] = useState(null);
     
     // États pour la pagination
     const [currentPage, setCurrentPage] = useState(1);
@@ -364,10 +376,62 @@ export default function DoublonNomPrenom() {
         setSelectedDoublon(selectedDoublon?.cle === doublon.cle ? null : doublon);
     };
 
+    // Fonction pour ouvrir la modale d'édition
+    const handleEditClick = (etudiant, fieldType, currentValue) => {
+        setEtudiantToEdit(etudiant);
+        setEditFieldType(fieldType);
+        setEditFieldValue(currentValue);
+        setShowEditModal(true);
+    };
+
+    // Fonction pour sauvegarder les modifications
+    const confirmEdit = async () => {
+        if (!etudiantToEdit || !editFieldValue.trim()) {
+            return;
+        }
+
+        setEditLoading(true);
+        try {
+            // Envoyer l'objet complet avec le champ modifié
+            const updateData = {
+                ...etudiantToEdit,
+                [editFieldType]: editFieldValue.trim()
+            };
+
+            console.log("Envoi de la mise à jour:", updateData);
+            const response = await etudiantApi.updateEtudiant(etudiantToEdit.id, updateData);
+            console.log("Réponse de mise à jour:", response);
+            
+            // Recharger les données après modification
+            fetchAllData();
+            setShowEditModal(false);
+            setEtudiantToEdit(null);
+            setEditFieldValue("");
+            setEditFieldType("");
+            setSelectedDoublon(null);
+        } catch (err) {
+            console.error("Erreur modification:", err);
+            console.error("Réponse d'erreur détaillée:", err.response?.data);
+            const errorMsg = err.response?.data?.detail || 
+                           err.response?.data?.message || 
+                           err.response?.data?.[Object.keys(err.response.data || {})[0]] ||
+                           "Erreur lors de la modification de l'étudiant";
+            setError(errorMsg);
+        } finally {
+            setEditLoading(false);
+        }
+    };
+
     // Fonction pour supprimer un étudiant
     const handleDeleteClick = (etudiant) => {
         setEtudiantToDelete(etudiant);
         setShowDeleteModal(true);
+    };
+
+    // Fonction pour afficher la fiche complète
+    const handleShowFiche = (etudiant) => {
+        setEtudiantFiche(etudiant);
+        setShowFicheModal(true);
     };
 
     const confirmDelete = async () => {
@@ -738,20 +802,37 @@ export default function DoublonNomPrenom() {
                                                                                                             variant="outline-info"
                                                                                                             size="sm"
                                                                                                             title="Voir fiche complète"
-                                                                                                            onClick={() => window.open(`/etudiants/${etudiant.id}`, '_blank')}
+                                                                                                            onClick={(e) => {
+                                                                                                                e.stopPropagation();
+                                                                                                                handleShowFiche(etudiant);
+                                                                                                            }}
                                                                                                         >
                                                                                                             <FaIdCard />
                                                                                                         </Button>
                                                                                                         <Button
-                                                                                                            variant="outline-danger"
+                                                                                                            variant="outline-success"
                                                                                                             size="sm"
-                                                                                                            title="Supprimer cet étudiant"
+                                                                                                            title="Éditer"
                                                                                                             onClick={(e) => {
                                                                                                                 e.stopPropagation();
-                                                                                                                handleDeleteClick(etudiant);
+                                                                                                                let fieldType, value;
+                                                                                                                if (doublon.type === 'nom_prenom') {
+                                                                                                                    fieldType = 'nom';
+                                                                                                                    value = etudiant.nom;
+                                                                                                                } else if (doublon.type === 'cin') {
+                                                                                                                    fieldType = 'cin';
+                                                                                                                    value = etudiant.cin;
+                                                                                                                } else if (doublon.type === 'telephone') {
+                                                                                                                    fieldType = 'telephone';
+                                                                                                                    value = etudiant.telephone;
+                                                                                                                } else if (doublon.type === 'multiple') {
+                                                                                                                    fieldType = 'nom';
+                                                                                                                    value = etudiant.nom;
+                                                                                                                }
+                                                                                                                handleEditClick(etudiant, fieldType, value);
                                                                                                             }}
                                                                                                         >
-                                                                                                            <FaTrash />
+                                                                                                            <FaEdit />
                                                                                                         </Button>
                                                                                                     </div>
                                                                                                 </td>
@@ -831,6 +912,283 @@ export default function DoublonNomPrenom() {
                     )}
                 </>
             )}
+
+            {/* Modal de fiche complète */}
+            <Modal show={showFicheModal} onHide={() => setShowFicheModal(false)} size="lg" centered>
+                <Modal.Header closeButton className="bg-info text-white">
+                    <Modal.Title>
+                        <FaIdCard className="me-2" />
+                        Fiche complète de l'étudiant
+                    </Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    {etudiantFiche && (
+                        <div>
+                            {/* Section Identité */}
+                            <h6 className="text-primary mb-3 border-bottom pb-2">
+                                <FaUser className="me-2" />
+                                Informations personnelles
+                            </h6>
+                            <Row className="mb-3">
+                                <Col md={6}>
+                                    <p className="mb-2">
+                                        <strong>Matricule :</strong>
+                                    </p>
+                                    <p className="text-muted font-monospace">{etudiantFiche.matricule}</p>
+                                </Col>
+                                <Col md={6}>
+                                    <p className="mb-2">
+                                        <strong>Numéro d'inscription :</strong>
+                                    </p>
+                                    <p className="text-muted font-monospace">{etudiantFiche.numero_inscription || '-'}</p>
+                                </Col>
+                            </Row>
+                            
+                            <Row className="mb-3">
+                                <Col md={6}>
+                                    <p className="mb-2">
+                                        <strong>Nom :</strong>
+                                    </p>
+                                    <p className="text-muted">{etudiantFiche.nom}</p>
+                                </Col>
+                                <Col md={6}>
+                                    <p className="mb-2">
+                                        <strong>Prénom :</strong>
+                                    </p>
+                                    <p className="text-muted">{etudiantFiche.prenom}</p>
+                                </Col>
+                            </Row>
+
+                            <Row className="mb-3">
+                                <Col md={6}>
+                                    <p className="mb-2">
+                                        <strong>Date de naissance :</strong>
+                                    </p>
+                                    <p className="text-muted">{etudiantFiche.date_naissance ? new Date(etudiantFiche.date_naissance).toLocaleDateString('fr-FR') : '-'}</p>
+                                </Col>
+                                <Col md={6}>
+                                    <p className="mb-2">
+                                        <strong>Lieu de naissance :</strong>
+                                    </p>
+                                    <p className="text-muted">{etudiantFiche.lieu_naissance || '-'}</p>
+                                </Col>
+                            </Row>
+
+                            <Row className="mb-3">
+                                <Col md={6}>
+                                    <p className="mb-2">
+                                        <strong>CIN :</strong>
+                                    </p>
+                                    <p className="text-muted font-monospace">{etudiantFiche.cin || '-'}</p>
+                                </Col>
+                                <Col md={6}>
+                                    <p className="mb-2">
+                                        <strong>Nationalité :</strong>
+                                    </p>
+                                    <p className="text-muted">{etudiantFiche.nationalite || '-'}</p>
+                                </Col>
+                            </Row>
+
+                            <Row className="mb-3">
+                                <Col md={6}>
+                                    <p className="mb-2">
+                                        <strong>Téléphone :</strong>
+                                    </p>
+                                    <p className="text-muted font-monospace">{etudiantFiche.telephone || '-'}</p>
+                                </Col>
+                                <Col md={6}>
+                                    <p className="mb-2">
+                                        <strong>Email :</strong>
+                                    </p>
+                                    <p className="text-muted">{etudiantFiche.email || '-'}</p>
+                                </Col>
+                            </Row>
+
+                            {/* Section Académique */}
+                            <h6 className="text-primary mb-3 border-bottom pb-2 mt-4">
+                                <FaList className="me-2" />
+                                Informations académiques
+                            </h6>
+                            <Row className="mb-3">
+                                <Col md={6}>
+                                    <p className="mb-2">
+                                        <strong>Niveau :</strong>
+                                    </p>
+                                    <p className="text-muted">
+                                        <Badge bg="primary">{etudiantFiche.niveau}</Badge>
+                                    </p>
+                                </Col>
+                                <Col md={6}>
+                                    <p className="mb-2">
+                                        <strong>Code redoublement :</strong>
+                                    </p>
+                                    <p className="text-muted">
+                                        <Badge bg={etudiantFiche.code_redoublement === 'N' ? 'success' : etudiantFiche.code_redoublement === 'R' ? 'danger' : 'warning'}>
+                                            {etudiantFiche.code_redoublement} - {
+                                                etudiantFiche.code_redoublement === 'N' ? 'Non redoublant' :
+                                                etudiantFiche.code_redoublement === 'R' ? 'Redoublant' :
+                                                etudiantFiche.code_redoublement === 'T' ? 'Triplant' : '-'
+                                            }
+                                        </Badge>
+                                    </p>
+                                </Col>
+                            </Row>
+
+                            <Row className="mb-3">
+                                <Col md={6}>
+                                    <p className="mb-2">
+                                        <strong>Faculté :</strong>
+                                    </p>
+                                    <p className="text-muted">{etudiantFiche.faculte_nom || '-'}</p>
+                                </Col>
+                                <Col md={6}>
+                                    <p className="mb-2">
+                                        <strong>Domaine :</strong>
+                                    </p>
+                                    <p className="text-muted">{etudiantFiche.domaine_nom || '-'}</p>
+                                </Col>
+                            </Row>
+
+                            <Row className="mb-3">
+                                <Col md={12}>
+                                    <p className="mb-2">
+                                        <strong>Mention :</strong>
+                                    </p>
+                                    <p className="text-muted">{etudiantFiche.mention_nom || '-'}</p>
+                                </Col>
+                            </Row>
+
+                            {/* Section Bourse */}
+                            <h6 className="text-primary mb-3 border-bottom pb-2 mt-4">
+                                <FaUser className="me-2" />
+                                Informations de bourse
+                            </h6>
+                            <Row className="mb-3">
+                                <Col md={6}>
+                                    <p className="mb-2">
+                                        <strong>Boursier :</strong>
+                                    </p>
+                                    <p className="text-muted">
+                                        <Badge bg={etudiantFiche.boursier === 'OUI' ? 'success' : 'secondary'}>
+                                            {etudiantFiche.boursier}
+                                        </Badge>
+                                    </p>
+                                </Col>
+                                <Col md={6}>
+                                    <p className="mb-2">
+                                        <strong>Montant bourse :</strong>
+                                    </p>
+                                    <p className="text-muted font-monospace">{etudiantFiche.bourse ? parseFloat(etudiantFiche.bourse).toLocaleString('fr-FR') + ' MGA' : '-'}</p>
+                                </Col>
+                            </Row>
+
+                            {/* Section Famille */}
+                            <h6 className="text-primary mb-3 border-bottom pb-2 mt-4">
+                                <FaUsers className="me-2" />
+                                Informations familiales
+                            </h6>
+                            <Row className="mb-3">
+                                <Col md={6}>
+                                    <p className="mb-2">
+                                        <strong>Nom du père :</strong>
+                                    </p>
+                                    <p className="text-muted">{etudiantFiche.nom_pere || '-'}</p>
+                                </Col>
+                                <Col md={6}>
+                                    <p className="mb-2">
+                                        <strong>Nom de la mère :</strong>
+                                    </p>
+                                    <p className="text-muted">{etudiantFiche.nom_mere || '-'}</p>
+                                </Col>
+                            </Row>
+                        </div>
+                    )}
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowFicheModal(false)}>
+                        Fermer
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+
+            {/* Modal d'édition */}
+            <Modal show={showEditModal} onHide={() => setShowEditModal(false)} centered>
+                <Modal.Header closeButton className="bg-success text-white">
+                    <Modal.Title>
+                        Corriger le champ en doublon
+                    </Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    {etudiantToEdit && (
+                        <>
+                            <div className="mb-3">
+                                <p className="text-muted mb-2">
+                                    <strong>Étudiant :</strong> {etudiantToEdit.nom} {etudiantToEdit.prenom}
+                                </p>
+                                <p className="text-muted mb-2">
+                                    <strong>Matricule :</strong> {etudiantToEdit.matricule}
+                                </p>
+                            </div>
+                            <Form.Group>
+                                <Form.Label>
+                                    {editFieldType === 'nom' && 'Nom'}
+                                    {editFieldType === 'prenom' && 'Prénom'}
+                                    {editFieldType === 'cin' && 'CIN (max 12 chiffres)'}
+                                    {editFieldType === 'telephone' && 'Téléphone (max 10 chiffres)'}
+                                </Form.Label>
+                                <Form.Control
+                                    type="text"
+                                    value={editFieldValue}
+                                    onChange={(e) => {
+                                        let value = e.target.value;
+                                        
+                                        // Limiter CIN à 12 chiffres
+                                        if (editFieldType === 'cin') {
+                                            value = value.replace(/\D/g, '').slice(0, 12);
+                                        }
+                                        
+                                        // Limiter Téléphone à 10 chiffres
+                                        if (editFieldType === 'telephone') {
+                                            value = value.replace(/\D/g, '').slice(0, 10);
+                                        }
+                                        
+                                        setEditFieldValue(value);
+                                    }}
+                                    placeholder={`Nouvelle valeur pour ${editFieldType}`}
+                                    autoFocus
+                                />
+                                {(editFieldType === 'cin' || editFieldType === 'telephone') && (
+                                    <Form.Text className="text-muted">
+                                        {editFieldType === 'cin' && `${editFieldValue.length}/12 chiffres`}
+                                        {editFieldType === 'telephone' && `${editFieldValue.length}/10 chiffres`}
+                                    </Form.Text>
+                                )}
+                            </Form.Group>
+                            <Alert variant="info" className="mt-3">
+                                <strong>Conseil :</strong> Modifiez la valeur pour la différencier des autres étudiants en doublon.
+                            </Alert>
+                        </>
+                    )}
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="danger" onClick={() => setShowEditModal(false)} disabled={editLoading}>
+                        Annuler
+                    </Button>
+                    <Button variant="success" onClick={confirmEdit} disabled={editLoading || !editFieldValue.trim()}>
+                        {editLoading ? (
+                            <>
+                                <Spinner animation="border" size="sm" className="me-2" />
+                                Modification...
+                            </>
+                        ) : (
+                            <>
+                                <FaEdit className="me-2" />
+                                Corriger
+                            </>
+                        )}
+                    </Button>
+                </Modal.Footer>
+            </Modal>
 
             {/* Modal de confirmation de suppression */}
             <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered>

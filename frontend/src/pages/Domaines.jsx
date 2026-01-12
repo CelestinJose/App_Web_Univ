@@ -744,7 +744,7 @@ export default function Domaines() {
           </Button>
         </Modal.Footer>
       </Modal>
-
+      
       {/* Modal de confirmation de suppression */}
       <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered>
         <Modal.Header closeButton className="bg-danger text-white">

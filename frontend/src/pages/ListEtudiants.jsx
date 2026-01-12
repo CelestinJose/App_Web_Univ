@@ -21,8 +21,14 @@ import QRCode from 'qrcode';
 // Importez votre logo ici (assurez-vous d'avoir le fichier dans votre projet)
 import logoUnivToliara from '../assets/logo-univ-toliara.png';
 // Import des logos des facultés
+// Import de tous les logos disponibles
+import logoDEGS from '../assets/logos/degs.png';
 import logoFaculteSciences from '../assets/logos/faculte-sciences.png';
 import logoFaculteMedecine from '../assets/logos/faculte-medecine.png';
+import logoIEST from '../assets/logos/iest.jpeg';
+import logoLettres from '../assets/logos/lettres.png';
+import logoENS from '../assets/logos/ens.jpeg';
+import logoIHSM from '../assets/logos/ihsm.png';
 
 export default function ListEtudiants() {
   // État pour les données
@@ -56,104 +62,145 @@ export default function ListEtudiants() {
   const [showCertificatModal, setShowCertificatModal] = useState(false);
   const [selectedEtudiant, setSelectedEtudiant] = useState(null);
 
-// FONCTIONS DE MAPPING CORRIGÉES
-const getNomFaculte = (faculteData) => {
-  console.log("getNomFaculte reçoit:", faculteData);
-  
-  if (!faculteData) return "N/A";
-  
-  // Cas 1: Faculté envoyée comme objet complet depuis l'API
-  if (typeof faculteData === 'object' && faculteData !== null) {
-    // Vérifier différentes propriétés possibles
-    return faculteData.nom_faculte || faculteData.nom || 
-           faculteData.libelle || faculteData.name || 
-           (typeof faculteData === 'string' ? faculteData : "N/A");
-  }
-  
-  // Cas 2: C'est juste un ID (nombre)
-  if (typeof faculteData === 'number') {
-    const fac = facultes.find(f => f.id === faculteData);
-    return fac ? (fac.nom_faculte || fac.nom || `Faculté ${faculteData}`) : `Faculté ${faculteData}`;
-  }
-  
-  // Cas 3: C'est une string (déjà le nom)
-  if (typeof faculteData === 'string') {
-    return faculteData;
-  }
-  
-  return "N/A";
-};
+  // FONCTIONS DE MAPPING CORRIGÉES
+  const getNomFaculte = (faculteData) => {
+    console.log("getNomFaculte reçoit:", faculteData);
 
-const getNomDomaine = (domaineData) => {
-  console.log("getNomDomaine reçoit:", domaineData);
-  
-  if (!domaineData) return "N/A";
-  
-  // Cas 1: Domaine envoyé comme objet complet
-  if (typeof domaineData === 'object' && domaineData !== null) {
-    return domaineData.nom_domaine || domaineData.nom || 
-           domaineData.libelle || domaineData.name || 
-           (typeof domaineData === 'string' ? domaineData : "N/A");
-  }
-  
-  // Cas 2: C'est un ID
-  if (typeof domaineData === 'number') {
-    const dom = domaines.find(d => d.id === domaineData);
-    return dom ? (dom.nom_domaine || dom.nom || `Domaine ${domaineData}`) : `Domaine ${domaineData}`;
-  }
-  
-  // Cas 3: C'est une string
-  if (typeof domaineData === 'string') {
-    return domaineData;
-  }
-  
-  return "N/A";
-};
+    if (!faculteData) return "N/A";
 
-const getNomMention = (mentionData) => {
-  console.log("getNomMention reçoit:", mentionData);
-  
-  if (!mentionData) return "N/A";
-  
-  // Cas 1: Mention envoyée comme objet complet
-  if (typeof mentionData === 'object' && mentionData !== null) {
-    return mentionData.nom_mention || mentionData.nom || 
-           mentionData.libelle || mentionData.name || 
-           (typeof mentionData === 'string' ? mentionData : "N/A");
-  }
-  
-  // Cas 2: C'est un ID
-  if (typeof mentionData === 'number') {
-    const men = mentions.find(m => m.id === mentionData);
-    return men ? (men.nom_mention || men.nom || `Mention ${mentionData}`) : `Mention ${mentionData}`;
-  }
-  
-  // Cas 3: C'est une string
-  if (typeof mentionData === 'string') {
-    return mentionData;
-  }
-  
-  return "N/A";
-};
-
-  // Fonction pour obtenir le logo avec les IDs
-  const getLogoFaculte = (faculte) => {
-    if (!faculte) return logoUnivToliara;
-    
-    let faculteNom = "";
-    
-    // Récupérer le nom de la faculté
-    if (typeof faculte === 'string') {
-      faculteNom = faculte;
-    } else if (typeof faculte === 'number') {
-      faculteNom = getNomFaculte(faculte);
-    } else if (faculte && typeof faculte === 'object') {
-      faculteNom = faculte.nom || faculte.nom_faculte || faculte.toString();
+    // Cas 1: Faculté envoyée comme objet complet depuis l'API
+    if (typeof faculteData === 'object' && faculteData !== null) {
+      // Vérifier différentes propriétés possibles (ajoutez 'faculte' pour correspondre à votre base)
+      return faculteData.faculte || faculteData.nom_faculte || faculteData.nom ||
+        faculteData.libelle || faculteData.name ||
+        (typeof faculteData === 'string' ? faculteData : "N/A");
     }
-    
-    const faculteLower = String(faculteNom).toLowerCase();
-    
+
+    // Cas 2: C'est juste un ID (nombre)
+    if (typeof faculteData === 'number') {
+      const fac = facultes.find(f => f.id === faculteData);
+      return fac ? (fac.faculte || fac.nom_faculte || fac.nom || `Faculté ${faculteData}`) : `Faculté ${faculteData}`;
+    }
+
+    // Cas 3: C'est une string (déjà le nom)
+    if (typeof faculteData === 'string') {
+      // Essayer de trouver dans la liste des facultés
+      const fac = facultes.find(f =>
+        f.faculte_code === faculteData ||
+        f.faculte === faculteData ||
+        f.nom_faculte === faculteData ||
+        f.nom === faculteData
+      );
+      return fac ? (fac.faculte || fac.nom_faculte || fac.nom) : faculteData;
+    }
+
+    return "N/A";
+  };
+
+  const getNomDomaine = (domaineData) => {
+    console.log("getNomDomaine reçoit:", domaineData);
+
+    if (!domaineData) return "N/A";
+
+    // Cas 1: Domaine envoyé comme objet complet
+    if (typeof domaineData === 'object' && domaineData !== null) {
+      return domaineData.nom_domaine || domaineData.nom ||
+        domaineData.libelle || domaineData.name ||
+        (typeof domaineData === 'string' ? domaineData : "N/A");
+    }
+
+    // Cas 2: C'est un ID
+    if (typeof domaineData === 'number') {
+      const dom = domaines.find(d => d.id === domaineData);
+      return dom ? (dom.nom_domaine || dom.nom || `Domaine ${domaineData}`) : `Domaine ${domaineData}`;
+    }
+
+    // Cas 3: C'est une string
+    if (typeof domaineData === 'string') {
+      return domaineData;
+    }
+
+    return "N/A";
+  };
+
+  const getNomMention = (mentionData) => {
+    console.log("getNomMention reçoit:", mentionData);
+
+    if (!mentionData) return "N/A";
+
+    // Cas 1: Mention envoyée comme objet complet
+    if (typeof mentionData === 'object' && mentionData !== null) {
+      return mentionData.nom_mention || mentionData.nom ||
+        mentionData.libelle || mentionData.name ||
+        (typeof mentionData === 'string' ? mentionData : "N/A");
+    }
+
+    // Cas 2: C'est un ID
+    if (typeof mentionData === 'number') {
+      const men = mentions.find(m => m.id === mentionData);
+      return men ? (men.nom_mention || men.nom || `Mention ${mentionData}`) : `Mention ${mentionData}`;
+    }
+
+    // Cas 3: C'est une string
+    if (typeof mentionData === 'string') {
+      return mentionData;
+    }
+
+    return "N/A";
+  };
+
+  // Fonction pour obtenir le logo avec les codes de faculté
+  const getLogoFaculte = (faculteData) => {
+    if (!faculteData) return logoUnivToliara;
+
+    let faculteCode = "";
+    let faculteNom = "";
+
+    // Récupérer le code et le nom de la faculté
+    if (typeof faculteData === 'string') {
+      // Si c'est déjà une string, chercher dans la liste des facultés
+      const fac = facultes.find(f =>
+        f.faculte_code === faculteData ||
+        f.faculte === faculteData ||
+        f.nom_faculte === faculteData
+      );
+      if (fac) {
+        faculteCode = fac.faculte_code || "";
+        faculteNom = fac.faculte || fac.nom_faculte || fac.nom || "";
+      } else {
+        faculteNom = faculteData;
+      }
+    } else if (typeof faculteData === 'number') {
+      // Si c'est un ID
+      const fac = facultes.find(f => f.id === faculteData);
+      if (fac) {
+        faculteCode = fac.faculte_code || "";
+        faculteNom = fac.faculte || fac.nom_faculte || fac.nom || "";
+      }
+    } else if (faculteData && typeof faculteData === 'object') {
+      // Si c'est un objet complet
+      faculteCode = faculteData.faculte_code || "";
+      faculteNom = faculteData.faculte || faculteData.nom_faculte ||
+        faculteData.nom || faculteData.toString();
+    }
+
+    // Convertir en minuscules pour la comparaison
+    const codeLower = String(faculteCode).toLowerCase();
+    const nomLower = String(faculteNom).toLowerCase();
+
+    // Mapping basé sur les codes de votre base de données
     const logosMap = {
+      // Basé sur les codes
+      'degs': logoDEGS,
+      'fst': logoFaculteSciences,
+      'facmed': logoFaculteMedecine,
+      'flash': logoLettres,
+      'ens': logoENS,
+      'ihsm': logoIHSM,
+      'ies_toliara': logoIEST,
+      'ies_anosy': logoIEST,
+
+      // Basé sur les noms (pour compatibilité)
       'sciences': logoFaculteSciences,
       'faculté des sciences': logoFaculteSciences,
       'faculte des sciences': logoFaculteSciences,
@@ -163,14 +210,26 @@ const getNomMention = (mentionData) => {
       'faculté de médecine': logoFaculteMedecine,
       'faculte de medecine': logoFaculteMedecine,
       'santé': logoFaculteMedecine,
+      'lettres': logoLettres,
+      'faculté des lettres': logoLettres,
+      'flash - faculté des lettres': logoLettres,
+      'education': logoENS,
+      'ens - école normale supérieure': logoENS,
     };
-    
+
+    // Essayer d'abord avec le code
+    if (codeLower && logosMap[codeLower]) {
+      return logosMap[codeLower];
+    }
+
+    // Essayer avec le nom
     for (const [key, logo] of Object.entries(logosMap)) {
-      if (faculteLower.includes(key)) {
+      if (nomLower.includes(key)) {
         return logo;
       }
     }
-    
+
+    // Par défaut, retourner le logo de l'université
     return logoUnivToliara;
   };
 
@@ -221,130 +280,130 @@ const getNomMention = (mentionData) => {
     }
   };
 
-// Fonction pour charger les références (facultés, domaines, mentions)
-const fetchReferences = async () => {
-  setLoadingReferences(true);
-  try {
-    console.log("Chargement des références...");
-    
-    // Charger les facultés
-    const facultesResponse = await faculteApi.getFacultes();
-    console.log("Facultés brutes:", facultesResponse.data);
-    
-    // EXTRACT DATA - Cette partie est cruciale
-    let facultesData = [];
-    if (facultesResponse.data) {
-      // Essayer différents formats
-      if (Array.isArray(facultesResponse.data)) {
-        facultesData = facultesResponse.data;
-      } else if (facultesResponse.data.results && Array.isArray(facultesResponse.data.results)) {
-        facultesData = facultesResponse.data.results;
-      } else if (typeof facultesResponse.data === 'object') {
-        // Si c'est un objet avec des propriétés
-        facultesData = Object.values(facultesResponse.data);
-      }
-    }
-    
-    console.log("Facultés traitées:", facultesData);
-    setFacultes(facultesData);
-    
-    // Charger les domaines
-    const domainesResponse = await domaineApi.getDomaines();
-    console.log("Domaines bruts:", domainesResponse.data);
-    
-    let domainesData = [];
-    if (domainesResponse.data) {
-      if (Array.isArray(domainesResponse.data)) {
-        domainesData = domainesResponse.data;
-      } else if (domainesResponse.data.results && Array.isArray(domainesResponse.data.results)) {
-        domainesData = domainesResponse.data.results;
-      } else if (typeof domainesResponse.data === 'object') {
-        domainesData = Object.values(domainesResponse.data);
-      }
-    }
-    
-    console.log("Domaines traités:", domainesData);
-    setDomaines(domainesData);
-    
-    // Charger les mentions
-    const mentionsResponse = await mentionApi.getMentions();
-    console.log("Mentions brutes:", mentionsResponse.data);
-    
-    let mentionsData = [];
-    if (mentionsResponse.data) {
-      if (Array.isArray(mentionsResponse.data)) {
-        mentionsData = mentionsResponse.data;
-      } else if (mentionsResponse.data.results && Array.isArray(mentionsResponse.data.results)) {
-        mentionsData = mentionsResponse.data.results;
-      } else if (typeof mentionsResponse.data === 'object') {
-        mentionsData = Object.values(mentionsResponse.data);
-      }
-    }
-    
-    console.log("Mentions traitées:", mentionsData);
-    setMentions(mentionsData);
-    
-    console.log("Références chargées:");
-    console.log("Facultés:", facultesData.length);
-    console.log("Domaines:", domainesData.length);
-    console.log("Mentions:", mentionsData.length);
-    
-    // Si aucune faculté chargée, essayer un autre endpoint
-    if (facultesData.length === 0) {
-      console.log("Essai de chargement alternatif des facultés...");
-      try {
-        const altResponse = await fetch('http://localhost:8000/api/facultes/');
-        const altData = await altResponse.json();
-        console.log("Données facultés alternatives:", altData);
-        
-        if (altData && Array.isArray(altData)) {
-          setFacultes(altData);
-          console.log("Facultés chargées via fetch:", altData.length);
+  // Fonction pour charger les références (facultés, domaines, mentions)
+  const fetchReferences = async () => {
+    setLoadingReferences(true);
+    try {
+      console.log("Chargement des références...");
+
+      // Charger les facultés
+      const facultesResponse = await faculteApi.getFacultes();
+      console.log("Facultés brutes:", facultesResponse.data);
+
+      // EXTRACT DATA - Cette partie est cruciale
+      let facultesData = [];
+      if (facultesResponse.data) {
+        // Essayer différents formats
+        if (Array.isArray(facultesResponse.data)) {
+          facultesData = facultesResponse.data;
+        } else if (facultesResponse.data.results && Array.isArray(facultesResponse.data.results)) {
+          facultesData = facultesResponse.data.results;
+        } else if (typeof facultesResponse.data === 'object') {
+          // Si c'est un objet avec des propriétés
+          facultesData = Object.values(facultesResponse.data);
         }
-      } catch (altError) {
-        console.error("Erreur chargement alternatif:", altError);
       }
+
+      console.log("Facultés traitées:", facultesData);
+      setFacultes(facultesData);
+
+      // Charger les domaines
+      const domainesResponse = await domaineApi.getDomaines();
+      console.log("Domaines bruts:", domainesResponse.data);
+
+      let domainesData = [];
+      if (domainesResponse.data) {
+        if (Array.isArray(domainesResponse.data)) {
+          domainesData = domainesResponse.data;
+        } else if (domainesResponse.data.results && Array.isArray(domainesResponse.data.results)) {
+          domainesData = domainesResponse.data.results;
+        } else if (typeof domainesResponse.data === 'object') {
+          domainesData = Object.values(domainesResponse.data);
+        }
+      }
+
+      console.log("Domaines traités:", domainesData);
+      setDomaines(domainesData);
+
+      // Charger les mentions
+      const mentionsResponse = await mentionApi.getMentions();
+      console.log("Mentions brutes:", mentionsResponse.data);
+
+      let mentionsData = [];
+      if (mentionsResponse.data) {
+        if (Array.isArray(mentionsResponse.data)) {
+          mentionsData = mentionsResponse.data;
+        } else if (mentionsResponse.data.results && Array.isArray(mentionsResponse.data.results)) {
+          mentionsData = mentionsResponse.data.results;
+        } else if (typeof mentionsResponse.data === 'object') {
+          mentionsData = Object.values(mentionsResponse.data);
+        }
+      }
+
+      console.log("Mentions traitées:", mentionsData);
+      setMentions(mentionsData);
+
+      console.log("Références chargées:");
+      console.log("Facultés:", facultesData.length);
+      console.log("Domaines:", domainesData.length);
+      console.log("Mentions:", mentionsData.length);
+
+      // Si aucune faculté chargée, essayer un autre endpoint
+      if (facultesData.length === 0) {
+        console.log("Essai de chargement alternatif des facultés...");
+        try {
+          const altResponse = await fetch('http://localhost:8000/api/facultes/');
+          const altData = await altResponse.json();
+          console.log("Données facultés alternatives:", altData);
+
+          if (altData && Array.isArray(altData)) {
+            setFacultes(altData);
+            console.log("Facultés chargées via fetch:", altData.length);
+          }
+        } catch (altError) {
+          console.error("Erreur chargement alternatif:", altError);
+        }
+      }
+
+    } catch (error) {
+      console.error("Erreur lors du chargement des références:", error);
+
+      // Charger des données de test si l'API échoue
+      const testFacultes = [
+        { id: 4, nom: "FASEG - Faculté Administration et Sciences Économiques" },
+        { id: 6, nom: "FLSH - Faculté des Lettres et Sciences Humaines" },
+        { id: 1, nom: "FS - Faculté des Sciences" },
+        { id: 2, nom: "FM - Faculté de Médecine" },
+        { id: 3, nom: "FD - Faculté de Droit" }
+      ];
+
+      const testDomaines = [
+        { id: 9, nom: "Sciences Économiques et de Gestion", faculte_id: 4 },
+        { id: 12, nom: "Lettres et Sciences Humaines", faculte_id: 6 },
+        { id: 1, nom: "Sciences Exactes", faculte_id: 1 },
+        { id: 2, nom: "Sciences de la Vie", faculte_id: 1 },
+        { id: 3, nom: "Sciences Médicales", faculte_id: 2 }
+      ];
+
+      const testMentions = [
+        { id: 25, nom: "Gestion", domaine_id: 9 },
+        { id: 34, nom: "Histoire", domaine_id: 12 },
+        { id: 1, nom: "Mathématiques", domaine_id: 1 },
+        { id: 2, nom: "Physique", domaine_id: 1 },
+        { id: 3, nom: "Chimie", domaine_id: 1 },
+        { id: 4, nom: "Biologie", domaine_id: 2 },
+        { id: 5, nom: "Médecine Générale", domaine_id: 3 }
+      ];
+
+      setFacultes(testFacultes);
+      setDomaines(testDomaines);
+      setMentions(testMentions);
+
+      console.log("Données de test chargées pour le débogage");
+    } finally {
+      setLoadingReferences(false);
     }
-    
-  } catch (error) {
-    console.error("Erreur lors du chargement des références:", error);
-    
-    // Charger des données de test si l'API échoue
-    const testFacultes = [
-      { id: 4, nom: "FASEG - Faculté Administration et Sciences Économiques" },
-      { id: 6, nom: "FLSH - Faculté des Lettres et Sciences Humaines" },
-      { id: 1, nom: "FS - Faculté des Sciences" },
-      { id: 2, nom: "FM - Faculté de Médecine" },
-      { id: 3, nom: "FD - Faculté de Droit" }
-    ];
-    
-    const testDomaines = [
-      { id: 9, nom: "Sciences Économiques et de Gestion", faculte_id: 4 },
-      { id: 12, nom: "Lettres et Sciences Humaines", faculte_id: 6 },
-      { id: 1, nom: "Sciences Exactes", faculte_id: 1 },
-      { id: 2, nom: "Sciences de la Vie", faculte_id: 1 },
-      { id: 3, nom: "Sciences Médicales", faculte_id: 2 }
-    ];
-    
-    const testMentions = [
-      { id: 25, nom: "Gestion", domaine_id: 9 },
-      { id: 34, nom: "Histoire", domaine_id: 12 },
-      { id: 1, nom: "Mathématiques", domaine_id: 1 },
-      { id: 2, nom: "Physique", domaine_id: 1 },
-      { id: 3, nom: "Chimie", domaine_id: 1 },
-      { id: 4, nom: "Biologie", domaine_id: 2 },
-      { id: 5, nom: "Médecine Générale", domaine_id: 3 }
-    ];
-    
-    setFacultes(testFacultes);
-    setDomaines(testDomaines);
-    setMentions(testMentions);
-    
-    console.log("Données de test chargées pour le débogage");
-  } finally {
-    setLoadingReferences(false);
-  }
-};
+  };
 
   // Fonction pour charger les statistiques
   const fetchStats = async () => {
@@ -763,7 +822,7 @@ const fetchReferences = async () => {
     // Enregistrer le PDF
     doc.save(`carte-etudiant-${selectedEtudiant.matricule}-${new Date().getFullYear()}.pdf`);
   };
-  
+
   const getGradeFromNiveau = (niveau) => {
     if (!niveau) return "N/A";
 
@@ -799,6 +858,7 @@ const fetchReferences = async () => {
   };
 
   // Générer le certificat de scolarité officiel en PDF
+  // Générer le certificat de scolarité officiel en PDF avec photo
   const genererCertificatScolaritePDF = async () => {
     if (!selectedEtudiant) return;
 
@@ -816,22 +876,70 @@ const fetchReferences = async () => {
       doc.addImage(logoFaculte, 'PNG', pageWidth - margin - 30, margin, 30, 30);
     }
 
-    // Cadre photo
+    // ========== NOUVEAU : PHOTO DE L'ÉTUDIANT ==========
+    // Position et dimensions de la photo
     const photoWidth = 25;
     const photoHeight = 32;
     const photoX = pageWidth - margin - photoWidth;
     const photoY = margin + 35;
 
+    // Cadre pour la photo
+    doc.setFillColor(255, 255, 255);
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.5);
-    doc.rect(photoX, photoY, photoWidth, photoHeight);
+    doc.rect(photoX, photoY, photoWidth, photoHeight, 'FD');
 
+    // Essayer de charger la photo de l'étudiant
+    try {
+      if (selectedEtudiant.photo) {
+        const photoUrl = getPhotoUrl(selectedEtudiant.photo);
+        console.log("URL photo pour certificat:", photoUrl);
+
+        if (photoUrl) {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+
+          const loadImage = new Promise((resolve, reject) => {
+            img.onload = () => resolve(img);
+            img.onerror = () => reject(new Error('Échec du chargement de la photo'));
+            img.src = photoUrl;
+            setTimeout(() => reject(new Error('Timeout de chargement')), 3000);
+          });
+
+          await loadImage;
+
+          // Ajouter l'image dans le cadre
+          doc.addImage(img, 'JPEG',
+            photoX + 1, photoY + 1,
+            photoWidth - 2, photoHeight - 2,
+            undefined, 'FAST');
+        } else {
+          // Fallback: initiales si pas de photo
+          drawInitialsFallback(doc, selectedEtudiant,
+            photoX + 2, photoY + 2,
+            photoWidth - 4, photoHeight - 4);
+        }
+      } else {
+        // Fallback: initiales si pas de photo
+        drawInitialsFallback(doc, selectedEtudiant,
+          photoX + 2, photoY + 2,
+          photoWidth - 4, photoHeight - 4);
+      }
+    } catch (error) {
+      console.warn("Impossible de charger la photo pour le certificat:", error);
+      // Fallback: initiales en cas d'erreur
+      drawInitialsFallback(doc, selectedEtudiant,
+        photoX + 2, photoY + 2,
+        photoWidth - 4, photoHeight - 4);
+    }
+
+    // Ajouter le texte "PHOTO" sous le cadre
     doc.setFontSize(6);
     doc.setFont('times', 'normal');
     doc.setTextColor(100, 100, 100);
     doc.text("PHOTO 4x4", photoX + photoWidth / 2, photoY + photoHeight + 3, { align: 'center' });
 
-    // En-tête officiel
+    // En-tête officiel (le reste du code reste le même...)
     doc.setFontSize(12);
     doc.setFont('times');
     doc.setTextColor(0, 0, 0);
@@ -1361,83 +1469,130 @@ const fetchReferences = async () => {
         </Modal.Header>
         <Modal.Body>
           {selectedEtudiant && (
-            <div className="row">
-              <div className="col-md-4 text-center">
-                <div className="mb-3">
-                  <div className="bg-light rounded-circle border d-flex align-items-center justify-content-center mx-auto"
-                    style={{ width: '150px', height: '150px' }}>
-                    <span className="text-muted fs-1">
-                      {selectedEtudiant.nom?.charAt(0)}{selectedEtudiant.prenom?.charAt(0)}
-                    </span>
+            <div>
+              <div className="row mb-4">
+                <div className="col-md-3 text-center">
+                  <div className="mb-3">
+                    {selectedEtudiant.photo ? (
+                      <div>
+                        <img
+                          src={selectedEtudiant.photo.startsWith('http') ? selectedEtudiant.photo : `http://127.0.0.1:8000${selectedEtudiant.photo}`}
+                          alt={`${selectedEtudiant.nom} ${selectedEtudiant.prenom}`}
+                          className="img-fluid rounded border"
+                          style={{ maxWidth: '150px', maxHeight: '150px', objectFit: 'cover' }}
+                          onError={(e) => {
+                            console.error('Erreur chargement photo URL:', selectedEtudiant.photo);
+                            // Afficher les initiales à la place
+                            e.target.parentElement.innerHTML = `
+                              <div style="width: 150px; height: 150px; display: flex; align-items: center; justify-content: center; background: #f0f0f0; border-radius: 50%; border: 1px solid #ddd; margin: 0 auto;">
+                                <span style="font-size: 2rem; color: #999;">
+                                  ${selectedEtudiant.nom?.charAt(0) || ''}${selectedEtudiant.prenom?.charAt(0) || ''}
+                                </span>
+                              </div>
+                            `;
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <div className="bg-light rounded-circle border d-flex align-items-center justify-content-center mx-auto"
+                        style={{ width: '150px', height: '150px' }}>
+                        <span className="text-muted fs-1">
+                          {selectedEtudiant.nom?.charAt(0)}{selectedEtudiant.prenom?.charAt(0)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <h5 className="fw-bold mb-1">{selectedEtudiant.nom} {selectedEtudiant.prenom}</h5>
+                  <p className="text-muted small mb-3">{selectedEtudiant.matricule}</p>
+                  <div>
+                    <Badge bg="primary" className="me-2 mb-2">{selectedEtudiant.niveau}</Badge>
+                    <Badge bg={selectedEtudiant.code_redoublement === 'N' ? 'success' : 'warning'} className="mb-2">
+                      {selectedEtudiant.code_redoublement === 'N' ? 'Inscrit' : 'Réinscrit'}
+                    </Badge>
                   </div>
                 </div>
-                <h5 className="fw-bold">{selectedEtudiant.nom} {selectedEtudiant.prenom}</h5>
-                <p className="text-muted">{selectedEtudiant.matricule}</p>
 
-                <div className="mt-3">
-                  <Badge bg="primary" className="me-2">{selectedEtudiant.niveau}</Badge>
-                  <Badge bg={selectedEtudiant.code_redoublement === 'N' ? 'success' : 'warning'}>
-                    {selectedEtudiant.code_redoublement === 'N' ? 'Inscrit' : 'Réinscrit'}
-                  </Badge>
-                </div>
-              </div>
+                <div className="col-md-9">
+                  <div className="row">
+                    <div className="col-md-6">
+                      <h6 className="fw-bold border-bottom pb-2 mb-3">👤 Informations personnelles</h6>
+                      <table className="table table-sm">
+                        <tbody>
+                          <tr>
+                            <td className="fw-bold" style={{width: '40%'}}>N° inscription</td>
+                            <td>{selectedEtudiant.numero_inscription || '-'}</td>
+                          </tr>
+                          <tr>
+                            <td className="fw-bold">Matricule</td>
+                            <td>{selectedEtudiant.matricule}</td>
+                          </tr>
+                          <tr>
+                            <td className="fw-bold">Date naiss.</td>
+                            <td>{selectedEtudiant.date_naissance ? new Date(selectedEtudiant.date_naissance).toLocaleDateString('fr-FR') : '-'}</td>
+                          </tr>
+                          <tr>
+                            <td className="fw-bold">CIN</td>
+                            <td>{selectedEtudiant.cin || '-'}</td>
+                          </tr>
+                          <tr>
+                            <td className="fw-bold">Nationalité</td>
+                            <td>{selectedEtudiant.nationalite || '-'}</td>
+                          </tr>
+                          <tr>
+                            <td className="fw-bold">Téléphone</td>
+                            <td>{selectedEtudiant.telephone || '-'}</td>
+                          </tr>
+                          <tr>
+                            <td className="fw-bold">Email</td>
+                            <td>{selectedEtudiant.email || '-'}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
 
-              <div className="col-md-8">
-                <div className="row">
-                  <div className="col-md-6">
-                    <h6 className="fw-bold">Informations personnelles</h6>
-                    <dl className="row">
-                      <dt className="col-sm-5">Numéro d'inscription</dt>
-                      <dd className="col-sm-7">{selectedEtudiant.numero_inscription || 'N/A'}</dd>
-
-                      <dt className="col-sm-5">Matricule</dt>
-                      <dd className="col-sm-7">{selectedEtudiant.matricule}</dd>
-
-                      {selectedEtudiant.date_naissance && (
-                        <>
-                          <dt className="col-sm-5">Date de naissance</dt>
-                          <dd className="col-sm-7">{selectedEtudiant.date_naissance}</dd>
-                        </>
-                      )}
-
-                      {selectedEtudiant.cin && (
-                        <>
-                          <dt className="col-sm-5">CIN</dt>
-                          <dd className="col-sm-7">{selectedEtudiant.cin}</dd>
-                        </>
-                      )}
-
-                      {selectedEtudiant.nationalite && (
-                        <>
-                          <dt className="col-sm-5">Nationalité</dt>
-                          <dd className="col-sm-7">{selectedEtudiant.nationalite}</dd>
-                        </>
-                      )}
-                    </dl>
-                  </div>
-
-                  <div className="col-md-6">
-                    <h6 className="fw-bold">Informations académiques</h6>
-                    <dl className="row">
-                      <dt className="col-sm-5">Faculté</dt>
-                      <dd className="col-sm-7">{getNomFaculte(selectedEtudiant.faculte)}</dd>
-
-                      <dt className="col-sm-5">Domaine</dt>
-                      <dd className="col-sm-7">{getNomDomaine(selectedEtudiant.domaine)}</dd>
-
-                      <dt className="col-sm-5">Niveau</dt>
-                      <dd className="col-sm-7">{selectedEtudiant.niveau}</dd>
-
-                      <dt className="col-sm-5">Mention</dt>
-                      <dd className="col-sm-7">{getNomMention(selectedEtudiant.mention)}</dd>
-
-                      {selectedEtudiant.annee_bacc && (
-                        <>
-                          <dt className="col-sm-5">Année du Bac</dt>
-                          <dd className="col-sm-7">{selectedEtudiant.annee_bacc}</dd>
-                        </>
-                      )}
-                    </dl>
+                    <div className="col-md-6">
+                      <h6 className="fw-bold border-bottom pb-2 mb-3">🎓 Informations académiques</h6>
+                      <table className="table table-sm">
+                        <tbody>
+                          <tr>
+                            <td className="fw-bold" style={{width: '40%'}}>Faculté</td>
+                            <td>{getNomFaculte(selectedEtudiant.faculte)}</td>
+                          </tr>
+                          <tr>
+                            <td className="fw-bold">Domaine</td>
+                            <td>{getNomDomaine(selectedEtudiant.domaine)}</td>
+                          </tr>
+                          <tr>
+                            <td className="fw-bold">Mention</td>
+                            <td>{getNomMention(selectedEtudiant.mention)}</td>
+                          </tr>
+                          <tr>
+                            <td className="fw-bold">Niveau</td>
+                            <td>{selectedEtudiant.niveau}</td>
+                          </tr>
+                          <tr>
+                            <td className="fw-bold">Année Bac</td>
+                            <td>{selectedEtudiant.annee_bacc || '-'}</td>
+                          </tr>
+                          <tr>
+                            <td className="fw-bold">Redoublement</td>
+                            <td>
+                              <Badge bg={selectedEtudiant.code_redoublement === 'N' ? 'success' : selectedEtudiant.code_redoublement === 'R' ? 'danger' : 'warning'}>
+                                {selectedEtudiant.code_redoublement === 'N' ? 'Non' : selectedEtudiant.code_redoublement === 'R' ? 'Oui (R)' : 'Triplant (T)'}
+                              </Badge>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="fw-bold">Boursier</td>
+                            <td>
+                              <Badge bg={selectedEtudiant.boursier === 'OUI' ? 'success' : 'secondary'}>
+                                {selectedEtudiant.boursier}
+                              </Badge>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               </div>

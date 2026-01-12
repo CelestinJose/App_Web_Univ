@@ -33,6 +33,7 @@ const handleApiError = (error, endpoint) => {
   return Promise.reject(error);
 };
 
+
 // Endpoints étudiants
 export const etudiantApi = {
   // Récupérer les étudiants

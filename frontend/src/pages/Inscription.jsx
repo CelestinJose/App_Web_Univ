@@ -63,6 +63,7 @@ export default function Inscription() {
   });
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const [validationErrors, setValidationErrors] = useState({});
+  const [duplicateMatriculeError, setDuplicateMatriculeError] = useState('');
 
   // États pour les modales
   const [showModal, setShowModal] = useState(false);
@@ -783,6 +784,7 @@ const getFaculteName = (faculteId) => {
     setDomaines([]);
     setFilteredMentions([]);
     setShowModal(true);
+    setDuplicateMatriculeError('');
   };
 
   // Sauvegarder étudiant avec photo
@@ -791,6 +793,22 @@ const getFaculteName = (faculteId) => {
     if (!form.matricule || !form.nom || !form.prenom || !form.niveau || !form.faculte) {
       showToast('Veuillez remplir tous les champs obligatoires', 'warning');
       return;
+    }
+
+    // Vérifier doublon de matricule côté client
+    try {
+      const matriculeTrim = form.matricule ? form.matricule.trim() : '';
+      if (matriculeTrim) {
+        const exists = etudiants.some(e => e.matricule && e.matricule.toLowerCase() === matriculeTrim.toLowerCase() && (editId ? e.id !== editId : true));
+        if (exists) {
+          const msg = `Matricule "${matriculeTrim}" déjà utilisé.`;
+          setDuplicateMatriculeError(msg);
+          showToast(msg, 'danger');
+          return;
+        }
+      }
+    } catch (dupErr) {
+      console.error('Erreur lors de la vérification du doublon de matricule:', dupErr);
     }
 
     try {
@@ -892,6 +910,7 @@ const getFaculteName = (faculteId) => {
     setForm(formattedEtudiant);
     setEditId(etudiant.id);
     setShowModal(true);
+    setDuplicateMatriculeError('');
 
     // Si l'étudiant a une faculté, charger les domaines
     if (faculteId) {
@@ -1440,13 +1459,18 @@ const getFaculteName = (faculteId) => {
                   <Form.Control
                     type="text"
                     value={form.matricule}
-                    onChange={(e) => setForm({ ...form, matricule: e.target.value })}
+                    onChange={(e) => { setForm({ ...form, matricule: e.target.value }); setDuplicateMatriculeError(''); }}
                     required
                     isInvalid={!!validationErrors.matricule}
                   />
                   <Form.Control.Feedback type="invalid">
                     {validationErrors.matricule}
                   </Form.Control.Feedback>
+                  {duplicateMatriculeError && (
+                    <Alert variant="danger" className="mt-2">
+                      {duplicateMatriculeError}
+                    </Alert>
+                  )}
                 </Form.Group>
               </div>
               <div className="col-md-6">

@@ -21,8 +21,46 @@ class EtudiantViewSet(viewsets.ModelViewSet):
     """
     queryset = Etudiant.objects.all()
     serializer_class = EtudiantSerializer
-    permission_classes = [IsAuthenticated]
-    
+    # permission_classes = [IsAuthenticated] 
+
+    def get_queryset_by_role(self):
+        """Retourne le queryset d'étudiants filtré selon le rôle de l'utilisateur."""
+        user = self.request.user
+        queryset = Etudiant.objects.all()
+
+        print("==== DEBUG FILTRAGE ETUDIANTS (PAR ROLE) ====")
+        print("User connecté :", getattr(user, 'username', None))
+        print("Rôle :", getattr(user, 'role', None))
+        print("Faculté user :", getattr(user, 'faculte', None))
+
+        # Administrateur : accès à tous les étudiants
+        if getattr(user, 'role', None) == "administrateur":
+            print("➡ ADMIN : accès à tous les étudiants")
+            return queryset
+
+        # Scolarité : accès aux étudiants de sa faculté seulement
+        if getattr(user, 'role', None) == "scolarite":
+            faculte_nom = getattr(user, 'faculte', None)
+            if not faculte_nom:
+                print("❌ Aucune faculté associée au user")
+                return Etudiant.objects.none()
+
+            faculte_obj = Faculte.objects.filter(nom=faculte_nom).first()
+            print("Faculté trouvée en base :", faculte_obj)
+
+            if not faculte_obj:
+                print("❌ Faculté inexistante en base")
+                return Etudiant.objects.none()
+
+            # Filtrer seulement les étudiants de la faculté
+            etudiants = queryset.filter(faculte=faculte_obj)
+            print(f"✅ Étudiants retournés pour la scolarité {faculte_nom} : {etudiants.count()}")
+            return etudiants
+
+        # Autres rôles (bourse, finance, etc.) : accès à tous les étudiants
+        print(f"➡ ROLE {getattr(user, 'role', '').upper()} : accès à tous les étudiants (pas de restriction)")
+        return queryset
+
     # 1. Action pour les statistiques
     @action(detail=False, methods=['get'])
     def stats(self, request):
@@ -192,6 +230,7 @@ class EtudiantViewSet(viewsets.ModelViewSet):
                 {'error': f'Erreur lors de l\'importation: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+            
     # 4. Action pour la recherche
     @action(detail=False, methods=['get'])
     def search(self, request):
@@ -227,6 +266,8 @@ class EtudiantViewSet(viewsets.ModelViewSet):
             return Response({'error': 'ID invalide'}, status=status.HTTP_400_BAD_REQUEST)
     
     # 6. Action pour mettre à jour
+ 
+
     @action(detail=False, methods=['put'])
     def mettre_a_jour_etud(self, request):
         try:
@@ -248,11 +289,11 @@ class EtudiantViewSet(viewsets.ModelViewSet):
     # 7. Choix du serializer
     def get_serializer_class(self):
         if self.action == 'retrieve':
-            return EtudiantDetailSerializers
+            return EtudiantSerializer
         return EtudiantSerializer
     
     def get_queryset(self):
-        queryset = super().get_queryset()
+        queryset = self.get_queryset_by_role()
         
         # Filtres
         niveau = self.request.query_params.get('niveau')
@@ -282,40 +323,6 @@ class EtudiantViewSet(viewsets.ModelViewSet):
         
         return queryset
     
-    # def get_queryset(self):
-    #     user = self.request.user
-    #     queryset = Etudiant.objects.all()
-
-    #     print("==== DEBUG FILTRAGE ETUDIANTS ====")
-    #     print("User connecté :", user.username)
-    #     print("Rôle :", user.role)
-    #     print("Faculté user :", user.faculte)
-
-    #     if user.role == "administrateur":
-    #         print("➡ ADMIN : accès à tous les étudiants")
-    #         return queryset
-
-    #     if user.role == "scolarite":
-
-    #         if not user.faculte:
-    #             print("❌ Aucune faculté associée au user")
-    #             return Etudiant.objects.none()
-
-    #         faculte_obj = Faculte.objects.filter(nom=user.faculte).first()
-    #         print("Faculté trouvée en base :", faculte_obj)
-
-    #         if not faculte_obj:
-    #             print("❌ Faculté inexistante en base")
-    #             return Etudiant.objects.none()
-
-    #         etudiants = queryset.filter(faculte=faculte_obj)
-    #         print("Étudiants retournés :", etudiants)
-    #         print("Nombre :", etudiants.count())
-
-    #         return etudiants
-
-    #     print("⛔ Accès refusé pour ce rôle")
-    #     return Etudiant.objects.none()
 
 
 
