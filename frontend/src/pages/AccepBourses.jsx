@@ -32,13 +32,13 @@ export default function AccepBourses() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [userRole, setUserRole] = useState(null);
-  
+
   // États pour les données de référence
   const [facultesList, setFacultesList] = useState([]);
   const [domainesList, setDomainesList] = useState([]);
   const [mentionsList, setMentionsList] = useState([]);
   const [loadingReferences, setLoadingReferences] = useState(false);
-  
+
   // États pour les notifications Toast
   const [showToast, setShowToast] = useState(false);
   const [toastConfig, setToastConfig] = useState({
@@ -47,35 +47,35 @@ export default function AccepBourses() {
     variant: 'success',
     icon: null
   });
-  
+
   // États pour les modales
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showModifyModal, setShowModifyModal] = useState(false);
-  
+
   // États pour les données sélectionnées
   const [selectedEtudiant, setSelectedEtudiant] = useState(null);
   const [selectedBourse, setSelectedBourse] = useState(null);
-  
+
   // États pour la recherche et filtres
   const [searchTerm, setSearchTerm] = useState("");
   const [filterFaculte, setFilterFaculte] = useState("");
   const [filterNiveau, setFilterNiveau] = useState("");
   const [filterAnnee, setFilterAnnee] = useState("");
-  
+
   // États pour la pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-  
+
   // États pour l'exportation
   const [exportProgress, setExportProgress] = useState(0);
   const [exporting, setExporting] = useState(false);
   const [exportingPDF, setExportingPDF] = useState(false);
   const [exportError, setExportError] = useState(null);
-  
+
   // États pour les statistiques
   const [stats, setStats] = useState({
     total_acceptees: 0,
@@ -84,12 +84,12 @@ export default function AccepBourses() {
     par_niveau: {},
     par_mois: {}
   });
-  
+
   // Listes pour les filtres
   const [facultes, setFacultes] = useState([]);
   const [niveaux, setNiveaux] = useState([]);
   const [annees, setAnnees] = useState([]);
-  
+
   // Fonction pour afficher les notifications
   const showNotification = (title, message, variant = 'success', icon = null) => {
     setToastConfig({
@@ -101,91 +101,88 @@ export default function AccepBourses() {
     setShowToast(true);
     setTimeout(() => setShowToast(false), 5000);
   };
-  
-  // Fonctions pour obtenir les noms à partir des IDs
+
+  // Fonctions pour obtenir les noms à partir des IDs - Version corrigée qui garde le code
   const getNomFaculte = (faculteData) => {
     if (!faculteData) return "N/A";
-    
-    // Si c'est déjà une chaîne, la nettoyer
+
+    // Si c'est déjà une chaîne, la retourner telle quelle
     if (typeof faculteData === 'string') {
-      // Enlever le code si présent (ex: "FASEG - Faculté Administration et Sciences Économiques")
-      const cleaned = faculteData.replace(/^[A-Z]+ - /, '');
-      return cleaned || faculteData;
+      return faculteData || "N/A";
     }
-    
+
     // Si c'est un objet avec propriété 'nom'
     if (typeof faculteData === 'object' && faculteData !== null) {
       const nomComplet = faculteData.nom_faculte || faculteData.nom || faculteData.name || '';
-      const cleaned = nomComplet.replace(/^[A-Z]+ - /, '');
-      return cleaned || nomComplet || "N/A";
+      return nomComplet || "N/A";
     }
-    
+
     // Si c'est un ID numérique, chercher dans la liste
     const faculteId = typeof faculteData === 'object' ? faculteData.id : faculteData;
     const faculte = facultesList.find(f => f.id == faculteId);
-    
+
     if (faculte) {
       const nomComplet = faculte.nom_faculte || faculte.nom || faculte.name || '';
-      const cleaned = nomComplet.replace(/^[A-Z]+ - /, '');
-      return cleaned || nomComplet || `Faculté ${faculteId}`;
+      return nomComplet || `Faculté ${faculteId}`;
     }
-    
+
     return `Faculté ${faculteId}`;
   };
 
+
   const getNomDomaine = (domaineData) => {
     if (!domaineData) return "N/A";
-    
+
     // Si c'est déjà une chaîne
     if (typeof domaineData === 'string') {
       return domaineData;
     }
-    
+
     // Si c'est un objet
     if (typeof domaineData === 'object' && domaineData !== null) {
       return domaineData.nom_domaine || domaineData.nom || domaineData.name || "N/A";
     }
-    
+
     // Si c'est un ID numérique
     const domaineId = typeof domaineData === 'object' ? domaineData.id : domaineData;
     const domaine = domainesList.find(d => d.id == domaineId);
-    
+
     if (domaine) {
       return domaine.nom_domaine || domaine.nom || domaine.name || `Domaine ${domaineId}`;
     }
-    
+
     return `Domaine ${domaineId}`;
   };
 
   const getNomMention = (mentionData) => {
     if (!mentionData) return "N/A";
-    
+
     // Si c'est déjà une chaîne
     if (typeof mentionData === 'string') {
       return mentionData;
     }
-    
+
     // Si c'est un objet
     if (typeof mentionData === 'object' && mentionData !== null) {
       return mentionData.nom_mention || mentionData.nom || mentionData.name || "N/A";
     }
-    
+
     // Si c'est un ID numérique
     const mentionId = typeof mentionData === 'object' ? mentionData.id : mentionData;
     const mention = mentionsList.find(m => m.id == mentionId);
-    
+
     if (mention) {
       return mention.nom_mention || mention.nom || mention.name || `Mention ${mentionId}`;
     }
-    
+
     return `Mention ${mentionId}`;
   };
-  
+
   // Récupérer le rôle de l'utilisateur
   useEffect(() => {
     const role = localStorage.getItem("user_role");
     setUserRole(role);
-    
+
     if (role !== 'administrateur' && role !== 'bourse') {
       showNotification("Accès refusé", "Vous n'avez pas les permissions pour accéder à cette page", 'danger');
       setTimeout(() => {
@@ -193,7 +190,7 @@ export default function AccepBourses() {
       }, 2000);
     }
   }, []);
-  
+
   // Fonction pour charger les données de référence
   const fetchReferences = async () => {
     setLoadingReferences(true);
@@ -210,7 +207,7 @@ export default function AccepBourses() {
       }
       setFacultesList(facultesData);
       console.log("Facultés chargées:", facultesData.length);
-      
+
       // Charger les domaines
       const domaineResponse = await api.get('/domaines/');
       let domainesData = [];
@@ -223,7 +220,7 @@ export default function AccepBourses() {
       }
       setDomainesList(domainesData);
       console.log("Domaines chargés:", domainesData.length);
-      
+
       // Charger les mentions
       const mentionResponse = await api.get('/mentions/');
       let mentionsData = [];
@@ -236,38 +233,38 @@ export default function AccepBourses() {
       }
       setMentionsList(mentionsData);
       console.log("Mentions chargées:", mentionsData.length);
-      
+
     } catch (error) {
       console.error("Erreur lors du chargement des références:", error);
     } finally {
       setLoadingReferences(false);
     }
   };
-  
+
   // Charger les données
   const fetchData = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       // Charger les étudiants avec bourses acceptées
       const [etudiantsResponse, boursesResponse] = await Promise.all([
         api.get('/etudiants/?boursier=OUI'),
         api.get('/bourses/')
       ]);
-      
+
       if (etudiantsResponse.data && boursesResponse.data) {
-        const etudiantsData = Array.isArray(etudiantsResponse.data) 
-          ? etudiantsResponse.data 
+        const etudiantsData = Array.isArray(etudiantsResponse.data)
+          ? etudiantsResponse.data
           : etudiantsResponse.data.results || [];
-        
+
         const boursesData = Array.isArray(boursesResponse.data)
           ? boursesResponse.data
           : boursesResponse.data.results || [];
-        
+
         // Filtrer pour garder seulement les bourses acceptées
         const boursesAcceptees = boursesData.filter(b => b.status === 'ACCEPTEE');
-        
+
         // Associer les étudiants avec leurs bourses acceptées
         const etudiantsAvecBourses = etudiantsData
           .map(etudiant => {
@@ -279,15 +276,15 @@ export default function AccepBourses() {
             };
           })
           .filter(etudiant => etudiant.has_bourse_acceptee);
-        
+
         setEtudiants(etudiantsAvecBourses);
         setEtudiantsBoursesAcceptees(etudiantsAvecBourses);
         setTotalCount(etudiantsAvecBourses.length);
         setTotalPages(Math.ceil(etudiantsAvecBourses.length / itemsPerPage));
-        
+
         // Calculer les statistiques
         calculateStats(etudiantsAvecBourses);
-        
+
         // Extraire les listes pour les filtres
         extractFilterLists(etudiantsAvecBourses);
       }
@@ -299,7 +296,7 @@ export default function AccepBourses() {
       setLoading(false);
     }
   };
-  
+
   // Calculer les statistiques
   const calculateStats = (etudiantsData) => {
     const statsObj = {
@@ -309,20 +306,20 @@ export default function AccepBourses() {
       par_niveau: {},
       par_mois: {}
     };
-    
+
     etudiantsData.forEach(etudiant => {
       // Montant total
       const montantBourses = etudiant.bourses.reduce((sum, b) => sum + parseFloat(b.montant || 0), 0);
       statsObj.montant_total += montantBourses;
-      
+
       // Par faculté (en utilisant getNomFaculte)
       const faculteNom = getNomFaculte(etudiant.faculte);
       statsObj.par_faculte[faculteNom] = (statsObj.par_faculte[faculteNom] || 0) + 1;
-      
+
       // Par niveau
       const niveau = etudiant.niveau || 'Non spécifié';
       statsObj.par_niveau[niveau] = (statsObj.par_niveau[niveau] || 0) + 1;
-      
+
       // Par mois (basé sur la date de décision)
       etudiant.bourses.forEach(bourse => {
         if (bourse.date_decision) {
@@ -332,25 +329,25 @@ export default function AccepBourses() {
         }
       });
     });
-    
+
     setStats(statsObj);
   };
-  
+
   // Extraire les listes pour les filtres
   const extractFilterLists = (etudiantsData) => {
     const facultesSet = new Set();
     const niveauxSet = new Set();
     const anneesSet = new Set();
-    
+
     etudiantsData.forEach(etudiant => {
       // Utiliser getNomFaculte pour avoir le nom propre
       const faculteNom = getNomFaculte(etudiant.faculte);
       if (faculteNom && faculteNom !== "N/A") {
         facultesSet.add(faculteNom);
       }
-      
+
       if (etudiant.niveau) niveauxSet.add(etudiant.niveau);
-      
+
       // Extraire l'année académique des bourses
       etudiant.bourses.forEach(bourse => {
         if (bourse.annee_academique) {
@@ -358,28 +355,28 @@ export default function AccepBourses() {
         }
       });
     });
-    
+
     // Trier alphabétiquement
     setFacultes(Array.from(facultesSet).sort());
     setNiveaux(Array.from(niveauxSet).sort());
     setAnnees(Array.from(anneesSet).sort((a, b) => b.localeCompare(a)));
   };
-  
+
   // Appliquer les filtres
   const applyFilters = () => {
     let filtered = [...etudiantsBoursesAcceptees];
-    
+
     // Filtre par recherche
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(etudiant => 
+      filtered = filtered.filter(etudiant =>
         (etudiant.nom && etudiant.nom.toLowerCase().includes(term)) ||
         (etudiant.prenom && etudiant.prenom.toLowerCase().includes(term)) ||
         (etudiant.matricule && etudiant.matricule.toLowerCase().includes(term)) ||
         (etudiant.cin && etudiant.cin.toLowerCase().includes(term))
       );
     }
-    
+
     // Filtre par faculté (utiliser getNomFaculte pour la comparaison)
     if (filterFaculte) {
       filtered = filtered.filter(etudiant => {
@@ -387,27 +384,27 @@ export default function AccepBourses() {
         return faculteNom === filterFaculte;
       });
     }
-    
+
     // Filtre par niveau
     if (filterNiveau) {
-      filtered = filtered.filter(etudiant => 
+      filtered = filtered.filter(etudiant =>
         etudiant.niveau === filterNiveau
       );
     }
-    
+
     // Filtre par année académique
     if (filterAnnee) {
       filtered = filtered.filter(etudiant =>
         etudiant.bourses.some(b => b.annee_academique === filterAnnee)
       );
     }
-    
+
     setEtudiants(filtered);
     setTotalCount(filtered.length);
     setTotalPages(Math.ceil(filtered.length / itemsPerPage));
     setCurrentPage(1);
   };
-  
+
   // Effacer les filtres
   const clearFilters = () => {
     setSearchTerm("");
@@ -419,14 +416,14 @@ export default function AccepBourses() {
     setTotalPages(Math.ceil(etudiantsBoursesAcceptees.length / itemsPerPage));
     setCurrentPage(1);
   };
-  
+
   // Afficher les détails d'un étudiant
   const showEtudiantDetails = (etudiant) => {
     setSelectedEtudiant(etudiant);
     setSelectedBourse(etudiant.bourses[0]); // Prendre la première bourse acceptée
     setShowDetailsModal(true);
   };
-  
+
   // Fonction pour formater la date
   const formatDate = (dateString) => {
     if (!dateString) return '';
@@ -437,19 +434,19 @@ export default function AccepBourses() {
       return dateString;
     }
   };
-  
+
   // Exporter en Excel
   const exportToExcel = () => {
     setExporting(true);
     setExportProgress(0);
-    
+
     try {
       // Préparer les données
       const exportData = etudiants.map((etudiant, index) => {
         const bourse = etudiant.bourses[0]; // Prendre la première bourse acceptée
-        
+
         setExportProgress((index / etudiants.length) * 100);
-        
+
         return {
           'Numéro': index + 1,
           'Matricule': etudiant.matricule || '',
@@ -472,18 +469,18 @@ export default function AccepBourses() {
           'Conditions': bourse ? bourse.conditions || '' : ''
         };
       });
-      
+
       // Créer le workbook
       const ws = XLSX.utils.json_to_sheet(exportData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Bourses Acceptées');
-      
+
       // Télécharger
       XLSX.writeFile(wb, `bourses_acceptees_${new Date().toISOString().split('T')[0]}.xlsx`);
-      
+
       setExportProgress(100);
       showNotification("Succès", "Exportation Excel terminée", 'success', <FaFileExcel />);
-      
+
     } catch (error) {
       console.error("Erreur lors de l'exportation:", error);
       showNotification("Erreur", "Erreur lors de l'exportation", 'danger');
@@ -494,7 +491,7 @@ export default function AccepBourses() {
       }, 1000);
     }
   };
-  
+
   // Exporter en PDF
   const exportToPDF = () => {
     setExportingPDF(true);
@@ -503,7 +500,7 @@ export default function AccepBourses() {
     try {
       // Récupérer les données filtrées
       const filteredEtudiants = etudiants;
-      
+
       // Créer un nouveau document PDF
       const doc = new jsPDF('landscape'); // Orientation paysage pour plus d'espace
       const date = new Date().toLocaleDateString('fr-FR');
@@ -534,12 +531,12 @@ export default function AccepBourses() {
 
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      
+
       // Informations à gauche
       doc.text(`Faculté: ${filterFaculte || 'Toutes facultés'}`, 15, 60);
       doc.text(`Niveau: ${filterNiveau || 'Tous niveaux'}`, 15, 67);
       doc.text(`Année académique: ${filterAnnee || 'Toutes années'}`, 15, 74);
-      
+
       // Statistiques à droite
       doc.text(`Nombre d'étudiants: ${filteredEtudiants.length}`, 240, 60, { align: 'right' });
       doc.text(`Montant total: ${stats.montant_total.toLocaleString('fr-FR')}`, 240, 67, { align: 'right' });
@@ -559,7 +556,7 @@ export default function AccepBourses() {
 
       const tableRows = filteredEtudiants.map((etudiant, index) => {
         const bourse = etudiant.bourses[0]; // Prendre la première bourse acceptée
-        
+
         // Formater le montant
         let montantFormatted = '-';
         if (bourse && bourse.montant > 0) {
@@ -569,13 +566,13 @@ export default function AccepBourses() {
             maximumFractionDigits: 0
           }).replace(/\u202f/g, ' ');
         }
-        
+
         // Formater la période
         let periode = '-';
         if (bourse && bourse.date_debut && bourse.date_fin) {
           periode = `${formatDate(bourse.date_debut)} - ${formatDate(bourse.date_fin)}`;
         }
-        
+
         return {
           matricule: etudiant.matricule || '-',
           nom_complet: `${etudiant.nom || ''} ${etudiant.prenom || ''}`.trim(),
@@ -654,14 +651,14 @@ export default function AccepBourses() {
               totalY,
               { align: 'center' }
             );
-            
+
             // Ajouter les signatures
             const signatureY = doc.internal.pageSize.height - 50;
             doc.setFontSize(8);
             doc.setFont("helvetica", "normal");
             doc.text("Chef de Service", 50, signatureY, { align: 'center' });
             doc.text("Le Responsable des Bourses", 200, signatureY, { align: 'center' });
-            
+
             // Lignes de signature
             doc.line(40, signatureY + 5, 100, signatureY + 5);
             doc.line(180, signatureY + 5, 220, signatureY + 5);
@@ -672,7 +669,7 @@ export default function AccepBourses() {
       // Nom du fichier avec date et mention
       const fileName = `Bourses_Acceptees_${filterFaculte?.replace(/\s+/g, '_') || getNomFaculte(firstStudent.faculte)?.replace(/\s+/g, '_') || 'TUL'}_${filterAnnee || new Date().getFullYear()}_${new Date().toISOString().split('T')[0]}.pdf`;
       doc.save(fileName);
-      
+
       showNotification("Succès", "Exportation PDF terminée", 'success', <FaFilePdf />);
 
     } catch (error) {
@@ -688,24 +685,24 @@ export default function AccepBourses() {
   // Modifier une bourse
   const handleModifyBourse = async () => {
     if (!selectedBourse) return;
-    
+
     try {
       const response = await api.put(`/bourses/${selectedBourse.id}/`, selectedBourse);
-      
+
       if (response.data) {
         // Mettre à jour la liste
         const updatedEtudiants = etudiants.map(etudiant => {
           if (etudiant.id === selectedEtudiant.id) {
             return {
               ...etudiant,
-              bourses: etudiant.bourses.map(b => 
+              bourses: etudiant.bourses.map(b =>
                 b.id === selectedBourse.id ? response.data : b
               )
             };
           }
           return etudiant;
         });
-        
+
         setEtudiants(updatedEtudiants);
         setEtudiantsBoursesAcceptees(updatedEtudiants);
         setShowModifyModal(false);
@@ -716,21 +713,21 @@ export default function AccepBourses() {
       showNotification("Erreur", "Erreur lors de la modification", 'danger');
     }
   };
-  
+
   // Rejeter une bourse
   const handleRejectBourse = async () => {
     if (!selectedBourse) return;
-    
+
     try {
       const updatedBourse = { ...selectedBourse, status: 'REJETEE', date_decision: new Date().toISOString() };
       const response = await api.put(`/bourses/${selectedBourse.id}/`, updatedBourse);
-      
+
       if (response.data) {
         // Retirer l'étudiant de la liste (puisqu'il n'a plus de bourse acceptée)
-        const updatedEtudiants = etudiants.filter(etudiant => 
+        const updatedEtudiants = etudiants.filter(etudiant =>
           etudiant.id !== selectedEtudiant.id
         );
-        
+
         setEtudiants(updatedEtudiants);
         setEtudiantsBoursesAcceptees(updatedEtudiants);
         setShowRejectModal(false);
@@ -741,14 +738,14 @@ export default function AccepBourses() {
       showNotification("Erreur", "Erreur lors du rejet", 'danger');
     }
   };
-  
+
   // Pagination
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentEtudiants = etudiants.slice(indexOfFirstItem, indexOfLastItem);
-  
+
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
-  
+
   // Initialiser les données: charger d'abord les références puis les étudiants
   useEffect(() => {
     const init = async () => {
@@ -768,7 +765,7 @@ export default function AccepBourses() {
   useEffect(() => {
     applyFilters();
   }, [searchTerm, filterFaculte, filterNiveau, filterAnnee, etudiantsBoursesAcceptees]);
-  
+
   return (
     <div className="container-fluid py-4">
       {/* Toast Notifications */}
@@ -788,7 +785,7 @@ export default function AccepBourses() {
           <Toast.Body>{toastConfig.message}</Toast.Body>
         </Toast>
       </ToastContainer>
-      
+
       {/* En-tête */}
       <div className="row mb-4">
         <div className="col">
@@ -830,7 +827,7 @@ export default function AccepBourses() {
           </div>
         </div>
       </div>
-      
+
       {/* Barre de filtres */}
       <div className="card mb-4">
         <div className="card-body">
@@ -895,7 +892,7 @@ export default function AccepBourses() {
           </div>
         </div>
       </div>
-      
+
       {/* Tableau principal */}
       <div className="card">
         <div className="card-body">
@@ -944,11 +941,11 @@ export default function AccepBourses() {
                     </Form.Select>
                     <span className="ms-2">éléments</span>
                   </div>
-                  
+
                   <Pagination>
                     <Pagination.First onClick={() => paginate(1)} disabled={currentPage === 1} />
                     <Pagination.Prev onClick={() => paginate(currentPage - 1)} disabled={currentPage === 1} />
-                    
+
                     {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                       let pageNumber;
                       if (totalPages <= 5) {
@@ -960,7 +957,7 @@ export default function AccepBourses() {
                       } else {
                         pageNumber = currentPage - 2 + i;
                       }
-                      
+
                       return pageNumber > 0 && pageNumber <= totalPages ? (
                         <Pagination.Item
                           key={pageNumber}
@@ -971,13 +968,13 @@ export default function AccepBourses() {
                         </Pagination.Item>
                       ) : null;
                     })}
-                    
+
                     <Pagination.Next onClick={() => paginate(currentPage + 1)} disabled={currentPage === totalPages} />
                     <Pagination.Last onClick={() => paginate(totalPages)} disabled={currentPage === totalPages} />
                   </Pagination>
                 </div>
               )}
-              
+
               {/* Tableau */}
               <div className="table-responsive">
                 <Table striped hover className="align-middle">
@@ -1069,7 +1066,7 @@ export default function AccepBourses() {
                               >
                                 <FaEye />
                               </Button>
-                              <Button
+                              {/* <Button
                                 variant="outline-success"
                                 onClick={() => {
                                   setSelectedEtudiant(etudiant);
@@ -1078,8 +1075,8 @@ export default function AccepBourses() {
                                 }}
                                 title="Modifier"
                               >
-                                <FaEdit />
-                              </Button>
+                                <FaEdit /> */}
+                              {/* </Button> */}
                               <Button
                                 variant="outline-danger"
                                 onClick={() => {
@@ -1099,7 +1096,7 @@ export default function AccepBourses() {
                   </tbody>
                 </Table>
               </div>
-              
+
               {/* Pagination en bas */}
               {totalCount > itemsPerPage && (
                 <div className="d-flex justify-content-between align-items-center mt-3">
@@ -1109,7 +1106,7 @@ export default function AccepBourses() {
                   <Pagination>
                     <Pagination.First onClick={() => paginate(1)} disabled={currentPage === 1} />
                     <Pagination.Prev onClick={() => paginate(currentPage - 1)} disabled={currentPage === 1} />
-                    
+
                     {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                       let pageNumber;
                       if (totalPages <= 5) {
@@ -1121,7 +1118,7 @@ export default function AccepBourses() {
                       } else {
                         pageNumber = currentPage - 2 + i;
                       }
-                      
+
                       return pageNumber > 0 && pageNumber <= totalPages ? (
                         <Pagination.Item
                           key={pageNumber}
@@ -1132,7 +1129,7 @@ export default function AccepBourses() {
                         </Pagination.Item>
                       ) : null;
                     })}
-                    
+
                     <Pagination.Next onClick={() => paginate(currentPage + 1)} disabled={currentPage === totalPages} />
                     <Pagination.Last onClick={() => paginate(totalPages)} disabled={currentPage === totalPages} />
                   </Pagination>
@@ -1142,7 +1139,7 @@ export default function AccepBourses() {
           )}
         </div>
       </div>
-      
+
       {/* Modal Détails */}
       <Modal show={showDetailsModal} onHide={() => setShowDetailsModal(false)} size="lg">
         <Modal.Header closeButton className="bg-info text-white">
@@ -1184,7 +1181,7 @@ export default function AccepBourses() {
                   </tbody>
                 </table>
               </div>
-              
+
               <div className="col-md-6">
                 <h5 className="text-success mb-3">Informations bourse</h5>
                 <table className="table table-sm">
@@ -1226,7 +1223,7 @@ export default function AccepBourses() {
                   </tbody>
                 </table>
               </div>
-              
+
               <div className="col-12 mt-3">
                 <h5 className="text-warning mb-3">Formation</h5>
                 <div className="bg-light p-3 rounded">
@@ -1258,7 +1255,7 @@ export default function AccepBourses() {
                   </div>
                 </div>
               </div>
-              
+
               {selectedBourse.conditions && (
                 <div className="col-12 mt-3">
                   <h5 className="text-info mb-3">Conditions de la bourse</h5>
@@ -1276,7 +1273,7 @@ export default function AccepBourses() {
           </Button>
         </Modal.Footer>
       </Modal>
-      
+
       {/* Modal Exportation */}
       <Modal show={showExportModal} onHide={() => setShowExportModal(false)} size="lg">
         <Modal.Header closeButton className="bg-primary text-white">
@@ -1297,9 +1294,9 @@ export default function AccepBourses() {
                   </Alert>
                 </Card.Body>
                 <Card.Footer className="text-center">
-                  <Button 
-                    variant="success" 
-                    onClick={exportToExcel} 
+                  <Button
+                    variant="success"
+                    onClick={exportToExcel}
                     disabled={exporting || totalCount === 0}
                     className="w-100"
                   >
@@ -1309,7 +1306,7 @@ export default function AccepBourses() {
                 </Card.Footer>
               </Card>
             </div>
-            
+
             <div className="col-md-6">
               <Card className="h-100 border-danger">
                 <Card.Body className="text-center">
@@ -1323,9 +1320,9 @@ export default function AccepBourses() {
                   </Alert>
                 </Card.Body>
                 <Card.Footer className="text-center">
-                  <Button 
-                    variant="danger" 
-                    onClick={exportToPDF} 
+                  <Button
+                    variant="danger"
+                    onClick={exportToPDF}
                     disabled={exportingPDF || totalCount === 0}
                     className="w-100"
                   >
@@ -1336,20 +1333,20 @@ export default function AccepBourses() {
               </Card>
             </div>
           </div>
-          
+
           {exportError && (
             <Alert variant="danger" className="mt-3">
               <FaExclamationTriangle className="me-2" />
               {exportError}
             </Alert>
           )}
-          
+
           {(exporting || exportingPDF) && (
             <div className="mt-3">
-              <ProgressBar 
-                animated 
-                now={exportProgress} 
-                label={`${Math.round(exportProgress)}%`} 
+              <ProgressBar
+                animated
+                now={exportProgress}
+                label={`${Math.round(exportProgress)}%`}
                 className="mb-2"
               />
               <p className="text-center text-muted small">
@@ -1364,7 +1361,7 @@ export default function AccepBourses() {
           </Button>
         </Modal.Footer>
       </Modal>
-      
+
       {/* Modal Rejeter Bourse */}
       <Modal show={showRejectModal} onHide={() => setShowRejectModal(false)}>
         <Modal.Header closeButton className="bg-danger text-white">
@@ -1398,7 +1395,7 @@ export default function AccepBourses() {
           </Button>
         </Modal.Footer>
       </Modal>
-      
+
       {/* Modal Modifier Bourse */}
       <Modal show={showModifyModal} onHide={() => setShowModifyModal(false)} size="lg">
         <Modal.Header closeButton className="bg-success text-dark">
@@ -1435,7 +1432,7 @@ export default function AccepBourses() {
                   </Form.Group>
                 </div>
               </div>
-              
+
               <div className="row">
                 <div className="col-md-6">
                   <Form.Group className="mb-3">
@@ -1464,7 +1461,7 @@ export default function AccepBourses() {
                   </Form.Group>
                 </div>
               </div>
-              
+
               <Form.Group className="mb-3">
                 <Form.Label>Conditions</Form.Label>
                 <Form.Control

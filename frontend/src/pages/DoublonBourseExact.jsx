@@ -115,36 +115,36 @@ export default function DoublonBourseExact() {
     // Gérer l'attribution d'une bourse unique
     const handleAttribuerBourseUnique = async () => {
         if (!selectedEtudiant || !selectedGroup) return;
-        
+
         setActionLoading(true);
         setActionMessage("");
-        
+
         try {
             const data = {
                 etudiant_id: selectedEtudiant.id,
                 formation_choisie: selectedFormation
             };
-            
+
             const response = await bourseApi.attribuerBourseUnique(data);
-            
+
             if (response.data) {
                 const successMessage = response.data.message || "Bourse unique attribuée avec succès";
                 setActionMessage(successMessage);
-                
+
                 // Afficher le toast de succès
                 setToastMessage("Doublon traité et retiré de la liste avec succès !");
                 setShowSuccessToast(true);
-                
+
                 // Retirer le doublon traité de la liste
-                setDoublonsIdentite(prevDoublons => 
+                setDoublonsIdentite(prevDoublons =>
                     prevDoublons.filter(doublon => !compareDoublon(doublon, selectedGroup))
                 );
-                
+
                 // Réinitialiser la pagination si nécessaire
                 if (currentPage > 1 && filteredDoublons.length <= itemsPerPage) {
                     setCurrentPage(1);
                 }
-                
+
                 // Fermer le modal après un délai
                 setTimeout(() => {
                     setShowAttributionModal(false);
@@ -156,7 +156,7 @@ export default function DoublonBourseExact() {
         } catch (err) {
             console.error("Erreur:", err);
             setActionMessage("Erreur lors de l'attribution de la bourse: " + err.message);
-            
+
             // Recharger les données en cas d'erreur
             setTimeout(() => {
                 fetchDoublonsIdentite();
@@ -169,16 +169,16 @@ export default function DoublonBourseExact() {
     // Ouvrir le modal d'attribution
     const handleOpenAttributionModal = (groupe) => {
         setSelectedGroup(groupe);
-        
+
         // Par défaut, sélectionner le premier étudiant
         if (groupe.etudiants && groupe.etudiants.length > 0) {
             setSelectedEtudiant(groupe.etudiants[0]);
-            
+
             // Par défaut, sélectionner la formation du premier étudiant
             const formation = `${groupe.etudiants[0].faculte || ''}|${groupe.etudiants[0].domaine || ''}|${groupe.etudiants[0].mention || ''}`;
             setSelectedFormation(formation);
         }
-        
+
         setShowAttributionModal(true);
     };
 
@@ -224,7 +224,7 @@ export default function DoublonBourseExact() {
         totalInscriptions: doublonsIdentite.reduce((sum, d) => sum + d.count, 0),
         avecBourse: doublonsIdentite.filter(d => d.has_bourse).length,
         sansBourse: doublonsIdentite.filter(d => !d.has_bourse).length,
-        maxFormations: doublonsIdentite.length > 0 ? 
+        maxFormations: doublonsIdentite.length > 0 ?
             Math.max(...doublonsIdentite.map(d => d.formations.length)) : 0,
         totalBourses: doublonsIdentite.reduce((sum, d) => sum + d.bourses_count, 0)
     };
@@ -250,8 +250,8 @@ export default function DoublonBourseExact() {
     return (
         <div className="container-fluid py-4" style={{ backgroundColor: '#f8f9fa', minHeight: '100vh' }}>
             {/* Toast de succès */}
-            <Toast 
-                show={showSuccessToast} 
+            <Toast
+                show={showSuccessToast}
                 onClose={() => setShowSuccessToast(false)}
                 bg="success"
                 className="position-fixed top-0 end-0 m-4 text-white"
@@ -693,8 +693,8 @@ export default function DoublonBourseExact() {
                     )}
                 </Modal.Body>
                 <Modal.Footer>
-                    <Button 
-                        variant="secondary" 
+                    <Button
+                        variant="secondary"
                         onClick={() => setShowAttributionModal(false)}
                         disabled={actionLoading}
                     >

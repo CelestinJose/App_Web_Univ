@@ -30,16 +30,17 @@ export default function NonBourses() {
   // États pour les données
   const [etudiants, setEtudiants] = useState([]);
   const [etudiantsRejetes, setEtudiantsRejetes] = useState([]);
+  const [etudiantsNonBoursiers, setEtudiantsNonBoursiers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [userRole, setUserRole] = useState(null);
-  
+
   // États pour les données de référence
   const [facultesList, setFacultesList] = useState([]);
   const [domainesList, setDomainesList] = useState([]);
   const [mentionsList, setMentionsList] = useState([]);
   const [loadingReferences, setLoadingReferences] = useState(false);
-  
+
   // États pour les notifications Toast
   const [showToast, setShowToast] = useState(false);
   const [toastConfig, setToastConfig] = useState({
@@ -48,19 +49,19 @@ export default function NonBourses() {
     variant: 'success',
     icon: null
   });
-  
+
   // États pour les modales
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [showReasonsModal, setShowReasonsModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  
+
   // États pour les données sélectionnées
   const [selectedEtudiant, setSelectedEtudiant] = useState(null);
   const [selectedBourse, setSelectedBourse] = useState(null);
   const [rejectionReasons, setRejectionReasons] = useState([]);
-  
+
   // États pour la recherche et filtres
   const [searchTerm, setSearchTerm] = useState("");
   const [filterFaculte, setFilterFaculte] = useState("");
@@ -68,17 +69,17 @@ export default function NonBourses() {
   const [filterAnnee, setFilterAnnee] = useState("");
   const [filterRaison, setFilterRaison] = useState("");
   const [activeTab, setActiveTab] = useState('rejetees'); // 'rejetees' ou 'nonboursiers'
-  
+
   // États pour la pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-  
+
   // États pour l'exportation
   const [exportProgress, setExportProgress] = useState(0);
   const [exporting, setExporting] = useState(false);
-  
+
   // États pour les statistiques
   const [stats, setStats] = useState({
     total_rejetees: 0,
@@ -88,13 +89,13 @@ export default function NonBourses() {
     par_raison: {},
     par_mois: {}
   });
-  
+
   // Listes pour les filtres
   const [facultes, setFacultes] = useState([]);
   const [niveaux, setNiveaux] = useState([]);
   const [annees, setAnnees] = useState([]);
   const [raisons, setRaisons] = useState([]);
-  
+
   // Fonction pour afficher les notifications
   const showNotification = (title, message, variant = 'success', icon = null) => {
     setToastConfig({
@@ -106,91 +107,79 @@ export default function NonBourses() {
     setShowToast(true);
     setTimeout(() => setShowToast(false), 5000);
   };
-  
+
   // Fonctions pour obtenir les noms à partir des IDs
   const getNomFaculte = (faculteData) => {
     if (!faculteData) return "N/A";
-    
-    // Si c'est déjà une chaîne, la nettoyer
+
     if (typeof faculteData === 'string') {
-      // Enlever le code si présent (ex: "FASEG - Faculté Administration et Sciences Économiques")
-      const cleaned = faculteData.replace(/^[A-Z]+ - /, '');
-      return cleaned || faculteData;
+      // Retourner le nom complet tel quel (ex: "ENS - TUL")
+      return faculteData;
     }
-    
-    // Si c'est un objet avec propriété 'nom'
+
     if (typeof faculteData === 'object' && faculteData !== null) {
       const nomComplet = faculteData.nom_faculte || faculteData.nom || faculteData.name || '';
-      const cleaned = nomComplet.replace(/^[A-Z]+ - /, '');
-      return cleaned || nomComplet || "N/A";
+      return nomComplet || "N/A";
     }
-    
-    // Si c'est un ID numérique, chercher dans la liste
+
     const faculteId = typeof faculteData === 'object' ? faculteData.id : faculteData;
     const faculte = facultesList.find(f => f.id == faculteId);
-    
+
     if (faculte) {
       const nomComplet = faculte.nom_faculte || faculte.nom || faculte.name || '';
-      const cleaned = nomComplet.replace(/^[A-Z]+ - /, '');
-      return cleaned || nomComplet || `Faculté ${faculteId}`;
+      return nomComplet || `Faculté ${faculteId}`;
     }
-    
+
     return `Faculté ${faculteId}`;
   };
 
   const getNomDomaine = (domaineData) => {
     if (!domaineData) return "N/A";
-    
-    // Si c'est déjà une chaîne
+
     if (typeof domaineData === 'string') {
       return domaineData;
     }
-    
-    // Si c'est un objet
+
     if (typeof domaineData === 'object' && domaineData !== null) {
       return domaineData.nom_domaine || domaineData.nom || domaineData.name || "N/A";
     }
-    
-    // Si c'est un ID numérique
+
     const domaineId = typeof domaineData === 'object' ? domaineData.id : domaineData;
     const domaine = domainesList.find(d => d.id == domaineId);
-    
+
     if (domaine) {
       return domaine.nom_domaine || domaine.nom || domaine.name || `Domaine ${domaineId}`;
     }
-    
+
     return `Domaine ${domaineId}`;
   };
 
   const getNomMention = (mentionData) => {
     if (!mentionData) return "N/A";
-    
-    // Si c'est déjà une chaîne
+
     if (typeof mentionData === 'string') {
       return mentionData;
     }
-    
-    // Si c'est un objet
+
     if (typeof mentionData === 'object' && mentionData !== null) {
       return mentionData.nom_mention || mentionData.nom || mentionData.name || "N/A";
     }
-    
-    // Si c'est un ID numérique
+
     const mentionId = typeof mentionData === 'object' ? mentionData.id : mentionData;
     const mention = mentionsList.find(m => m.id == mentionId);
-    
+
     if (mention) {
       return mention.nom_mention || mention.nom || mention.name || `Mention ${mentionId}`;
     }
-    
+
     return `Mention ${mentionId}`;
   };
-  
+
   // Récupérer le rôle de l'utilisateur
   useEffect(() => {
     const role = localStorage.getItem("user_role");
     setUserRole(role);
-    
+
     if (role !== 'administrateur' && role !== 'bourse') {
       showNotification("Accès refusé", "Vous n'avez pas les permissions pour accéder à cette page", 'danger');
       setTimeout(() => {
@@ -198,17 +187,13 @@ export default function NonBourses() {
       }, 2000);
     }
   }, []);
-  
+
   // Fonction pour charger les données de référence
   const fetchReferences = async () => {
     setLoadingReferences(true);
     try {
-      console.log("=== DEBUT fetchReferences ===");
-      
       // Charger les facultés
       const faculteResponse = await api.get('/facultes/');
-      console.log("Réponse API facultés:", faculteResponse);
-      
       let facultesData = [];
       if (faculteResponse.data) {
         if (Array.isArray(faculteResponse.data)) {
@@ -216,14 +201,11 @@ export default function NonBourses() {
         } else if (faculteResponse.data.results && Array.isArray(faculteResponse.data.results)) {
           facultesData = faculteResponse.data.results;
         } else if (typeof faculteResponse.data === 'object') {
-          // Essayer d'extraire toutes les valeurs
           facultesData = Object.values(faculteResponse.data);
         }
       }
-      
-      console.log("Données facultés extraites:", facultesData);
       setFacultesList(facultesData);
-      
+
       // Charger les domaines
       const domaineResponse = await api.get('/domaines/');
       let domainesData = [];
@@ -235,7 +217,7 @@ export default function NonBourses() {
         }
       }
       setDomainesList(domainesData);
-      
+
       // Charger les mentions
       const mentionResponse = await api.get('/mentions/');
       let mentionsData = [];
@@ -247,70 +229,105 @@ export default function NonBourses() {
         }
       }
       setMentionsList(mentionsData);
-      
-      console.log("=== FIN fetchReferences ===");
-      console.log("Facultés chargées:", facultesData.length);
-      console.log("Domaines chargés:", domainesData.length);
-      console.log("Mentions chargées:", mentionsData.length);
-      
+
     } catch (error) {
       console.error("Erreur lors du chargement des références:", error);
     } finally {
       setLoadingReferences(false);
     }
   };
-  
+
   // Charger les données
   const fetchData = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
-      // Charger les étudiants non boursiers
-      const [etudiantsResponse, boursesResponse] = await Promise.all([
-        api.get('/etudiants/?boursier=NON'),
-        api.get('/bourses/?status=REJETEE')
-      ]);
-      
+      // Charger tous les étudiants (boursiers et non boursiers)
+      const etudiantsResponse = await api.get('/etudiants/');
+
+      // Charger toutes les bourses rejetées
+      const boursesResponse = await api.get('/bourses/');
+
       if (etudiantsResponse.data && boursesResponse.data) {
-        const etudiantsData = Array.isArray(etudiantsResponse.data) 
-          ? etudiantsResponse.data 
-          : etudiantsResponse.data.results || [];
-        
-        const boursesData = Array.isArray(boursesResponse.data)
-          ? boursesResponse.data
-          : boursesResponse.data.results || [];
-        
-        // Traiter les bourses rejetées
-        const boursesRejetees = boursesData;
-        
-        // Associer les étudiants avec leurs bourses rejetées
-        const etudiantsAvecBoursesRejetees = etudiantsData
-          .map(etudiant => {
-            const boursesEtudiant = boursesRejetees.filter(b => b.etudiant === etudiant.id);
-            return {
+        let etudiantsData = [];
+        let boursesData = [];
+
+        // Traiter les données d'étudiants
+        if (Array.isArray(etudiantsResponse.data)) {
+          etudiantsData = etudiantsResponse.data;
+        } else if (etudiantsResponse.data.results && Array.isArray(etudiantsResponse.data.results)) {
+          etudiantsData = etudiantsResponse.data.results;
+        }
+
+        // Traiter les données de bourses
+        if (Array.isArray(boursesResponse.data)) {
+          boursesData = boursesResponse.data;
+        } else if (boursesResponse.data.results && Array.isArray(boursesResponse.data.results)) {
+          boursesData = boursesResponse.data.results;
+        }
+
+        console.log("Total étudiants chargés:", etudiantsData.length);
+        console.log("Total bourses chargées:", boursesData.length);
+
+        // Filtrer les bourses rejetées
+        const boursesRejetees = boursesData.filter(b => b.status === "REJETEE");
+        console.log("Bourses rejetées:", boursesRejetees.length);
+
+        // Identifier les étudiants avec bourses rejetées
+        const etudiantsAvecBoursesRejetees = [];
+        const etudiantsNonBoursiersList = [];
+
+        etudiantsData.forEach(etudiant => {
+          // Trouver les bourses rejetées de cet étudiant
+          const boursesEtudiant = boursesRejetees.filter(b => {
+            if (typeof b.etudiant === 'object' && b.etudiant !== null) {
+              return b.etudiant.id === etudiant.id;
+            }
+            return b.etudiant === etudiant.id;
+          });
+
+          if (boursesEtudiant.length > 0) {
+            // Étudiant avec bourse rejetée
+            etudiantsAvecBoursesRejetees.push({
               ...etudiant,
               bourses: boursesEtudiant,
-              has_bourse_rejetee: boursesEtudiant.length > 0
-            };
-          });
-        
-        // Séparer les étudiants non boursiers et ceux avec bourses rejetées
-        const etudiantsNonBoursiers = etudiantsAvecBoursesRejetees.filter(e => !e.has_bourse_rejetee);
-        const etudiantsBoursesRejetees = etudiantsAvecBoursesRejetees.filter(e => e.has_bourse_rejetee);
-        
-        setEtudiants(activeTab === 'rejetees' ? etudiantsBoursesRejetees : etudiantsNonBoursiers);
-        setEtudiantsRejetes(etudiantsBoursesRejetees);
-        setTotalCount(activeTab === 'rejetees' ? etudiantsBoursesRejetees.length : etudiantsNonBoursiers.length);
-        setTotalPages(Math.ceil((activeTab === 'rejetees' ? etudiantsBoursesRejetees.length : etudiantsNonBoursiers.length) / itemsPerPage));
-        
+              has_bourse_rejetee: true
+            });
+          } else if (etudiant.boursier === 'NON') {
+            // Étudiant non boursier (sans bourse)
+            etudiantsNonBoursiersList.push({
+              ...etudiant,
+              bourses: [],
+              has_bourse_rejetee: false
+            });
+          }
+        });
+
+        console.log("Étudiants avec bourses rejetées:", etudiantsAvecBoursesRejetees.length);
+        console.log("Étudiants non boursiers:", etudiantsNonBoursiersList.length);
+
+        setEtudiantsRejetes(etudiantsAvecBoursesRejetees);
+        setEtudiantsNonBoursiers(etudiantsNonBoursiersList);
+
+        // Définir les données selon l'onglet actif
+        if (activeTab === 'rejetees') {
+          setEtudiants(etudiantsAvecBoursesRejetees);
+          setTotalCount(etudiantsAvecBoursesRejetees.length);
+        } else {
+          setEtudiants(etudiantsNonBoursiersList);
+          setTotalCount(etudiantsNonBoursiersList.length);
+        }
+
+        setTotalPages(Math.ceil(totalCount / itemsPerPage));
+
         // Calculer les statistiques
-        calculateStats(etudiantsBoursesRejetees, etudiantsNonBoursiers);
-        
+        calculateStats(etudiantsAvecBoursesRejetees, etudiantsNonBoursiersList);
+
         // Extraire les listes pour les filtres
-        extractFilterLists(etudiantsBoursesRejetees);
-        
-        // Extraire les raisons de rejet (depuis les conditions)
+        extractFilterLists();
+
+        // Extraire les raisons de rejet
         extractRejectionReasons(boursesRejetees);
       }
     } catch (err) {
@@ -321,39 +338,37 @@ export default function NonBourses() {
       setLoading(false);
     }
   };
-  
+
   // Extraire les raisons de rejet
   const extractRejectionReasons = (boursesRejetees) => {
     const reasonsSet = new Set();
-    
+
     boursesRejetees.forEach(bourse => {
       if (bourse.conditions) {
-        // Analyser les conditions pour extraire les raisons
         const conditions = bourse.conditions.toLowerCase();
-        
+
         if (conditions.includes('dossier incomplet')) reasonsSet.add('Dossier incomplet');
         if (conditions.includes('critères non remplis')) reasonsSet.add('Critères non remplis');
         if (conditions.includes('quota atteint')) reasonsSet.add('Quota atteint');
-        if (conditions.includes('revenue')) reasonsSet.add('Revenue trop élevée');
+        if (conditions.includes('revenue') || conditions.includes('revenu')) reasonsSet.add('Revenue trop élevée');
         if (conditions.includes('doublon')) reasonsSet.add('Doublon d\'identité');
         if (conditions.includes('note')) reasonsSet.add('Notes insuffisantes');
         if (conditions.includes('absence')) reasonsSet.add('Absence de documents');
-        
-        // Ajouter les conditions personnalisées
-        if (!conditions.includes('dossier') && !conditions.includes('critères') && 
-            !conditions.includes('quota') && !conditions.includes('revenue') && 
-            !conditions.includes('doublon') && !conditions.includes('note') && 
-            !conditions.includes('absence')) {
+
+        if (!conditions.includes('dossier') && !conditions.includes('critères') &&
+          !conditions.includes('quota') && !conditions.includes('revenue') &&
+          !conditions.includes('revenu') && !conditions.includes('doublon') &&
+          !conditions.includes('note') && !conditions.includes('absence')) {
           reasonsSet.add('Autre raison');
         }
       } else {
         reasonsSet.add('Raison non spécifiée');
       }
     });
-    
+
     setRaisons(Array.from(reasonsSet).sort());
   };
-  
+
   // Calculer les statistiques
   const calculateStats = (boursesRejetees, nonBoursiers) => {
     const statsObj = {
@@ -364,37 +379,33 @@ export default function NonBourses() {
       par_raison: {},
       par_mois: {}
     };
-    
+
     // Statistiques pour les bourses rejetées
     boursesRejetees.forEach(etudiant => {
-      // Par faculté (utiliser getNomFaculte)
       const faculteNom = getNomFaculte(etudiant.faculte);
       statsObj.par_faculte[faculteNom] = (statsObj.par_faculte[faculteNom] || 0) + 1;
-      
-      // Par niveau
+
       const niveau = etudiant.niveau || 'Non spécifié';
       statsObj.par_niveau[niveau] = (statsObj.par_niveau[niveau] || 0) + 1;
-      
-      // Par raison
+
       if (etudiant.bourses.length > 0) {
         const bourse = etudiant.bourses[0];
         if (bourse.conditions) {
           const conditions = bourse.conditions.toLowerCase();
           let raison = 'Autre raison';
-          
+
           if (conditions.includes('dossier incomplet')) raison = 'Dossier incomplet';
           else if (conditions.includes('critères non remplis')) raison = 'Critères non remplis';
           else if (conditions.includes('quota atteint')) raison = 'Quota atteint';
-          else if (conditions.includes('revenue')) raison = 'Revenue trop élevée';
+          else if (conditions.includes('revenue') || conditions.includes('revenu')) raison = 'Revenue trop élevée';
           else if (conditions.includes('doublon')) raison = 'Doublon d\'identité';
           else if (conditions.includes('note')) raison = 'Notes insuffisantes';
           else if (conditions.includes('absence')) raison = 'Absence de documents';
-          
+
           statsObj.par_raison[raison] = (statsObj.par_raison[raison] || 0) + 1;
         }
       }
-      
-      // Par mois (basé sur la date de décision)
+
       etudiant.bourses.forEach(bourse => {
         if (bourse.date_decision) {
           const date = new Date(bourse.date_decision);
@@ -403,89 +414,103 @@ export default function NonBourses() {
         }
       });
     });
-    
+
+    // Statistiques pour les non boursiers
+    nonBoursiers.forEach(etudiant => {
+      const faculteNom = getNomFaculte(etudiant.faculte);
+      statsObj.par_faculte[faculteNom] = (statsObj.par_faculte[faculteNom] || 0) + 1;
+
+      const niveau = etudiant.niveau || 'Non spécifié';
+      statsObj.par_niveau[niveau] = (statsObj.par_niveau[niveau] || 0) + 1;
+    });
+
     setStats(statsObj);
   };
-  
+
   // Extraire les listes pour les filtres
-  const extractFilterLists = (etudiantsData) => {
+  const extractFilterLists = () => {
     const facultesSet = new Set();
     const niveauxSet = new Set();
     const anneesSet = new Set();
-    
-    etudiantsData.forEach(etudiant => {
-      // Utiliser getNomFaculte pour avoir le nom propre
+
+    // Pour les bourses rejetées
+    etudiantsRejetes.forEach(etudiant => {
       const faculteNom = getNomFaculte(etudiant.faculte);
-      if (faculteNom && faculteNom !== "N/A" && faculteNom !== `Faculté ${etudiant.faculte}`) {
+      if (faculteNom && faculteNom !== "N/A") {
         facultesSet.add(faculteNom);
       }
-      
+
       if (etudiant.niveau) niveauxSet.add(etudiant.niveau);
-      
-      // Extraire l'année académique des bourses
+
       etudiant.bourses.forEach(bourse => {
         if (bourse.annee_academique) {
           anneesSet.add(bourse.annee_academique);
         }
       });
     });
-    
-    // Trier alphabétiquement
-    const sortedFacultes = Array.from(facultesSet).sort();
-    console.log("Facultés extraites pour filtres:", sortedFacultes);
-    
-    setFacultes(sortedFacultes);
+
+    // Pour les non boursiers
+    etudiantsNonBoursiers.forEach(etudiant => {
+      const faculteNom = getNomFaculte(etudiant.faculte);
+      if (faculteNom && faculteNom !== "N/A") {
+        facultesSet.add(faculteNom);
+      }
+
+      if (etudiant.niveau) niveauxSet.add(etudiant.niveau);
+    });
+
+    setFacultes(Array.from(facultesSet).sort());
     setNiveaux(Array.from(niveauxSet).sort());
     setAnnees(Array.from(anneesSet).sort((a, b) => b.localeCompare(a)));
   };
-  
+
   // Appliquer les filtres
   const applyFilters = () => {
-    let filtered = activeTab === 'rejetees' ? [...etudiantsRejetes] : [...etudiantsRejetes];
-    
+    let filtered = activeTab === 'rejetees' ? [...etudiantsRejetes] : [...etudiantsNonBoursiers];
+
     // Filtre par recherche
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(etudiant => 
+      filtered = filtered.filter(etudiant =>
         (etudiant.nom && etudiant.nom.toLowerCase().includes(term)) ||
         (etudiant.prenom && etudiant.prenom.toLowerCase().includes(term)) ||
         (etudiant.matricule && etudiant.matricule.toLowerCase().includes(term)) ||
         (etudiant.cin && etudiant.cin.toLowerCase().includes(term))
       );
     }
-    
-    // Filtre par faculté (utiliser getNomFaculte pour la comparaison)
+
+    // Filtre par faculté
     if (filterFaculte) {
       filtered = filtered.filter(etudiant => {
         const faculteNom = getNomFaculte(etudiant.faculte);
         return faculteNom === filterFaculte;
       });
     }
-    
+
     // Filtre par niveau
     if (filterNiveau) {
-      filtered = filtered.filter(etudiant => 
+      filtered = filtered.filter(etudiant =>
         etudiant.niveau === filterNiveau
       );
     }
-    
-    // Filtre par année académique
-    if (filterAnnee) {
+
+    // Filtre par année académique (uniquement pour les rejetés)
+    if (activeTab === 'rejetees' && filterAnnee) {
       filtered = filtered.filter(etudiant =>
         etudiant.bourses.some(b => b.annee_academique === filterAnnee)
       );
     }
-    
+
     // Filtre par raison (uniquement pour les rejetés)
     if (activeTab === 'rejetees' && filterRaison) {
       filtered = filtered.filter(etudiant => {
         if (etudiant.bourses.length === 0) return false;
-        
+
         const bourse = etudiant.bourses[0];
         if (!bourse.conditions) return filterRaison === 'Raison non spécifiée';
-        
+
         const conditions = bourse.conditions.toLowerCase();
-        
+
         switch (filterRaison) {
           case 'Dossier incomplet':
             return conditions.includes('dossier incomplet');
@@ -494,7 +519,7 @@ export default function NonBourses() {
           case 'Quota atteint':
             return conditions.includes('quota atteint');
           case 'Revenue trop élevée':
-            return conditions.includes('revenue');
+            return conditions.includes('revenue') || conditions.includes('revenu');
           case 'Doublon d\'identité':
             return conditions.includes('doublon');
           case 'Notes insuffisantes':
@@ -502,10 +527,10 @@ export default function NonBourses() {
           case 'Absence de documents':
             return conditions.includes('absence');
           case 'Autre raison':
-            return !conditions.includes('dossier') && !conditions.includes('critères') && 
-                   !conditions.includes('quota') && !conditions.includes('revenue') && 
-                   !conditions.includes('doublon') && !conditions.includes('note') && 
-                   !conditions.includes('absence');
+            return !conditions.includes('dossier') && !conditions.includes('critères') &&
+              !conditions.includes('quota') && !conditions.includes('revenue') &&
+              !conditions.includes('revenu') && !conditions.includes('doublon') &&
+              !conditions.includes('note') && !conditions.includes('absence');
           case 'Raison non spécifiée':
             return !bourse.conditions || bourse.conditions.trim() === '';
           default:
@@ -513,13 +538,13 @@ export default function NonBourses() {
         }
       });
     }
-    
+
     setEtudiants(filtered);
     setTotalCount(filtered.length);
     setTotalPages(Math.ceil(filtered.length / itemsPerPage));
     setCurrentPage(1);
   };
-  
+
   // Effacer les filtres
   const clearFilters = () => {
     setSearchTerm("");
@@ -527,88 +552,170 @@ export default function NonBourses() {
     setFilterNiveau("");
     setFilterAnnee("");
     setFilterRaison("");
-    setEtudiants(activeTab === 'rejetees' ? [...etudiantsRejetes] : []);
-    setTotalCount(activeTab === 'rejetees' ? etudiantsRejetes.length : 0);
-    setTotalPages(Math.ceil((activeTab === 'rejetees' ? etudiantsRejetes.length : 0) / itemsPerPage));
+
+    if (activeTab === 'rejetees') {
+      setEtudiants([...etudiantsRejetes]);
+      setTotalCount(etudiantsRejetes.length);
+    } else {
+      setEtudiants([...etudiantsNonBoursiers]);
+      setTotalCount(etudiantsNonBoursiers.length);
+    }
+
+    setTotalPages(Math.ceil(totalCount / itemsPerPage));
     setCurrentPage(1);
   };
-  
+
   // Changer d'onglet
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     setCurrentPage(1);
-    
-    // Mettre à jour les données selon l'onglet
+
     if (tab === 'rejetees') {
       setEtudiants([...etudiantsRejetes]);
       setTotalCount(etudiantsRejetes.length);
-      setTotalPages(Math.ceil(etudiantsRejetes.length / itemsPerPage));
     } else {
-      // Pour les non-boursiers, il faudrait les charger séparément
-      // Pour l'instant, on vide la liste
-      setEtudiants([]);
-      setTotalCount(0);
-      setTotalPages(1);
+      setEtudiants([...etudiantsNonBoursiers]);
+      setTotalCount(etudiantsNonBoursiers.length);
     }
+
+    setTotalPages(Math.ceil(totalCount / itemsPerPage));
+
+    // Réinitialiser les filtres spécifiques à l'onglet
+    setFilterAnnee("");
+    setFilterRaison("");
   };
-  
+
   // Afficher les détails d'un étudiant
   const showEtudiantDetails = (etudiant) => {
     setSelectedEtudiant(etudiant);
     setSelectedBourse(etudiant.bourses && etudiant.bourses.length > 0 ? etudiant.bourses[0] : null);
     setShowDetailsModal(true);
   };
-  
+
   // Afficher les raisons de rejet
   const showRejectionReasons = (etudiant) => {
     setSelectedEtudiant(etudiant);
     setSelectedBourse(etudiant.bourses && etudiant.bourses.length > 0 ? etudiant.bourses[0] : null);
     setShowReasonsModal(true);
   };
+
+// Accepter une bourse (changer son statut)
+const handleAcceptBourse = async () => {
+  if (!selectedBourse) return;
   
-  // Accepter une bourse (changer son statut)
-  const handleAcceptBourse = async () => {
-    if (!selectedBourse) return;
+  try {
+    // Calculer le montant de bourse selon les règles de l'université
+    let montant = 0;
+    const niveau = selectedEtudiant.niveau || '';
+    const codeRedoublement = selectedEtudiant.code_redoublement || 'N';
+    const niveauUpper = niveau.toUpperCase();
     
-    try {
-      const updatedBourse = { 
-        ...selectedBourse, 
-        status: 'ACCEPTEE', 
-        date_decision: new Date().toISOString() 
-      };
-      const response = await api.put(`/bourses/${selectedBourse.id}/`, updatedBourse);
-      
-      if (response.data) {
-        // Retirer l'étudiant de la liste actuelle
-        const updatedEtudiants = etudiants.filter(etudiant => 
-          etudiant.id !== selectedEtudiant.id
-        );
-        
-        setEtudiants(updatedEtudiants);
-        setEtudiantsRejetes(updatedEtudiants);
-        setShowAcceptModal(false);
-        showNotification("Succès", "Bourse acceptée avec succès", 'success', <FaRedo />);
+    // IMPORTANT: L'étudiant devient automatiquement boursier quand on accepte sa bourse
+    // Donc on calcule le montant comme si l'étudiant était boursier
+    
+    // Triplant = pas de bourse
+    if (codeRedoublement === 'T') {
+      montant = 0;
+    } else {
+      // Master et Doctorat
+      if (niveauUpper.includes("M2") || niveauUpper.includes("M1") || 
+          niveauUpper.includes("MASTER") || niveauUpper.includes("DOCTORAT") || 
+          niveauUpper.includes("DOT")) {
+        montant = codeRedoublement === 'N' ? 48400.00 : 48400.00 / 2;
       }
-    } catch (error) {
-      console.error("Erreur lors de l'acceptation:", error);
-      showNotification("Erreur", "Erreur lors de l'acceptation", 'danger');
+      // Licence 3
+      else if (niveauUpper.includes("LICENCE 3") || niveauUpper.includes("L3")) {
+        montant = codeRedoublement === 'N' ? 36300.00 : 36300.00 / 2;
+      }
+      // Licence 2
+      else if (niveauUpper.includes("LICENCE 2") || niveauUpper.includes("L2")) {
+        montant = codeRedoublement === 'N' ? 30250.00 : 30250.00 / 2;
+      }
+      // Licence 1
+      else if (niveauUpper.includes("LICENCE 1") || niveauUpper.includes("L1")) {
+        montant = codeRedoublement === 'N' ? 24200.00 : 24200.00 / 2;
+      }
+      // Pour les autres niveaux non spécifiés
+      else {
+        // Par défaut, on prend le montant de la bourse rejetée
+        montant = parseFloat(selectedBourse.montant) || 0;
+      }
     }
-  };
-  
+    
+    // Étape 1: Mettre à jour la bourse
+    const updatedBourse = { 
+      ...selectedBourse, 
+      status: 'ACCEPTEE', 
+      montant: montant,
+      date_decision: new Date().toISOString(),
+      conditions: "Bourse acceptée après rejet initial"
+    };
+    
+    const responseBourse = await api.put(`/bourses/${selectedBourse.id}/`, updatedBourse);
+    
+    if (responseBourse.data) {
+      // Étape 2: Mettre à jour l'étudiant pour le rendre boursier
+      const updatedEtudiant = {
+        ...selectedEtudiant,
+        boursier: 'OUI', // IMPORTANT: L'étudiant devient boursier
+        bourse: montant   // Mettre à jour le champ bourse dans l'étudiant
+      };
+      
+      try {
+        // Mettre à jour l'étudiant dans la base de données
+        const responseEtudiant = await api.put(`/etudiants/${selectedEtudiant.id}/`, updatedEtudiant);
+        
+        if (responseEtudiant.data) {
+          // Étape 3: Retirer l'étudiant de la liste actuelle
+          const updatedEtudiantsRejetes = etudiantsRejetes.filter(etudiant => 
+            etudiant.id !== selectedEtudiant.id
+          );
+          
+          setEtudiantsRejetes(updatedEtudiantsRejetes);
+          
+          if (activeTab === 'rejetees') {
+            setEtudiants(updatedEtudiantsRejetes);
+            setTotalCount(updatedEtudiantsRejetes.length);
+          }
+          
+          setShowAcceptModal(false);
+          showNotification(
+            "Succès", 
+            `Bourse acceptée avec succès. L'étudiant est maintenant boursier. Montant: ${montant.toLocaleString('fr-FR')} MGA`, 
+            'success', 
+            <FaRedo />
+          );
+        }
+      } catch (etudiantError) {
+        console.error("Erreur lors de la mise à jour de l'étudiant:", etudiantError);
+        showNotification("Avertissement", "Bourse acceptée mais erreur lors de la mise à jour du statut boursier", 'warning');
+      }
+    }
+  } catch (error) {
+    console.error("Erreur lors de l'acceptation:", error);
+    showNotification("Erreur", "Erreur lors de l'acceptation", 'danger');
+  }
+};
+
   // Supprimer une bourse rejetée
   const handleDeleteBourse = async () => {
     if (!selectedBourse) return;
-    
+
     try {
       await api.delete(`/bourses/${selectedBourse.id}/`);
-      
+
       // Retirer l'étudiant de la liste
-      const updatedEtudiants = etudiants.filter(etudiant => 
+      const updatedEtudiantsRejetes = etudiantsRejetes.filter(etudiant =>
         etudiant.id !== selectedEtudiant.id
       );
-      
-      setEtudiants(updatedEtudiants);
-      setEtudiantsRejetes(updatedEtudiants);
+
+      setEtudiantsRejetes(updatedEtudiantsRejetes);
+
+      if (activeTab === 'rejetees') {
+        setEtudiants(updatedEtudiantsRejetes);
+        setTotalCount(updatedEtudiantsRejetes.length);
+      }
+
       setShowDeleteModal(false);
       showNotification("Succès", "Bourse supprimée avec succès", 'success', <FaTrash />);
     } catch (error) {
@@ -616,7 +723,7 @@ export default function NonBourses() {
       showNotification("Erreur", "Erreur lors de la suppression", 'danger');
     }
   };
-  
+
   // Fonction pour formater la date
   const formatDate = (dateString) => {
     if (!dateString) return '';
@@ -627,19 +734,19 @@ export default function NonBourses() {
       return dateString;
     }
   };
-  
+
   // Exporter en Excel
   const exportToExcel = () => {
     setExporting(true);
     setExportProgress(0);
-    
+
     try {
       // Préparer les données selon l'onglet actif
       const exportData = etudiants.map((etudiant, index) => {
         const bourse = etudiant.bourses && etudiant.bourses.length > 0 ? etudiant.bourses[0] : null;
-        
+
         setExportProgress((index / etudiants.length) * 100);
-        
+
         const data = {
           'Numéro': index + 1,
           'Matricule': etudiant.matricule || '',
@@ -649,41 +756,41 @@ export default function NonBourses() {
           'Date Naissance': etudiant.date_naissance ? formatDate(etudiant.date_naissance) : '',
           'Téléphone': etudiant.telephone || '',
           'Email': etudiant.email || '',
-          'Faculté': getNomFaculte(etudiant.faculte), // Utiliser getNomFaculte
-          'Domaine': getNomDomaine(etudiant.domaine), // Utiliser getNomDomaine
-          'Mention': getNomMention(etudiant.mention), // Utiliser getNomMention
+          'Faculté': getNomFaculte(etudiant.faculte),
+          'Domaine': getNomDomaine(etudiant.domaine),
+          'Mention': getNomMention(etudiant.mention),
           'Niveau': etudiant.niveau || ''
         };
-        
+
         if (activeTab === 'rejetees' && bourse) {
           data['Montant Bourse'] = `${parseFloat(bourse.montant || 0).toLocaleString('fr-FR')} MGA`;
           data['Année Académique'] = bourse.annee_academique || '';
           data['Date Décision'] = bourse.date_decision ? formatDate(bourse.date_decision) : '';
           data['Statut'] = 'REJETEE';
           data['Raison'] = bourse.conditions || 'Non spécifiée';
-        } else {
-          data['Statut'] = 'NON BOUSSIER';
+        } else if (activeTab === 'nonboursiers') {
+          data['Statut'] = 'NON BOURSIER';
           data['Raison'] = 'Pas de demande de bourse';
         }
-        
+
         return data;
       });
-      
+
       // Créer le workbook
       const ws = XLSX.utils.json_to_sheet(exportData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, activeTab === 'rejetees' ? 'Bourses Rejetées' : 'Non Boursiers');
-      
+
       // Télécharger
-      const filename = activeTab === 'rejetees' 
+      const filename = activeTab === 'rejetees'
         ? `bourses_rejetees_${new Date().toISOString().split('T')[0]}.xlsx`
         : `non_boursiers_${new Date().toISOString().split('T')[0]}.xlsx`;
-      
+
       XLSX.writeFile(wb, filename);
-      
+
       setExportProgress(100);
       showNotification("Succès", "Exportation Excel terminée", 'success', <FaFileExcel />);
-      
+
     } catch (error) {
       console.error("Erreur lors de l'exportation:", error);
       showNotification("Erreur", "Erreur lors de l'exportation", 'danger');
@@ -694,26 +801,23 @@ export default function NonBourses() {
       }, 1000);
     }
   };
-  
+
   // Pagination
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentEtudiants = etudiants.slice(indexOfFirstItem, indexOfLastItem);
-  
+
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
-  
-  // Initialiser les données: charger d'abord les références puis les étudiants
+
+  // Initialiser les données
   useEffect(() => {
     const init = async () => {
       try {
         await fetchReferences();
       } catch (e) {
-        console.warn('Erreur lors du chargement des références au démarrage', e);
+        console.warn('Erreur lors du chargement des références', e);
       }
 
-      // Attendre un peu pour être sûr que les références sont chargées
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
       await fetchData();
     };
 
@@ -722,17 +826,16 @@ export default function NonBourses() {
 
   // Re-extraire les filtres quand facultesList est chargée
   useEffect(() => {
-    if (facultesList.length > 0 && etudiantsRejetes.length > 0) {
-      console.log("Re-extraction des filtres après chargement des facultes");
-      extractFilterLists(etudiantsRejetes);
+    if (facultesList.length > 0 && (etudiantsRejetes.length > 0 || etudiantsNonBoursiers.length > 0)) {
+      extractFilterLists();
     }
-  }, [facultesList]);
-  
+  }, [facultesList, etudiantsRejetes, etudiantsNonBoursiers]);
+
   // Appliquer les filtres quand ils changent
   useEffect(() => {
     applyFilters();
-  }, [searchTerm, filterFaculte, filterNiveau, filterAnnee, filterRaison, activeTab]);
-  
+  }, [searchTerm, filterFaculte, filterNiveau, filterAnnee, filterRaison, activeTab, etudiantsRejetes, etudiantsNonBoursiers]);
+
   return (
     <div className="container-fluid py-4">
       {/* Toast Notifications */}
@@ -752,7 +855,7 @@ export default function NonBourses() {
           <Toast.Body>{toastConfig.message}</Toast.Body>
         </Toast>
       </ToastContainer>
-      
+
       {/* En-tête */}
       <div className="row mb-4">
         <div className="col">
@@ -763,7 +866,7 @@ export default function NonBourses() {
                 {activeTab === 'rejetees' ? 'Bourses Rejetées' : 'Étudiants Non Boursiers'}
               </h1>
               <p className="text-muted mb-0">
-                {activeTab === 'rejetees' 
+                {activeTab === 'rejetees'
                   ? 'Liste des étudiants dont les demandes de bourse ont été rejetées'
                   : 'Liste des étudiants sans bourse (non boursiers)'}
               </p>
@@ -773,6 +876,7 @@ export default function NonBourses() {
                 variant={activeTab === 'rejetees' ? 'outline-danger' : 'outline-secondary'}
                 onClick={() => setShowExportModal(true)}
                 className="me-2"
+                disabled={etudiants.length === 0}
               >
                 <FaFileExcel className="me-1" /> Exporter Excel
               </Button>
@@ -788,7 +892,7 @@ export default function NonBourses() {
           </div>
         </div>
       </div>
-      
+
       {/* Onglets */}
       <div className="row mb-4">
         <div className="col-12">
@@ -805,10 +909,8 @@ export default function NonBourses() {
                   {stats.total_rejetees}
                 </Badge>
               </span>
-            }>
-              {/* Contenu des bourses rejetées */}
-            </Tab>
-            <Tab eventKey="nonboursiers" title={
+            } />
+            {/* <Tab eventKey="nonboursiers" title={
               <span>
                 <FaUserSlash className="me-1" />
                 Non Boursiers
@@ -816,14 +918,12 @@ export default function NonBourses() {
                   {stats.total_nonboursiers}
                 </Badge>
               </span>
-            }>
-              {/* Contenu des non boursiers */}
-            </Tab>
+            } /> */}
           </Tabs>
         </div>
       </div>
-      
-      {/* Statistiques pour les bourses rejetées */}
+
+      {/* Statistiques */}
       {activeTab === 'rejetees' && (
         <div className="row mb-4">
           <div className="col-md-3">
@@ -870,8 +970,7 @@ export default function NonBourses() {
           </div>
         </div>
       )}
-      
-      {/* Statistiques pour les non boursiers */}
+
       {activeTab === 'nonboursiers' && (
         <div className="row mb-4">
           <div className="col-md-4">
@@ -907,7 +1006,7 @@ export default function NonBourses() {
           </div>
         </div>
       )}
-      
+
       {/* Barre de filtres */}
       <div className="card mb-4">
         <div className="card-body">
@@ -972,8 +1071,7 @@ export default function NonBourses() {
                 </div>
               </>
             )}
-            <div className={activeTab === 'rejetees' ? 'col-md-1' : 'col-md-3'}></div>
-            <div className={activeTab === 'rejetees' ? 'col-md-1' : 'col-md-3'} text-end>
+            <div className="col-md-3 text-end">
               <Button
                 variant="outline-secondary"
                 onClick={clearFilters}
@@ -988,7 +1086,7 @@ export default function NonBourses() {
           </div>
         </div>
       </div>
-      
+
       {/* Tableau principal */}
       <div className="card">
         <div className="card-body">
@@ -1011,7 +1109,7 @@ export default function NonBourses() {
             <div className="text-center py-5">
               <FaSearch className="text-muted mb-3" size={48} />
               <p className="text-muted">
-                {activeTab === 'rejetees' 
+                {activeTab === 'rejetees'
                   ? 'Aucun étudiant avec bourse rejetée trouvé'
                   : 'Aucun étudiant non boursier trouvé'}
               </p>
@@ -1043,11 +1141,11 @@ export default function NonBourses() {
                     </Form.Select>
                     <span className="ms-2">éléments</span>
                   </div>
-                  
+
                   <Pagination>
                     <Pagination.First onClick={() => paginate(1)} disabled={currentPage === 1} />
                     <Pagination.Prev onClick={() => paginate(currentPage - 1)} disabled={currentPage === 1} />
-                    
+
                     {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                       let pageNumber;
                       if (totalPages <= 5) {
@@ -1059,7 +1157,7 @@ export default function NonBourses() {
                       } else {
                         pageNumber = currentPage - 2 + i;
                       }
-                      
+
                       return pageNumber > 0 && pageNumber <= totalPages ? (
                         <Pagination.Item
                           key={pageNumber}
@@ -1070,13 +1168,13 @@ export default function NonBourses() {
                         </Pagination.Item>
                       ) : null;
                     })}
-                    
+
                     <Pagination.Next onClick={() => paginate(currentPage + 1)} disabled={currentPage === totalPages} />
                     <Pagination.Last onClick={() => paginate(totalPages)} disabled={currentPage === totalPages} />
                   </Pagination>
                 </div>
               )}
-              
+
               {/* Tableau */}
               <div className="table-responsive">
                 <Table striped hover className="align-middle">
@@ -1098,7 +1196,7 @@ export default function NonBourses() {
                   <tbody>
                     {currentEtudiants.map((etudiant, index) => {
                       const bourse = etudiant.bourses && etudiant.bourses.length > 0 ? etudiant.bourses[0] : null;
-                      
+
                       return (
                         <tr key={etudiant.id}>
                           <td>{indexOfFirstItem + index + 1}</td>
@@ -1141,17 +1239,17 @@ export default function NonBourses() {
                             <>
                               <td>
                                 <div className="fw-bold text-danger">
-                                  {bourse ? `${parseFloat(bourse.montant).toLocaleString('fr-FR')} MGA` : '0 MGA'}
+                                  {bourse.montant ? `${parseFloat(bourse.montant).toLocaleString('fr-FR')} MGA` : '0 MGA'}
                                 </div>
                                 <div className="text-muted small">
-                                  Année: {bourse ? bourse.annee_academique : '-'}
+                                  Année: {bourse.annee_academique || '-'}
                                 </div>
                                 <Badge bg="danger" pill className="mt-1">
                                   REJETEE
                                 </Badge>
                               </td>
                               <td>
-                                {bourse && bourse.date_decision ? (
+                                {bourse.date_decision ? (
                                   <div className="small">
                                     <div>
                                       <FaCalendarAlt className="me-1" />
@@ -1176,7 +1274,7 @@ export default function NonBourses() {
                           {activeTab === 'nonboursiers' && (
                             <td colSpan="2">
                               <Badge bg="secondary" pill>
-                                NON BOUSSIER
+                                NON BOURSIER
                               </Badge>
                               <div className="text-muted small mt-1">
                                 Pas de demande de bourse
@@ -1226,7 +1324,7 @@ export default function NonBourses() {
                   </tbody>
                 </Table>
               </div>
-              
+
               {/* Pagination en bas */}
               {totalCount > itemsPerPage && (
                 <div className="d-flex justify-content-between align-items-center mt-3">
@@ -1236,7 +1334,7 @@ export default function NonBourses() {
                   <Pagination>
                     <Pagination.First onClick={() => paginate(1)} disabled={currentPage === 1} />
                     <Pagination.Prev onClick={() => paginate(currentPage - 1)} disabled={currentPage === 1} />
-                    
+
                     {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                       let pageNumber;
                       if (totalPages <= 5) {
@@ -1248,7 +1346,7 @@ export default function NonBourses() {
                       } else {
                         pageNumber = currentPage - 2 + i;
                       }
-                      
+
                       return pageNumber > 0 && pageNumber <= totalPages ? (
                         <Pagination.Item
                           key={pageNumber}
@@ -1259,7 +1357,7 @@ export default function NonBourses() {
                         </Pagination.Item>
                       ) : null;
                     })}
-                    
+
                     <Pagination.Next onClick={() => paginate(currentPage + 1)} disabled={currentPage === totalPages} />
                     <Pagination.Last onClick={() => paginate(totalPages)} disabled={currentPage === totalPages} />
                   </Pagination>
@@ -1269,7 +1367,7 @@ export default function NonBourses() {
           )}
         </div>
       </div>
-      
+
       {/* Modal Détails */}
       <Modal show={showDetailsModal} onHide={() => setShowDetailsModal(false)} size="lg">
         <Modal.Header closeButton className="bg-info text-white">
@@ -1297,7 +1395,7 @@ export default function NonBourses() {
                     <tr>
                       <th>Date naissance:</th>
                       <td>
-                        {selectedEtudiant.date_naissance 
+                        {selectedEtudiant.date_naissance
                           ? formatDate(selectedEtudiant.date_naissance)
                           : 'Non spécifié'
                         }
@@ -1311,10 +1409,18 @@ export default function NonBourses() {
                       <th>Email:</th>
                       <td>{selectedEtudiant.email || 'Non spécifié'}</td>
                     </tr>
+                    <tr>
+                      <th>Statut boursier:</th>
+                      <td>
+                        <Badge bg={selectedEtudiant.boursier === 'OUI' ? 'success' : 'secondary'}>
+                          {selectedEtudiant.boursier === 'OUI' ? 'BOURSIER' : 'NON BOURSIER'}
+                        </Badge>
+                      </td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
-              
+
               {activeTab === 'rejetees' && selectedBourse && (
                 <div className="col-md-6">
                   <h5 className="text-danger mb-3">Informations bourse rejetée</h5>
@@ -1323,12 +1429,12 @@ export default function NonBourses() {
                       <tr>
                         <th>Montant:</th>
                         <td className="fw-bold text-danger">
-                          {parseFloat(selectedBourse.montant).toLocaleString('fr-FR')} MGA
+                          {selectedBourse.montant ? `${parseFloat(selectedBourse.montant).toLocaleString('fr-FR')} MGA` : '0 MGA'}
                         </td>
                       </tr>
                       <tr>
                         <th>Année académique:</th>
-                        <td>{selectedBourse.annee_academique}</td>
+                        <td>{selectedBourse.annee_academique || 'Non spécifié'}</td>
                       </tr>
                       <tr>
                         <th>Statut:</th>
@@ -1345,11 +1451,29 @@ export default function NonBourses() {
                           }
                         </td>
                       </tr>
+                      <tr>
+                        <th>Date début:</th>
+                        <td>
+                          {selectedBourse.date_debut
+                            ? formatDate(selectedBourse.date_debut)
+                            : 'Non spécifié'
+                          }
+                        </td>
+                      </tr>
+                      <tr>
+                        <th>Date fin:</th>
+                        <td>
+                          {selectedBourse.date_fin
+                            ? formatDate(selectedBourse.date_fin)
+                            : 'Non spécifié'
+                          }
+                        </td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>
               )}
-              
+
               <div className="col-12 mt-3">
                 <h5 className="text-warning mb-3">Formation</h5>
                 <div className="bg-light p-3 rounded">
@@ -1372,16 +1496,20 @@ export default function NonBourses() {
                       <strong>Niveau:</strong>
                       <Badge bg="info">{selectedEtudiant.niveau}</Badge>
                     </div>
-                    <div className="col-md-8">
-                      <strong>Statut boursier:</strong>
-                      <Badge bg={selectedEtudiant.boursier === 'OUI' ? 'success' : 'secondary'}>
-                        {selectedEtudiant.boursier === 'OUI' ? 'BOURSIER' : 'NON BOURSIER'}
+                    <div className="col-md-4">
+                      <strong>Code redoublement:</strong>
+                      <Badge bg={
+                        selectedEtudiant.code_redoublement === 'N' ? 'success' :
+                          selectedEtudiant.code_redoublement === 'R' ? 'warning' : 'danger'
+                      }>
+                        {selectedEtudiant.code_redoublement === 'N' ? 'Non redoublant' :
+                          selectedEtudiant.code_redoublement === 'R' ? 'Redoublant' : 'Triplant'}
                       </Badge>
                     </div>
                   </div>
                 </div>
               </div>
-              
+
               {activeTab === 'rejetees' && selectedBourse && selectedBourse.conditions && (
                 <div className="col-12 mt-3">
                   <h5 className="text-danger mb-3">Raison du rejet</h5>
@@ -1399,7 +1527,7 @@ export default function NonBourses() {
           </Button>
         </Modal.Footer>
       </Modal>
-      
+
       {/* Modal Raisons de Rejet */}
       <Modal show={showReasonsModal} onHide={() => setShowReasonsModal(false)}>
         <Modal.Header closeButton className="bg-danger text-white">
@@ -1411,15 +1539,15 @@ export default function NonBourses() {
               <FaTimes className="text-danger mb-3" size={48} />
               <h5>{selectedEtudiant.nom} {selectedEtudiant.prenom}</h5>
               <p className="text-muted">Matricule: {selectedEtudiant.matricule}</p>
-              
+
               <div className="bg-light p-3 rounded mt-3">
                 <h6 className="text-danger">Raison principale :</h6>
                 <p className="fw-bold">
-                  {selectedBourse.conditions 
-                    ? selectedBourse.conditions.split('.')[0] 
+                  {selectedBourse.conditions
+                    ? selectedBourse.conditions.split('.')[0]
                     : 'Raison non spécifiée'}
                 </p>
-                
+
                 {selectedBourse.conditions && selectedBourse.conditions.length > 100 && (
                   <>
                     <h6 className="text-danger mt-3">Détails :</h6>
@@ -1427,10 +1555,10 @@ export default function NonBourses() {
                   </>
                 )}
               </div>
-              
+
               <Alert variant="info" className="mt-3">
                 <FaHistory className="me-2" />
-                Date de décision: {selectedBourse.date_decision 
+                Date de décision: {selectedBourse.date_decision
                   ? formatDate(selectedBourse.date_decision)
                   : 'Non spécifiée'
                 }
@@ -1444,42 +1572,103 @@ export default function NonBourses() {
           </Button>
         </Modal.Footer>
       </Modal>
-      
-      {/* Modal Accepter Bourse */}
-      <Modal show={showAcceptModal} onHide={() => setShowAcceptModal(false)}>
-        <Modal.Header closeButton className="bg-success text-white">
-          <Modal.Title>Accepter la bourse</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          {selectedEtudiant && selectedBourse && (
-            <div className="text-center">
-              <FaRedo className="text-success mb-3" size={48} />
-              <h5>Confirmer l'acceptation de la bourse</h5>
-              <p className="mt-3">
-                <strong>{selectedEtudiant.nom} {selectedEtudiant.prenom}</strong><br />
-                <span className="text-muted">Matricule: {selectedEtudiant.matricule}</span>
-              </p>
-              <p>
-                Montant: <strong className="text-success">{parseFloat(selectedBourse.montant).toLocaleString('fr-FR')} MGA</strong>
-              </p>
-              <Alert variant="success">
-                <FaCheck className="me-2" />
-                Cette action changera le statut de la bourse de "REJETEE" à "ACCEPTEE".
-                L'étudiant apparaîtra dans la liste des bourses acceptées.
-              </Alert>
+{/* Modal Accepter Bourse - CORRIGÉ */}
+<Modal show={showAcceptModal} onHide={() => setShowAcceptModal(false)}>
+  <Modal.Header closeButton className="bg-success text-white">
+    <Modal.Title>Accepter la bourse</Modal.Title>
+  </Modal.Header>
+  <Modal.Body>
+    {selectedEtudiant && selectedBourse && (
+      <div className="text-center">
+        <FaRedo className="text-success mb-3" size={48} />
+        <h5>Confirmer l'acceptation de la bourse</h5>
+        <p className="mt-3">
+          <strong>{selectedEtudiant.nom} {selectedEtudiant.prenom}</strong><br />
+          <span className="text-muted">Matricule: {selectedEtudiant.matricule}</span>
+        </p>
+        
+        {/* Calculer le montant avant de l'afficher */}
+        {(() => {
+          // Calculer le montant selon les règles de l'université
+          let montant = 0;
+          const niveau = selectedEtudiant.niveau || '';
+          const codeRedoublement = selectedEtudiant.code_redoublement || 'N';
+          const niveauUpper = niveau.toUpperCase();
+          
+          // IMPORTANT: L'étudiant DEVRAIT être boursier après acceptation
+          // Donc on calcule le montant comme s'il était boursier
+          
+          if (codeRedoublement === 'T') {
+            montant = 0;
+          } else {
+            // Master et Doctorat
+            if (niveauUpper.includes("M2") || niveauUpper.includes("M1") ||
+                niveauUpper.includes("MASTER") || niveauUpper.includes("DOCTORAT") ||
+                niveauUpper.includes("DOT")) {
+              montant = codeRedoublement === 'N' ? 48400.00 : 48400.00 / 2;
+            }
+            // Licence 3
+            else if (niveauUpper.includes("LICENCE 3") || niveauUpper.includes("L3")) {
+              montant = codeRedoublement === 'N' ? 36300.00 : 36300.00 / 2;
+            }
+            // Licence 2
+            else if (niveauUpper.includes("LICENCE 2") || niveauUpper.includes("L2")) {
+              montant = codeRedoublement === 'N' ? 30250.00 : 30250.00 / 2;
+            }
+            // Licence 1
+            else if (niveauUpper.includes("LICENCE 1") || niveauUpper.includes("L1")) {
+              montant = codeRedoublement === 'N' ? 24200.00 : 24200.00 / 2;
+            }
+          }
+          
+          return (
+            <div className="my-4">
+              <div className="mb-2">
+                <strong>Montant de la bourse à accorder:</strong>
+              </div>
+              <div className="fs-4 fw-bold text-success">
+                {montant.toLocaleString('fr-FR')} MGA
+              </div>
+              <div className="text-muted small mt-1">
+                Ce montant sera attribué automatiquement à l'étudiant.
+                <br />
+                <strong>Note:</strong> L'étudiant deviendra automatiquement boursier.
+              </div>
             </div>
-          )}
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowAcceptModal(false)}>
-            Annuler
-          </Button>
-          <Button variant="success" onClick={handleAcceptBourse}>
-            <FaRedo className="me-1" /> Accepter la bourse
-          </Button>
-        </Modal.Footer>
-      </Modal>
-      
+          );
+        })()}
+        
+        {/* Afficher les informations sur le calcul de la bourse */}
+        {selectedEtudiant.niveau && selectedEtudiant.code_redoublement && (
+          <Alert variant="info" className="text-start">
+            <FaGraduationCap className="me-2" />
+            <strong>Calcul de la bourse:</strong><br />
+            • Niveau: {selectedEtudiant.niveau}<br />
+            • Statut: {selectedEtudiant.code_redoublement === 'N' ? 'Non redoublant' :
+              selectedEtudiant.code_redoublement === 'R' ? 'Redoublant' : 'Triplant'}<br />
+            • <strong>Nouveau statut boursier:</strong> OUI (après acceptation)<br />
+            • Montant calculé selon les règles de l'université
+          </Alert>
+        )}
+        
+        <Alert variant="success">
+          <FaCheck className="me-2" />
+          Cette action changera le statut de la bourse de "REJETEE" à "ACCEPTEE".
+          L'étudiant deviendra boursier et apparaîtra dans la liste des bourses acceptées.
+        </Alert>
+      </div>
+    )}
+  </Modal.Body>
+  <Modal.Footer>
+    <Button variant="secondary" onClick={() => setShowAcceptModal(false)}>
+      Annuler
+    </Button>
+    <Button variant="success" onClick={handleAcceptBourse}>
+      <FaRedo className="me-1" /> Accepter la bourse
+    </Button>
+  </Modal.Footer>
+</Modal>
+
       {/* Modal Supprimer Bourse */}
       <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)}>
         <Modal.Header closeButton className="bg-danger text-white">
@@ -1495,7 +1684,9 @@ export default function NonBourses() {
                 <span className="text-muted">Matricule: {selectedEtudiant.matricule}</span>
               </p>
               <p>
-                Montant: <strong className="text-danger">{parseFloat(selectedBourse.montant).toLocaleString('fr-FR')} MGA</strong>
+                Montant: <strong className="text-danger">
+                  {selectedBourse.montant ? `${parseFloat(selectedBourse.montant).toLocaleString('fr-FR')} MGA` : '0 MGA'}
+                </strong>
               </p>
               <Alert variant="warning">
                 <FaExclamationCircle className="me-2" />
@@ -1514,7 +1705,7 @@ export default function NonBourses() {
           </Button>
         </Modal.Footer>
       </Modal>
-      
+
       {/* Modal Exportation */}
       <Modal show={showExportModal} onHide={() => setShowExportModal(false)}>
         <Modal.Header closeButton className={activeTab === 'rejetees' ? 'bg-danger text-white' : 'bg-secondary text-white'}>
@@ -1527,14 +1718,14 @@ export default function NonBourses() {
             <FaFileExcel className="me-2" />
             Vous allez exporter {totalCount} étudiant(s) {activeTab === 'rejetees' ? 'avec bourse(s) rejetée(s)' : 'non boursier(s)'}
           </Alert>
-          
+
           {exporting ? (
             <div className="text-center">
               <Spinner animation="border" variant={activeTab === 'rejetees' ? 'danger' : 'secondary'} className="mb-3" />
               <p>Exportation en cours...</p>
-              <ProgressBar 
-                now={exportProgress} 
-                animated 
+              <ProgressBar
+                now={exportProgress}
+                animated
                 label={`${Math.round(exportProgress)}%`}
                 variant={activeTab === 'rejetees' ? 'danger' : 'secondary'}
               />
@@ -1547,9 +1738,9 @@ export default function NonBourses() {
           <Button variant="secondary" onClick={() => setShowExportModal(false)} disabled={exporting}>
             Annuler
           </Button>
-          <Button 
-            variant={activeTab === 'rejetees' ? 'danger' : 'secondary'} 
-            onClick={exportToExcel} 
+          <Button
+            variant={activeTab === 'rejetees' ? 'danger' : 'secondary'}
+            onClick={exportToExcel}
             disabled={exporting || totalCount === 0}
           >
             <FaFileExcel className="me-2" />

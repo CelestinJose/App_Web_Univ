@@ -47,6 +47,18 @@ export const etudiantApi = {
       return handleApiError(error, 'getEtudiants');
     }
   },
+     getetudiant_boursier: async (params = {}) => {
+      try {
+        console.log("API: Récupération des étudiants boursiers avec params:", params);
+        // Appel à l'endpoint boursiers
+        const response = await api.get('/etudiants_boursier_url/', { params });
+        console.log("API: Réponse brute des étudiants boursiers:", response.data);
+  
+        return response;
+    } catch (error) {
+      return handleApiError(error, 'getEtudiants');
+    }
+    },
 
   // 🔹 Ajouter cette méthode
   getCurrentUser: async () => {

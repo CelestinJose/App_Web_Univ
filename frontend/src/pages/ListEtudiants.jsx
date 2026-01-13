@@ -1623,51 +1623,16 @@ export default function ListEtudiants() {
               <Alert variant="info">
                 <h5 className="alert-heading">Générer la carte d'étudiant</h5>
                 <p>Créer la carte d'identité étudiante pour :</p>
-                <p className="fw-bold">{selectedEtudiant.nom} {selectedEtudiant.prenom}</p>
                 <p className="mb-0">Matricule : {selectedEtudiant.matricule}</p>
+                <p className="fw-bold">{selectedEtudiant.nom} {selectedEtudiant.prenom}</p>
+                
               </Alert>
-
-              <div className="text-center mb-4">
-                <div className="card mx-auto" style={{ width: '86mm', height: '54mm', border: '2px solid #0066cc' }}>
-                  <div className="card-header bg-primary text-white py-1">
-                    <h6 className="mb-0">UNIVERSITÉ DE TOLIARA</h6>
-                  </div>
-                  <div className="card-body p-2">
-                    <div className="row">
-                      <div className="col-4">
-                        <div className="bg-light border d-flex align-items-center justify-content-center"
-                          style={{ height: '30mm' }}>
-                          <small className="text-muted">PHOTO</small>
-                        </div>
-                      </div>
-                      <div className="col-8">
-                        <h6 className="text-primary">CARTE D'ÉTUDIANT</h6>
-                        <div className="small">
-                          <div><strong>Nom:</strong> {selectedEtudiant.nom} {selectedEtudiant.prenom}</div>
-                          <div><strong>Matricule:</strong> {selectedEtudiant.matricule}</div>
-                          <div><strong>Niveau:</strong> {selectedEtudiant.niveau}</div>
-                          <div><strong>Faculté:</strong> {getNomFaculte(selectedEtudiant.faculte)}</div>
-                          <div><strong>Mention:</strong> {getNomMention(selectedEtudiant.mention)}</div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-2">
-                      <div className="bg-dark" style={{ height: '3mm' }}></div>
-                      <small className="text-muted">Valable 2024-2025</small>
-                    </div>
-                  </div>
-                </div>
-                <small className="text-muted mt-2 d-block">Format carte de crédit (86mm x 54mm)</small>
-              </div>
             </>
           )}
         </Modal.Body>
         <Modal.Footer>
           <Button variant="danger" onClick={() => setShowCardModal(false)}>
             Annuler
-          </Button>
-          <Button variant="info" onClick={previewCarteEtudiant}>
-            <FaEye className="me-2" /> Prévisualiser
           </Button>
           <Button variant="primary" onClick={genererCarteEtudiantPDF}>
             <FaDownload className="me-2" /> Télécharger PDF
@@ -1703,22 +1668,7 @@ export default function ListEtudiants() {
 
                   <div className="ms-4 mt-3">
                     <p><strong>Mr/Mme/Mlle :</strong> {selectedEtudiant.nom} {selectedEtudiant.prenom}</p>
-
-                    {selectedEtudiant.date_naissance && (
-                      <p><strong>Date et lieu de naissance :</strong> {selectedEtudiant.date_naissance}</p>
-                    )}
-
-                    {selectedEtudiant.cin && (
-                      <p><strong>CN :</strong> {selectedEtudiant.cin}</p>
-                    )}
-
-                    <p><strong>Fils/Fille de :</strong> [Nom du père]</p>
-                    <p><strong>Et de :</strong> [Nom de la mère]</p>
                   </div>
-
-                  <p className="mt-3">
-                    Est inscrit(e) régulièrement au sein de l'Université de Toliara pour l'Année Universitaire 2024-2025
-                  </p>
 
                   <div className="ms-4 mt-3">
                     <p><strong>Sous le numéro d'inscription :</strong> {selectedEtudiant.numero_inscription || 'N/A'}</p>
@@ -1728,33 +1678,7 @@ export default function ListEtudiants() {
                     <p><strong>Niveau :</strong> {selectedEtudiant.niveau || 'N/A'}</p>
                   </div>
                 </div>
-
-                <div className="mt-5">
-                  <p>En foi de quoi, le présent certificat est délivré pour servir et valoir ce que de droit.</p>
-
-                  <div className="row mt-5">
-                    <div className="col-6">
-                      <div className="border p-2 text-center" style={{ width: '60px', height: '60px' }}>
-                        <small className="text-muted">QR Code</small>
-                      </div>
-                    </div>
-                    <div className="col-6 text-end">
-                      <p>Fait à Toliara, le {new Date().toLocaleDateString('fr-FR')}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-4 pt-3 border-top">
-                  <small className="text-muted">
-                    <strong>N.B :</strong> Un seul certificat de scolarité est délivré durant l'année universitaire en cours.
-                    Faire autant de copies que nécessaires suivies des certifications conformes par les autorités compétentes.
-                  </small>
-                </div>
-              </div>
-
-              <div className="alert alert-info mt-3">
-                <FaUniversity className="me-2" />
-                Document officiel au format A4 avec QR Code de vérification
+        
               </div>
             </>
           )}
@@ -1763,14 +1687,8 @@ export default function ListEtudiants() {
           <Button variant="danger" onClick={() => setShowCertificatModal(false)}>
             Annuler
           </Button>
-          <Button variant="success" onClick={previewCertificat}>
-            <FaEye className="me-2" /> Prévisualiser
-          </Button>
-          <Button variant="primary" onClick={genererCertificatScolaritePDF}>
+          <Button variant="success" onClick={genererCertificatScolaritePDF}>
             <FaDownload className="me-2" /> Télécharger PDF
-          </Button>
-          <Button variant="warning" onClick={() => window.print()}>
-            <FaPrint className="me-2" /> Imprimer
           </Button>
         </Modal.Footer>
       </Modal>

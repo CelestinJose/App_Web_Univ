@@ -79,7 +79,7 @@ export default function Bourses() {
   // Fonctions utilitaires pour extraire les noms des objets liés
   const getFaculteName = (etudiant) => {
     if (!etudiant) return '';
-    
+
     // Essayer les différentes possibilités
     if (etudiant.faculte_nom) {
       return etudiant.faculte_nom;
@@ -95,7 +95,7 @@ export default function Bourses() {
 
   const getDomaineName = (etudiant) => {
     if (!etudiant) return '';
-    
+
     if (etudiant.domaine_nom) {
       return etudiant.domaine_nom;
     }
@@ -110,7 +110,7 @@ export default function Bourses() {
 
   const getMentionName = (etudiant) => {
     if (!etudiant) return '';
-    
+
     if (etudiant.mention_nom) {
       return etudiant.mention_nom;
     }
@@ -128,12 +128,12 @@ export default function Bourses() {
     const faculte = getFaculteName(etudiant);
     const domaine = getDomaineName(etudiant);
     const mention = getMentionName(etudiant);
-    
+
     let result = '';
     if (faculte) result += faculte;
     if (domaine) result += ` / ${domaine}`;
     if (mention) result += ` / ${mention}`;
-    
+
     return result || 'Non spécifié';
   };
 
@@ -153,7 +153,7 @@ export default function Bourses() {
       const etudiantsResponse = await etudiantApi.getEtudiants();
       const etudiantsData = etudiantsResponse.data;
       console.log("Étudiants chargés:", etudiantsData.length);
-      
+
       // Debug: vérifier la structure des données
       if (etudiantsData.length > 0) {
         console.log("Premier étudiant (structure complète):", etudiantsData[0]);
@@ -213,28 +213,42 @@ export default function Bourses() {
     return `${etudiant.nom || ""} ${etudiant.prenom || ""}`.trim();
   };
 
-  // Obtenir le statut de bourse avec style
+  // Obtenir le statut de bourse avec style - CORRIGÉ
   const getBourseStatus = (etudiant) => {
-    if (etudiant.boursier === 'NON') {
-      return { label: "Non boursier", color: "warning" };
-    }
-
     const bourse = findBourseForEtudiant(etudiant.id);
-    if (!bourse) {
+    
+    // Si une bourse existe, afficher son statut
+    if (bourse) {
+      const statut = statutsBourse.find(s => s.value === bourse.status);
+      if (statut) {
+        return statut;
+      }
+      return { label: bourse.status || "Inconnu", color: "secondary" };
+    }
+    
+    // Si pas de bourse mais étudiant marqué boursier
+    if (etudiant.boursier === 'OUI') {
       return { label: "Sans bourse", color: "secondary" };
     }
-
-    const statut = statutsBourse.find(s => s.value === bourse.status);
-    return statut || { label: bourse.status || "Inconnu", color: "secondary" };
+    
+    // Si non boursier
+    return { label: "Non boursier", color: "danger" };
   };
 
-  // Obtenir les informations de bourse complètes
+  // Obtenir les informations de bourse complètes - CORRIGÉ
   const getBourseInfo = (etudiant) => {
     const bourse = findBourseForEtudiant(etudiant.id);
     if (!bourse) return null;
 
+    // Déterminer le montant à afficher
+    let montantAffiche = bourse.montant;
+    if (bourse.status === "REJETEE") {
+      montantAffiche = 0;
+    }
+
     return {
-      montant: bourse.montant,
+      montant: montantAffiche,
+      montantOriginal: bourse.montant, // Conserver le montant original pour référence
       status: bourse.status,
       date_debut: bourse.date_debut,
       date_fin: bourse.date_fin,
@@ -243,6 +257,38 @@ export default function Bourses() {
       date_demande: bourse.date_demande,
       date_decision: bourse.date_decision
     };
+  };
+
+  // Fonction pour obtenir le montant à afficher - CORRIGÉ
+  const getMontantAAfficher = (etudiant) => {
+    const bourse = findBourseForEtudiant(etudiant.id);
+    
+    // Cas 1: Bourse rejetée → 0 MGA
+    if (bourse && bourse.status === "REJETEE") {
+      return { montant: 0, classe: "text-danger", label: "" };
+    }
+    
+    // Cas 2: Étudiant marqué boursier mais pas de bourse (Sans bourse) → 0 MGA
+    if (!bourse && etudiant.boursier === 'OUI') {
+      return { montant: 0, classe: "text-secondary", label: "(Sans bourse)" };
+    }
+    
+    // Cas 3: Bourse acceptée ou en attente → montant normal
+    if (bourse && (bourse.status === "ACCEPTEE" || bourse.status === "EN_ATTENTE")) {
+      return { 
+        montant: etudiant.bourse, 
+        classe: bourse.status === "ACCEPTEE" ? "text-success" : "text-warning",
+        label: bourse.status === "EN_ATTENTE" ? "" : ""
+      };
+    }
+    
+    // Cas 4: Non boursier → -
+    if (etudiant.boursier === 'NON') {
+      return { montant: null, classe: "text-danger", label: "" };
+    }
+    
+    // Cas par défaut
+    return { montant: null, classe: "text-danger", label: "" };
   };
 
   // Filtrer les étudiants
@@ -271,206 +317,141 @@ export default function Bourses() {
   // Facultés disponibles pour filtre
   const facultes = [...new Set(etudiants.map(e => getFaculteName(e)).filter(Boolean))];
 
-  // Calculer les statistiques
+  // Calculer les statistiques - CORRIGÉ
   const stats = {
     total: etudiants.length,
     boursiers: etudiants.filter(e => e.boursier === "OUI").length,
     nonBoursiers: etudiants.filter(e => e.boursier === "NON").length,
-    montantTotal: bourses.reduce((sum, b) => sum + parseFloat(b.montant || 0), 0),
+    
+    // Statistiques par statut de bourse
     enAttente: bourses.filter(b => b.status === "EN_ATTENTE").length,
     acceptees: bourses.filter(b => b.status === "ACCEPTEE").length,
     rejetees: bourses.filter(b => b.status === "REJETEE").length,
-    suspendues: bourses.filter(b => b.status === "SUSPENDUE").length
+    
+    // Montant total uniquement des bourses acceptées
+    montantTotal: bourses
+      .filter(b => b.status === "ACCEPTEE")
+      .reduce((sum, b) => sum + parseFloat(b.montant || 0), 0),
   };
 
-  // Générer un rapport PDF des statistiques de bourses
+  // Générer un PDF simple avec la liste des bourses
   const generatePDF = async () => {
     try {
       setToastMessage("Génération du PDF en cours...");
       setToastVariant("info");
       setShowToast(true);
 
-      const pdf = new jsPDF('portrait', 'mm', 'a4');
-      const currentDate = new Date().toLocaleDateString('fr-FR');
-      const currentTime = new Date().toLocaleTimeString('fr-FR');
+      const pdf = new jsPDF("portrait", "mm", "a4");
+      const currentDate = new Date().toLocaleDateString("fr-FR");
 
-      // Titre principal
-      pdf.setFontSize(20);
-      pdf.setTextColor(0, 51, 102); // Bleu foncé
-      pdf.text('Rapport des Bourses', 105, 20, { align: 'center' });
+      // === Fonction entête tableau ===
+      const drawTableHeader = (y) => {
+        pdf.setFillColor(0, 51, 102);
+        pdf.setTextColor(255, 255, 255);
+        pdf.rect(15, y - 6, 180, 8, "F");
 
-      pdf.setFontSize(12);
-      pdf.setTextColor(100, 100, 100);
-      pdf.text(`Université - Service des Bourses`, 105, 28, { align: 'center' });
-      pdf.text(`Généré le ${currentDate} à ${currentTime}`, 105, 34, { align: 'center' });
+        pdf.setFontSize(10);
+        pdf.text("Étudiant", 20, y);
+        pdf.text("Matricule", 65, y);
+        pdf.text("Niveau", 100, y);
+        pdf.text("Montant", 130, y);
+        pdf.text("Statut", 160, y);
+      };
 
-      // Ligne séparatrice
-      pdf.setDrawColor(0, 51, 102);
-      pdf.setLineWidth(0.5);
-      pdf.line(20, 40, 190, 40);
-
-      // Section Statistiques Générales
-      pdf.setFontSize(16);
-      pdf.setTextColor(0, 0, 0);
-      pdf.text('I. Statistiques Générales', 20, 50);
+      // === Titre ===
+      pdf.setFontSize(18);
+      pdf.setTextColor(0, 51, 102);
+      pdf.text("Liste des Bourses", 105, 15, { align: "center" });
 
       pdf.setFontSize(10);
-      let yPosition = 60;
+      pdf.setTextColor(100, 100, 100);
+      pdf.text(`Généré le ${currentDate}`, 105, 22, { align: "center" });
 
-      // Tableau des statistiques
-      const statsData = [
-        ['Total étudiants', stats.total.toString()],
-        ['Étudiants boursiers', `${stats.boursiers} (${(stats.boursiers / stats.total * 100).toFixed(1)}%)`],
-        ['Étudiants non boursiers', `${stats.nonBoursiers} (${(stats.nonBoursiers / stats.total * 100).toFixed(1)}%)`],
-        ['Montant total des bourses', `${formatMontant(stats.montantTotal)} MGA`],
-        ['Bourses en attente', stats.enAttente.toString()],
-        ['Bourses acceptées', stats.acceptees.toString()],
-        ['Bourses rejetées', stats.rejetees.toString()],
-        ['Bourses suspendues', stats.suspendues.toString()]
-      ];
+      pdf.setDrawColor(0, 51, 102);
+      pdf.line(20, 27, 190, 27);
 
-      // Dessiner le tableau des statistiques
-      pdf.setLineWidth(0.2);
-      pdf.setDrawColor(200, 200, 200);
+      let yPosition = 35;
 
-      statsData.forEach((row, index) => {
-        pdf.setFillColor(index % 2 === 0 ? 245 : 255);
-        pdf.rect(20, yPosition - 5, 170, 8, 'F');
-
-        pdf.setTextColor(0, 0, 0);
-        pdf.text(row[0], 25, yPosition);
-
-        pdf.setTextColor(0, 51, 102);
-        pdf.text(row[1], 150, yPosition);
-
-        yPosition += 10;
-      });
-
+      // En-tête initial
+      drawTableHeader(yPosition);
       yPosition += 10;
 
-      // Section Répartition par Statut
-      pdf.setFontSize(16);
+      pdf.setFontSize(9);
       pdf.setTextColor(0, 0, 0);
-      pdf.text('II. Répartition par Statut de Bourse', 20, yPosition);
-      yPosition += 15;
 
-      // Diagramme simple de répartition
-      const totalBourses = stats.enAttente + stats.acceptees + stats.rejetees + stats.suspendues;
+      let rowCount = 0;
 
-      if (totalBourses > 0) {
-        const statutsData = [
-          { label: 'En attente', count: stats.enAttente, color: [255, 193, 7] }, // Jaune
-          { label: 'Acceptées', count: stats.acceptees, color: [13, 110, 253] }, // Bleu
-          { label: 'Rejetées', count: stats.rejetees, color: [220, 53, 69] }, // Rouge
-          { label: 'Suspendues', count: stats.suspendues, color: [108, 117, 125] } // Gris
-        ];
+      for (let i = 0; i < filteredEtudiants.length; i++) {
+        const etudiant = filteredEtudiants[i];
+        const bourse = findBourseForEtudiant(etudiant.id);
+        const montantInfo = getMontantAAfficher(etudiant);
 
-        statutsData.forEach((statut, index) => {
-          const percentage = (statut.count / totalBourses * 100).toFixed(1);
-          const barWidth = (statut.count / totalBourses) * 100;
+        // Ne montrer que les étudiants boursiers ou avec statut spécifique
+        if (etudiant.boursier === "OUI" || (bourse && bourse.status !== "REJETEE")) {
+          rowCount++;
 
-          // Légende couleur
-          pdf.setFillColor(statut.color[0], statut.color[1], statut.color[2]);
-          pdf.rect(25, yPosition - 3, 5, 5, 'F');
+          // Saut de page
+          if (yPosition > 270) {
+            pdf.addPage();
+            yPosition = 20;
+            drawTableHeader(yPosition);
+            yPosition += 10;
+          }
 
-          // Texte
+          // Couleur alternée
+          if (rowCount % 2 === 0) {
+            pdf.setFillColor(245, 245, 245);
+          } else {
+            pdf.setFillColor(255, 255, 255);
+          }
+
+          pdf.rect(15, yPosition - 6, 180, 8, "F");
+
+          // Contenu
           pdf.setTextColor(0, 0, 0);
-          pdf.text(`${statut.label}: ${statut.count} (${percentage}%)`, 35, yPosition);
+          pdf.text(getFullName(etudiant).substring(0, 35), 20, yPosition);
+          pdf.text(etudiant.matricule || "-", 65, yPosition);
+          pdf.text(etudiant.niveau || "-", 100, yPosition);
+          
+          // Montant
+          if (montantInfo.montant !== null) {
+            pdf.setTextColor(montantInfo.classe === "text-success" ? 0 : montantInfo.classe === "text-danger" ? 255 : 128);
+            pdf.text(`${formatMontant(montantInfo.montant)} MGA ${montantInfo.label}`, 130, yPosition);
+          } else {
+            pdf.setTextColor(255, 0, 0);
+            pdf.text("-", 130, yPosition);
+          }
 
-          // Barre de progression
-          pdf.setDrawColor(statut.color[0], statut.color[1], statut.color[2]);
-          pdf.setFillColor(statut.color[0], statut.color[1], statut.color[2]);
-          pdf.rect(100, yPosition - 3, barWidth * 0.8, 5, 'FD');
+          // Statut
+          const statut = getBourseStatus(etudiant);
+          pdf.setTextColor(0, 51, 102);
+          pdf.text(statut.label, 160, yPosition);
 
           yPosition += 10;
-        });
-      }
-
-      yPosition += 10;
-
-      // Section Liste des Boursiers
-      if (filteredEtudiants.length > 0) {
-        pdf.setFontSize(16);
-        pdf.setTextColor(0, 0, 0);
-        pdf.text('III. Liste des Boursiers', 20, yPosition);
-        yPosition += 10;
-
-        pdf.setFontSize(8);
-        pdf.setTextColor(100, 100, 100);
-        pdf.text(`Filtrée sur ${filteredEtudiants.length} étudiant(s)`, 20, yPosition);
-        yPosition += 15;
-
-        // En-têtes du tableau
-        pdf.setFillColor(0, 51, 102);
-        pdf.rect(20, yPosition - 5, 170, 8, 'F');
-
-        pdf.setTextColor(255, 255, 255);
-        pdf.text('Étudiant', 25, yPosition);
-        pdf.text('Niveau', 80, yPosition);
-        pdf.text('Montant', 120, yPosition);
-        pdf.text('Statut', 150, yPosition);
-
-        yPosition += 10;
-
-        // Données des étudiants
-        pdf.setFontSize(9);
-        let rowCount = 0;
-
-        for (let i = 0; i < Math.min(filteredEtudiants.length, 20); i++) {
-          const etudiant = filteredEtudiants[i];
-          const bourse = findBourseForEtudiant(etudiant.id);
-
-          if (etudiant.boursier === 'OUI') {
-            rowCount++;
-
-            pdf.setFillColor(rowCount % 2 === 0 ? 245 : 255);
-            pdf.rect(20, yPosition - 5, 170, 8, 'F');
-
-            pdf.setTextColor(0, 0, 0);
-            pdf.text(getFullName(etudiant).substring(0, 30), 25, yPosition);
-            pdf.text(etudiant.niveau || '-', 80, yPosition);
-            pdf.text(bourse ? formatMontant(bourse.montant) + ' MGA' : '-', 120, yPosition);
-
-            // Couleur du statut
-            const statut = getBourseStatus(etudiant);
-            pdf.setTextColor(0, 51, 102);
-            pdf.text(statut.label, 150, yPosition);
-
-            yPosition += 10;
-
-            // Vérifier si on dépasse la page
-            if (yPosition > 270) {
-              pdf.addPage();
-              yPosition = 20;
-            }
-          }
-        }
-
-        if (filteredEtudiants.length > 20) {
-          pdf.setTextColor(100, 100, 100);
-          pdf.text(`... et ${filteredEtudiants.length - 20} autres étudiants`, 20, yPosition + 5);
         }
       }
 
-      // Pied de page
+      // === Pied de page ===
       const pageCount = pdf.internal.getNumberOfPages();
+
       for (let i = 1; i <= pageCount; i++) {
         pdf.setPage(i);
         pdf.setFontSize(8);
         pdf.setTextColor(150, 150, 150);
-        pdf.text(`Page ${i}/${pageCount}`, 105, 287, { align: 'center' });
-        pdf.text('Service des Bourses - Université', 105, 292, { align: 'center' });
+        pdf.text(`Page ${i}/${pageCount}`, 105, 287, { align: "center" });
+        pdf.text("Service des Bourses - Université", 105, 292, {
+          align: "center",
+        });
       }
 
-      // Sauvegarder le PDF
-      pdf.save(`rapport_bourses_${currentDate.replace(/\//g, '-')}.pdf`);
+      // Sauvegarde
+      pdf.save(`liste_bourses_${currentDate.replace(/\//g, "-")}.pdf`);
 
       setToastMessage("PDF généré avec succès !");
       setToastVariant("success");
       setShowToast(true);
-
     } catch (error) {
-      console.error("Erreur lors de la génération du PDF:", error);
+      console.error("Erreur PDF :", error);
       setToastMessage("Erreur lors de la génération du PDF");
       setToastVariant("danger");
       setShowToast(true);
@@ -481,6 +462,7 @@ export default function Bourses() {
   const generateStudentPDF = async (etudiant) => {
     try {
       const bourse = findBourseForEtudiant(etudiant.id);
+      const montantInfo = getMontantAAfficher(etudiant);
       const pdf = new jsPDF('portrait', 'mm', 'a4');
       const currentDate = new Date().toLocaleDateString('fr-FR');
 
@@ -544,7 +526,7 @@ export default function Bourses() {
 
         pdf.setFontSize(10);
         const bourseInfo = [
-          ['Montant attribué', `${formatMontant(bourse.montant)} MGA`],
+          ['Montant attribué', `${formatMontant(montantInfo.montant)} MGA ${montantInfo.label}`],
           ['Statut', bourse.status],
           ['Date début', formatDate(bourse.date_debut)],
           ['Date fin', formatDate(bourse.date_fin)],
@@ -674,9 +656,14 @@ export default function Bourses() {
   // Sauvegarder les modifications de bourse - CORRIGÉ
   const saveBourseModifications = async () => {
     try {
+      // Si le statut est REJETEE, forcer le montant à 0
+      const montantFinal = editBourseData.status === "REJETEE" 
+        ? 0 
+        : parseFloat(editBourseData.montant) || 0;
+
       // Préparer les données correctement formatées
       const bourseData = {
-        montant: parseFloat(editBourseData.montant) || 0,
+        montant: montantFinal,
         status: editBourseData.status,
         date_debut: editBourseData.date_debut,
         date_fin: editBourseData.date_fin,
@@ -689,102 +676,69 @@ export default function Bourses() {
 
       let response;
       if (selectedBourse) {
-        // Mettre à jour une bourse existante - CORRIGÉ
+        // Mettre à jour une bourse existante
         response = await bourseApi.updateBourse(selectedBourse.id, bourseData);
         console.log("Bourse mise à jour:", response.data);
 
-        // Mettre à jour le statut boursier si la bourse est rejetée
-        if (editBourseData.status === "REJETEE") {
-          try {
-            // Récupérer d'abord les données complètes de l'étudiant
-            const etudiantResponse = await etudiantApi.getEtudiant(selectedEtudiant.id);
-            const etudiantData = etudiantResponse.data;
+        // Mettre à jour le statut boursier selon le nouveau statut
+        try {
+          // Récupérer d'abord les données complètes de l'étudiant
+          const etudiantResponse = await etudiantApi.getEtudiant(selectedEtudiant.id);
+          const etudiantData = etudiantResponse.data;
 
-            // Préparer les données de mise à jour avec TOUS les champs requis
-            const etudiantUpdateData = {
-              ...etudiantData, // Inclure toutes les données existantes
+          let updateData;
+          if (editBourseData.status === "REJETEE") {
+            // Si la bourse est rejetée, l'étudiant devient non boursier
+            updateData = {
+              ...etudiantData,
               boursier: 'NON',
               bourse: 0
             };
-
-            console.log("Mise à jour étudiant après rejet:", etudiantUpdateData);
-
-            // Utiliser updateEtudiant (PUT) au lieu de patchEtudiant (PATCH)
-            await etudiantApi.updateEtudiant(selectedEtudiant.id, etudiantUpdateData);
-            console.log("Étudiant mis à jour comme non boursier car bourse rejetée");
-          } catch (updateError) {
-            console.warn("Erreur lors de la mise à jour du statut boursier:", updateError);
-            console.warn("Détails de l'erreur:", updateError.response?.data);
-
-            // Alternative: Essayer avec PATCH mais avec plus de champs
-            try {
-              // Si updateEtudiant échoue, essayer avec seulement les champs critiques
-              const alternativeUpdateData = {
-                boursier: 'NON',
-                bourse: 0,
-                matricule: selectedEtudiant.matricule, // Inclure le matricule pour la validation
-                nom: selectedEtudiant.nom,
-                prenom: selectedEtudiant.prenom,
-                niveau: selectedEtudiant.niveau,
-                code_redoublement: selectedEtudiant.code_redoublement
-              };
-              await etudiantApi.updateEtudiant(selectedEtudiant.id, alternativeUpdateData);
-              console.log("Étudiant mis à jour avec méthode alternative");
-            } catch (secondError) {
-              console.error("Échec de la mise à jour alternative:", secondError);
-            }
-          }
-        } else if (editBourseData.status === "ACCEPTEE") {
-          // Si la bourse est acceptée, mettre à jour comme boursier
-          try {
-            // Récupérer d'abord les données complètes de l'étudiant
-            const etudiantResponse = await etudiantApi.getEtudiant(selectedEtudiant.id);
-            const etudiantData = etudiantResponse.data;
-
-            const etudiantUpdateData = {
+            console.log("Mise à jour étudiant après rejet:", updateData);
+          } else if (editBourseData.status === "ACCEPTEE" || editBourseData.status === "EN_ATTENTE") {
+            // Si la bourse est acceptée ou en attente, l'étudiant reste boursier
+            updateData = {
               ...etudiantData,
               boursier: 'OUI',
-              bourse: parseFloat(editBourseData.montant) || selectedEtudiant.bourse || 0
+              bourse: montantFinal
             };
-            console.log("Mise à jour étudiant après acceptation:", etudiantUpdateData);
-
-            await etudiantApi.updateEtudiant(selectedEtudiant.id, etudiantUpdateData);
-            console.log("Étudiant mis à jour comme boursier");
-          } catch (updateError) {
-            console.warn("Erreur lors de la mise à jour du statut boursier:", updateError);
+            console.log("Mise à jour étudiant après acceptation/attente:", updateData);
           }
+
+          if (updateData) {
+            await etudiantApi.updateEtudiant(selectedEtudiant.id, updateData);
+            console.log("Étudiant mis à jour");
+          }
+        } catch (updateError) {
+          console.warn("Erreur lors de la mise à jour du statut boursier:", updateError);
         }
 
         setToastMessage("Bourse mise à jour avec succès!");
       } else {
-        // Créer une nouvelle bourse - CORRIGÉ
+        // Créer une nouvelle bourse
         response = await bourseApi.createBourse(bourseData);
         console.log("Bourse créée:", response.data);
 
-        // Mettre à jour le statut boursier seulement si ce n'est pas rejeté
+        // Mettre à jour le statut boursier selon le statut initial
         if (editBourseData.status !== "REJETEE") {
           try {
-            // Récupérer d'abord les données complètes de l'étudiant
             const etudiantResponse = await etudiantApi.getEtudiant(selectedEtudiant.id);
             const etudiantData = etudiantResponse.data;
 
             const etudiantUpdateData = {
               ...etudiantData,
               boursier: 'OUI',
-              bourse: parseFloat(editBourseData.montant) || 0
+              bourse: montantFinal
             };
-            console.log("Mise à jour étudiant après création bourse:", etudiantUpdateData);
-
+            
             await etudiantApi.updateEtudiant(selectedEtudiant.id, etudiantUpdateData);
             console.log("Étudiant mis à jour comme boursier");
           } catch (updateError) {
             console.warn("Erreur lors de la mise à jour de l'étudiant:", updateError);
-            console.warn("Détails de l'erreur:", updateError.response?.data);
           }
         } else {
-          // Si c'est rejeté dès la création, s'assurer que l'étudiant reste NON boursier
+          // Si c'est rejeté dès la création
           try {
-            // Récupérer d'abord les données complètes de l'étudiant
             const etudiantResponse = await etudiantApi.getEtudiant(selectedEtudiant.id);
             const etudiantData = etudiantResponse.data;
 
@@ -793,8 +747,7 @@ export default function Bourses() {
               boursier: 'NON',
               bourse: 0
             };
-            console.log("Mise à jour étudiant après création bourse rejetée:", etudiantUpdateData);
-
+            
             await etudiantApi.updateEtudiant(selectedEtudiant.id, etudiantUpdateData);
             console.log("Étudiant maintenu comme non boursier (bourse rejetée)");
           } catch (updateError) {
@@ -812,107 +765,76 @@ export default function Bourses() {
 
     } catch (error) {
       console.error("Erreur lors de la sauvegarde:", error);
-      console.error("Détails de l'erreur:", error.response?.data);
-
-      // Afficher les détails de l'erreur
-      let errorMessage = "Erreur lors de la sauvegarde";
-      if (error.response?.data) {
-        console.log("Données d'erreur:", error.response.data);
-
-        if (typeof error.response.data === 'object') {
-          const errors = [];
-          for (const [field, messages] of Object.entries(error.response.data)) {
-            if (Array.isArray(messages)) {
-              errors.push(`${field}: ${messages.join(', ')}`);
-            } else {
-              errors.push(`${field}: ${messages}`);
-            }
-          }
-          errorMessage = errors.join(' | ');
-        } else if (error.response.data.detail) {
-          errorMessage = error.response.data.detail;
-        }
-      }
-
-      setToastMessage(errorMessage);
+      setToastMessage("Erreur lors de la sauvegarde");
       setToastVariant("danger");
       setShowToast(true);
     }
   };
 
-  // Attribuer une nouvelle bourse - CORRIGÉ
+  // Attribuer une nouvelle bourse avec montant automatisé - CORRIGÉ
   const attribuerBourse = async () => {
     try {
-      // Préparer les données
+      // Si le statut est REJETEE, le montant doit être 0
+      const montantFinal = newAttribution.status === "REJETEE" 
+        ? 0 
+        : parseFloat(selectedEtudiant.bourse) || 0;
+    
+      // Préparer les données pour la bourse
       const bourseData = {
-        montant: parseFloat(newAttribution.montant) || 0,
+        montant: montantFinal,
         status: newAttribution.status,
         date_debut: newAttribution.date_debut,
         date_fin: newAttribution.date_fin,
         annee_academique: newAttribution.annee_academique,
-        conditions: newAttribution.conditions || "",
+        conditions: newAttribution.conditions || "Bourse attribuée via le système",
         etudiant: selectedEtudiant.id
       };
 
-      debugData(bourseData, "ATTRIBUTION");
+      console.log("DEBUG ATTRIBUTION AUTOMATIQUE:", bourseData);
 
-      // Créer la bourse - CORRIGÉ
+      // Créer la bourse
       const bourseResponse = await bourseApi.createBourse(bourseData);
       console.log("Bourse attribuée:", bourseResponse.data);
 
-      // Mettre à jour l'étudiant comme boursier seulement si ce n'est pas rejeté
-      if (newAttribution.status !== "REJETEE") {
-        try {
-          await etudiantApi.patchEtudiant(selectedEtudiant.id, {
-            boursier: 'OUI',
-            bourse: parseFloat(newAttribution.montant) || 0
-          });
-          console.log("Étudiant mis à jour comme boursier");
-        } catch (updateError) {
-          console.warn("Erreur lors de la mise à jour de l'étudiant:", updateError);
-        }
-      } else {
-        // Si c'est rejeté dès le début, s'assurer que l'étudiant reste NON boursier
-        try {
-          await etudiantApi.patchEtudiant(selectedEtudiant.id, {
+      // Mettre à jour l'étudiant selon le statut
+      try {
+        const etudiantResponse = await etudiantApi.getEtudiant(selectedEtudiant.id);
+        const etudiantData = etudiantResponse.data;
+
+        let updateData;
+        if (newAttribution.status === "REJETEE") {
+          // Si rejetée, l'étudiant reste NON boursier
+          updateData = {
+            ...etudiantData,
             boursier: 'NON',
             bourse: 0
-          });
-          console.log("Étudiant maintenu comme non boursier (bourse rejetée)");
-        } catch (updateError) {
-          console.warn("Erreur lors de la mise à jour de l'étudiant:", updateError);
+          };
+        } else {
+          // Si acceptée ou en attente, l'étudiant devient boursier
+          updateData = {
+            ...etudiantData,
+            boursier: 'OUI',
+            bourse: montantFinal
+          };
         }
+
+        await etudiantApi.updateEtudiant(selectedEtudiant.id, updateData);
+        console.log("Étudiant mis à jour");
+      } catch (updateError) {
+        console.warn("Erreur lors de la mise à jour de l'étudiant:", updateError);
       }
 
-      setToastMessage("Bourse attribuée avec succès!");
+      setToastMessage(`Bourse ${newAttribution.status === "REJETEE" ? "rejetée" : "attribuée"} avec succès!`);
       setToastVariant("success");
       setShowToast(true);
       setShowAttributionModal(false);
-      loadData(); // Recharger les données
+      
+      // Recharger les données
+      await loadData();
 
     } catch (error) {
       console.error("Erreur lors de l'attribution:", error);
-
-      let errorMessage = "Erreur lors de l'attribution";
-      if (error.response?.data) {
-        console.log("Données d'erreur:", error.response.data);
-
-        if (typeof error.response.data === 'object') {
-          const errors = [];
-          for (const [field, messages] of Object.entries(error.response.data)) {
-            if (Array.isArray(messages)) {
-              errors.push(`${field}: ${messages.join(', ')}`);
-            } else {
-              errors.push(`${field}: ${messages}`);
-            }
-          }
-          errorMessage = errors.join(' | ');
-        } else if (error.response.data.detail) {
-          errorMessage = error.response.data.detail;
-        }
-      }
-
-      setToastMessage(errorMessage);
+      setToastMessage("Erreur lors de l'attribution");
       setToastVariant("danger");
       setShowToast(true);
     }
@@ -970,7 +892,7 @@ export default function Bourses() {
 
   // Formater le montant
   const formatMontant = (montant) => {
-    if (!montant) return "0";
+    if (!montant && montant !== 0) return "0";
     return parseFloat(montant).toLocaleString('fr-FR', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
@@ -981,6 +903,8 @@ export default function Bourses() {
   const exportData = () => {
     const dataToExport = filteredEtudiants.map(etudiant => {
       const bourse = findBourseForEtudiant(etudiant.id);
+      const montantInfo = getMontantAAfficher(etudiant);
+      
       return {
         "Numéro d'inscription": etudiant.numero_inscription || "",
         "Matricule": etudiant.matricule || "",
@@ -991,8 +915,8 @@ export default function Bourses() {
         "Domaine": getDomaineName(etudiant) || "",
         "Mention": getMentionName(etudiant) || "",
         "Boursier": etudiant.boursier || "NON",
-        "Montant bourse": bourse?.montant || etudiant.bourse || 0,
-        "Statut bourse": bourse?.status || getBourseStatus(etudiant).label,
+        "Montant bourse": montantInfo.montant !== null ? montantInfo.montant : 0,
+        "Statut bourse": getBourseStatus(etudiant).label,
         "Date début": bourse?.date_debut ? formatDate(bourse.date_debut) : "-",
         "Date fin": bourse?.date_fin ? formatDate(bourse.date_fin) : "-",
         "Année académique": bourse?.annee_academique || "-",
@@ -1296,6 +1220,7 @@ export default function Bourses() {
                   {filteredEtudiants.map((etudiant) => {
                     const bourseInfo = getBourseInfo(etudiant);
                     const bourseStatus = getBourseStatus(etudiant);
+                    const montantInfo = getMontantAAfficher(etudiant);
 
                     return (
                       <tr key={etudiant.id}>
@@ -1320,9 +1245,9 @@ export default function Bourses() {
                           </Badge>
                         </td>
                         <td className="fw-bold">
-                          {etudiant.bourse > 0 ? (
-                            <span className="text-success">
-                              {formatMontant(etudiant.bourse)} MGA
+                          {montantInfo.montant !== null ? (
+                            <span className={montantInfo.classe}>
+                              {formatMontant(montantInfo.montant)} MGA {montantInfo.label}
                             </span>
                           ) : (
                             <span className="text-danger">-</span>
@@ -1466,9 +1391,14 @@ export default function Bourses() {
                     <>
                       <dt className="col-sm-4">Montant</dt>
                       <dd className="col-sm-8">
-                        <span className="fw-bold text-success">
-                          {formatMontant(selectedBourse.montant)} MGA
-                        </span>
+                        {(() => {
+                          const montantInfo = getMontantAAfficher(selectedEtudiant);
+                          return (
+                            <span className={`fw-bold ${montantInfo.classe}`}>
+                              {formatMontant(montantInfo.montant)} MGA {montantInfo.label}
+                            </span>
+                          );
+                        })()}
                       </dd>
 
                       <dt className="col-sm-4">Statut</dt>
@@ -1573,7 +1503,13 @@ export default function Bourses() {
                       value={editBourseData.montant}
                       onChange={(e) => setEditBourseData({ ...editBourseData, montant: e.target.value })}
                       required
+                      disabled={editBourseData.status === "REJETEE"}
                     />
+                    {editBourseData.status === "REJETEE" && (
+                      <Form.Text className="text-danger">
+                        Le montant sera automatiquement mis à 0 pour une bourse rejetée.
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </div>
                 <div className="col-md-6">
@@ -1581,7 +1517,15 @@ export default function Bourses() {
                     <Form.Label>Statut *</Form.Label>
                     <Form.Select
                       value={editBourseData.status}
-                      onChange={(e) => setEditBourseData({ ...editBourseData, status: e.target.value })}
+                      onChange={(e) => {
+                        const newStatus = e.target.value;
+                        setEditBourseData({ 
+                          ...editBourseData, 
+                          status: newStatus,
+                          // Si rejeté, forcer le montant à 0
+                          montant: newStatus === "REJETEE" ? "0" : editBourseData.montant
+                        });
+                      }}
                       required
                     >
                       {statutsBourse.map((statut, index) => (
@@ -1665,134 +1609,137 @@ export default function Bourses() {
             </Button>
           )}
           <Button
-            variant="warning"
+            variant="success"
             onClick={saveBourseModifications}
-            disabled={!editBourseData.montant || !editBourseData.date_debut || !editBourseData.date_fin || !editBourseData.annee_academique}
+            disabled={!editBourseData.date_debut || !editBourseData.date_fin || !editBourseData.annee_academique}
           >
             {selectedBourse ? 'Enregistrer' : 'Créer'}
           </Button>
         </Modal.Footer>
       </Modal>
 
-      {/* Modal Attribution de bourse */}
-      <Modal show={showAttributionModal} onHide={() => setShowAttributionModal(false)}>
-        <Modal.Header closeButton className="bg-success text-white">
-          <Modal.Title>Attribuer une bourse</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          {selectedEtudiant && (
-            <Form>
-              <Alert variant="success">
-                Attribuer une bourse à : <strong>{getFullName(selectedEtudiant)}</strong>
-                <br />
-                Niveau : {selectedEtudiant.niveau}
-                <br />
-                Formation : {getFormationDisplay(selectedEtudiant)}
-              </Alert>
+     {/* Modal Attribution de bourse */}
+<Modal show={showAttributionModal} onHide={() => setShowAttributionModal(false)}>
+  <Modal.Header closeButton className="bg-success text-white">
+    <Modal.Title>Attribuer une bourse</Modal.Title>
+  </Modal.Header>
+  <Modal.Body>
+    {selectedEtudiant && (
+      <Form>
+        <Alert variant="success">
+          Attribuer une bourse à : <strong>{getFullName(selectedEtudiant)}</strong>
+          <br />
+          Niveau : {selectedEtudiant.niveau}
+          <br />
+          Formation : {getFormationDisplay(selectedEtudiant)}
+          <br />
+          <span className="text-primary fw-bold">
+            Montant automatique : {formatMontant(selectedEtudiant.bourse)} MGA
+          </span>
+        </Alert>
 
-              <div className="row">
-                <div className="col-md-6">
-                  <Form.Group className="mb-3">
-                    <Form.Label>Montant (MGA) *</Form.Label>
-                    <Form.Control
-                      type="number"
-                      step="0.01"
-                      value={newAttribution.montant}
-                      onChange={(e) => setNewAttribution({ ...newAttribution, montant: e.target.value })}
-                      required
-                    />
-                    <Form.Text className="text-muted">
-                      Montant recommandé pour {selectedEtudiant.niveau} : {formatMontant(selectedEtudiant.bourse) || 'Non défini'} MGA
-                    </Form.Text>
-                  </Form.Group>
-                </div>
-                <div className="col-md-6">
-                  <Form.Group className="mb-3">
-                    <Form.Label>Statut initial</Form.Label>
-                    <Form.Select
-                      value={newAttribution.status}
-                      onChange={(e) => setNewAttribution({ ...newAttribution, status: e.target.value })}
-                    >
-                      <option value="EN_ATTENTE">En attente</option>
-                      <option value="ACCEPTEE">Acceptée</option>
-                    </Form.Select>
-                  </Form.Group>
-                </div>
-              </div>
-
-              <div className="row">
-                <div className="col-md-6">
-                  <Form.Group className="mb-3">
-                    <Form.Label>Date début *</Form.Label>
-                    <Form.Control
-                      type="date"
-                      value={newAttribution.date_debut}
-                      onChange={(e) => setNewAttribution({ ...newAttribution, date_debut: e.target.value })}
-                      required
-                    />
-                  </Form.Group>
-                </div>
-                <div className="col-md-6">
-                  <Form.Group className="mb-3">
-                    <Form.Label>Date fin *</Form.Label>
-                    <Form.Control
-                      type="date"
-                      value={newAttribution.date_fin}
-                      onChange={(e) => setNewAttribution({ ...newAttribution, date_fin: e.target.value })}
-                      required
-                    />
-                  </Form.Group>
-                </div>
-              </div>
-
-              <div className="row">
-                <div className="col-md-6">
-                  <Form.Group className="mb-3">
-                    <Form.Label>Année académique *</Form.Label>
-                    <Form.Control
-                      type="text"
-                      placeholder="Ex: 2024-2025"
-                      value={newAttribution.annee_academique}
-                      onChange={(e) => setNewAttribution({ ...newAttribution, annee_academique: e.target.value })}
-                      required
-                    />
-                  </Form.Group>
-                </div>
-              </div>
-
-              <Form.Group className="mb-3">
-                <Form.Label>Conditions</Form.Label>
-                <Form.Control
-                  as="textarea"
-                  rows={2}
-                  value={newAttribution.conditions}
-                  onChange={(e) => setNewAttribution({ ...newAttribution, conditions: e.target.value })}
-                  placeholder="Conditions spécifiques de la bourse..."
-                />
-              </Form.Group>
-
-              {selectedEtudiant.code_redoublement === 'R' && (
-                <Alert variant="warning">
-                  <strong>Note pour les réinscrits :</strong>
-                  Les étudiants réinscrits (code R) peuvent bénéficier de bourses de réinscription spécifiques.
-                </Alert>
+        <div className="row">
+          <div className="col-md-12">
+            <Form.Group className="mb-3">
+              <Form.Label>Statut initial</Form.Label>
+              <Form.Select
+                value={newAttribution.status}
+                onChange={(e) => {
+                  const newStatus = e.target.value;
+                  setNewAttribution({ 
+                    ...newAttribution, 
+                    status: newStatus,
+                    // Si rejeté, le montant sera automatiquement 0
+                    montant: newStatus === "REJETEE" ? "0" : selectedEtudiant.bourse || ""
+                  });
+                }}
+              >
+                <option value="EN_ATTENTE">En attente</option>
+                <option value="ACCEPTEE">Acceptée</option>
+                <option value="REJETEE">Rejetée</option>
+              </Form.Select>
+              {newAttribution.status === "REJETEE" && (
+                <Form.Text className="text-danger">
+                  La bourse sera créée avec un montant de 0 MGA.
+                </Form.Text>
               )}
-            </Form>
-          )}
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="danger" onClick={() => setShowAttributionModal(false)}>
-            Annuler
-          </Button>
-          <Button
-            variant="success"
-            onClick={attribuerBourse}
-            disabled={!newAttribution.montant || !newAttribution.date_debut || !newAttribution.date_fin || !newAttribution.annee_academique}
-          >
-            Attribuer la bourse
-          </Button>
-        </Modal.Footer>
-      </Modal>
+            </Form.Group>
+          </div>
+        </div>
+
+        <div className="row">
+          <div className="col-md-6">
+            <Form.Group className="mb-3">
+              <Form.Label>Date début *</Form.Label>
+              <Form.Control
+                type="date"
+                value={newAttribution.date_debut}
+                onChange={(e) => setNewAttribution({ ...newAttribution, date_debut: e.target.value })}
+                required
+              />
+            </Form.Group>
+          </div>
+          <div className="col-md-6">
+            <Form.Group className="mb-3">
+              <Form.Label>Date fin *</Form.Label>
+              <Form.Control
+                type="date"
+                value={newAttribution.date_fin}
+                onChange={(e) => setNewAttribution({ ...newAttribution, date_fin: e.target.value })}
+                required
+              />
+            </Form.Group>
+          </div>
+        </div>
+
+        <div className="row">
+          <div className="col-md-12">
+            <Form.Group className="mb-3">
+              <Form.Label>Année académique *</Form.Label>
+              <Form.Control
+                type="text"
+                placeholder="Ex: 2024-2025"
+                value={newAttribution.annee_academique}
+                onChange={(e) => setNewAttribution({ ...newAttribution, annee_academique: e.target.value })}
+                required
+              />
+            </Form.Group>
+          </div>
+        </div>
+
+        <Form.Group className="mb-3">
+          <Form.Label>Conditions</Form.Label>
+          <Form.Control
+            as="textarea"
+            rows={2}
+            value={newAttribution.conditions}
+            onChange={(e) => setNewAttribution({ ...newAttribution, conditions: e.target.value })}
+            placeholder="Conditions spécifiques de la bourse..."
+          />
+        </Form.Group>
+
+        {selectedEtudiant.code_redoublement === 'R' && (
+          <Alert variant="warning">
+            <strong>Note pour les réinscrits :</strong>
+            Les étudiants réinscrits (code R) peuvent bénéficier de bourses de réinscription spécifiques.
+          </Alert>
+        )}
+      </Form>
+    )}
+  </Modal.Body>
+  <Modal.Footer>
+    <Button variant="danger" onClick={() => setShowAttributionModal(false)}>
+      Annuler
+    </Button>
+    <Button
+      variant="success"
+      onClick={attribuerBourse}
+      disabled={!newAttribution.date_debut || !newAttribution.date_fin || !newAttribution.annee_academique}
+    >
+      Attribuer la bourse
+    </Button>
+  </Modal.Footer>
+</Modal>
 
       {/* Modal de confirmation de suppression */}
       <Modal show={showDeleteConfirm} onHide={() => setShowDeleteConfirm(false)}>
@@ -1803,6 +1750,11 @@ export default function Bourses() {
           Êtes-vous sûr de vouloir supprimer la bourse de {selectedEtudiant && getFullName(selectedEtudiant)} ?
           <br />
           <strong className="text-danger">Cette action est irréversible.</strong>
+          <br /><br />
+          <Alert variant="warning">
+            <FaExclamationTriangle className="me-2" />
+            L'étudiant sera automatiquement marqué comme non boursier et son montant de bourse sera mis à 0.
+          </Alert>
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowDeleteConfirm(false)}>

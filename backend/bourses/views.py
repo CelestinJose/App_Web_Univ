@@ -1,4 +1,4 @@
-# bourses/views.py - Version avec traitement permanent des doublons
+# bourses/views.py - Version corrigée
 from .serializers import BourseSerializer
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -150,16 +150,29 @@ class BourseViewSet(viewsets.ModelViewSet):
             
             # Utiliser une transaction pour garantir l'intégrité des données
             with transaction.atomic():
-                # MARQUER TOUS les étudiants de ce groupe comme "doublon traité"
-                # Pour qu'ils n'apparaissent plus dans la liste des doublons
-                marquage_mis_a_jour = doublons.update(
-                    doublon_traite=True,
-                    bourse_unique_attribuee=True
-                )
-                print(f"DEBUG: {marquage_mis_a_jour} étudiants marqués comme traités")
+                # 1. TRAITER LES DOUBLONS (autres étudiants avec même identité)
+                for doublon in doublons:
+                    if doublon.id != etudiant_id:
+                        # Mettre le doublon en NON boursier
+                        doublon.boursier = 'NON'
+                        doublon.bourse = 0.0  # Le champ bourse dans l'étudiant = 0
+                        doublon.doublon_traite = True
+                        doublon.bourse_unique_attribuee = False  # Ce n'est pas lui qui reçoit la bourse
+                        doublon.save()
+                        
+                        # Trouver et rejeter toutes les bourses de ce doublon
+                        bourses_doublon = Bourse.objects.filter(etudiant=doublon)
+                        for bourse in bourses_doublon:
+                            bourse.status = 'REJETEE'
+                            bourse.montant = 0.0  # IMPORTANT: Mettre le montant à 0 dans la bourse rejetée
+                            bourse.motif_rejet = f"Doublon détecté - Bourse unique attribuée à {etudiant_principal.nom} {etudiant_principal.prenom}"
+                            bourse.save()
                 
-                # Marquer spécifiquement l'étudiant principal comme "étudiant principal pour bourse"
+                # 2. TRAITER L'ÉTUDIANT PRINCIPAL
+                # Marquer l'étudiant principal comme "étudiant principal pour bourse"
                 etudiant_principal.est_etudiant_principal = True
+                etudiant_principal.doublon_traite = True
+                etudiant_principal.bourse_unique_attribuee = True
                 
                 # Si une formation est spécifiée, mettre à jour l'étudiant principal
                 if formation_choisie and formation_choisie != 'None|None|None':
@@ -178,11 +191,12 @@ class BourseViewSet(viewsets.ModelViewSet):
                     except Exception as e:
                         print(f"DEBUG: Erreur lors de la mise à jour de la formation: {str(e)}")
                         print(f"DEBUG: Traceback: {traceback.format_exc()}")
-                        # Continuer même si la mise à jour échoue
+                        # Continuer même si la mise à jour échoute
                 
                 # Sauvegarder les modifications de l'étudiant principal
                 etudiant_principal.save()
                 
+                # 3. TRAITER LES BOURSES DE L'ÉTUDIANT PRINCIPAL
                 # Récupérer toutes les bourses actives des doublons
                 bourses_actives = Bourse.objects.filter(
                     etudiant__in=doublons,
@@ -196,6 +210,8 @@ class BourseViewSet(viewsets.ModelViewSet):
                         'nom': etudiant_principal.nom,
                         'prenom': etudiant_principal.prenom,
                         'matricule': etudiant_principal.matricule,
+                        'boursier': etudiant_principal.boursier,
+                        'bourse': float(etudiant_principal.bourse) if etudiant_principal.bourse else 0.0,
                         'faculte': str(etudiant_principal.faculte) if etudiant_principal.faculte else '',
                         'domaine': str(etudiant_principal.domaine) if etudiant_principal.domaine else '',
                         'mention': str(etudiant_principal.mention) if etudiant_principal.mention else '',
@@ -204,77 +220,86 @@ class BourseViewSet(viewsets.ModelViewSet):
                         'bourse_unique_attribuee': etudiant_principal.bourse_unique_attribuee,
                         'est_etudiant_principal': etudiant_principal.est_etudiant_principal
                     },
+                    'doublons_traites': [],
                     'bourses_traitees': [],
                     'message': '',
-                    'doublons_marques': marquage_mis_a_jour
+                    'doublons_marques': doublons.count()
                 }
                 
-                if bourses_actives.count() > 1:
-                    print(f"DEBUG: Plusieurs bourses trouvées, traitement...")
-                    # Garder la première bourse ACCEPTEE, sinon la première EN_ATTENTE
-                    bourse_acceptee = bourses_actives.filter(status='ACCEPTEE').first()
+                # Ajouter les informations sur les doublons traités
+                for doublon in doublons:
+                    if doublon.id != etudiant_id:
+                        response_data['doublons_traites'].append({
+                            'id': doublon.id,
+                            'nom': doublon.nom,
+                            'prenom': doublon.prenom,
+                            'matricule': doublon.matricule,
+                            'boursier': 'NON',  # Forcé à NON
+                            'bourse': 0.0,       # Forcé à 0
+                            'action': 'devenu_non_boursier'
+                        })
+                
+                # Gestion des bourses
+                if bourses_actives.count() > 0:
+                    print(f"DEBUG: Bourses trouvées, traitement...")
+                    
+                    # Garder UNE SEULE bourse pour l'étudiant principal
+                    # Priorité: ACCEPTEE > EN_ATTENTE
+                    bourse_acceptee = bourses_actives.filter(status='ACCEPTEE', etudiant=etudiant_principal).first()
                     if bourse_acceptee:
                         bourse_a_garder = bourse_acceptee
                     else:
-                        bourse_a_garder = bourses_actives.filter(status='EN_ATTENTE').first()
+                        bourse_a_garder = bourses_actives.filter(status='EN_ATTENTE', etudiant=etudiant_principal).first()
                     
-                    print(f"DEBUG: Bourse à garder: {bourse_a_garder.id} - {bourse_a_garder.status}")
+                    # Si aucune bourse pour l'étudiant principal, prendre la première disponible
+                    if not bourse_a_garder:
+                        bourse_a_garder = bourses_actives.filter(status='ACCEPTEE').first()
+                        if not bourse_a_garder:
+                            bourse_a_garder = bourses_actives.filter(status='EN_ATTENTE').first()
                     
-                    # Rejeter ou supprimer les autres bourses
-                    for bourse in bourses_actives:
-                        if bourse.id == bourse_a_garder.id:
-                            # Transférer la bourse à l'étudiant principal si nécessaire
-                            if bourse.etudiant != etudiant_principal:
-                                bourse.etudiant = etudiant_principal
+                    print(f"DEBUG: Bourse à garder: {bourse_a_garder.id if bourse_a_garder else 'Aucune'} - {bourse_a_garder.status if bourse_a_garder else 'N/A'}")
+                    
+                    if bourse_a_garder:
+                        # Transférer la bourse à l'étudiant principal si nécessaire
+                        if bourse_a_garder.etudiant != etudiant_principal:
+                            bourse_a_garder.etudiant = etudiant_principal
+                            bourse_a_garder.save()
+                            response_data['bourses_traitees'].append({
+                                'id': bourse_a_garder.id,
+                                'action': 'transférée',
+                                'status': bourse_a_garder.status,
+                                'montant': float(bourse_a_garder.montant) if bourse_a_garder.montant else 0.0
+                            })
+                        else:
+                            response_data['bourses_traitees'].append({
+                                'id': bourse_a_garder.id,
+                                'action': 'conservée',
+                                'status': bourse_a_garder.status,
+                                'montant': float(bourse_a_garder.montant) if bourse_a_garder.montant else 0.0
+                            })
+                        
+                        # Rejeter toutes les autres bourses avec montant = 0
+                        for bourse in bourses_actives:
+                            if bourse.id != bourse_a_garder.id:
+                                bourse.status = 'REJETEE'
+                                bourse.montant = 0.0  # IMPORTANT: Mettre le montant à 0
+                                bourse.motif_rejet = "Doublon détecté - Une seule bourse autorisée par personne"
                                 bourse.save()
                                 response_data['bourses_traitees'].append({
                                     'id': bourse.id,
-                                    'action': 'transférée',
-                                    'status': bourse.status,
-                                    'montant': float(bourse.montant) if bourse.montant else 0.0
+                                    'action': 'rejetée',
+                                    'status': 'REJETEE',
+                                    'montant': 0.0,  # Montant rejeté = 0
+                                    'montant_original': float(bourse.montant) if bourse.montant else 0.0  # Garder l'original pour info
                                 })
-                            else:
-                                response_data['bourses_traitees'].append({
-                                    'id': bourse.id,
-                                    'action': 'conservée',
-                                    'status': bourse.status,
-                                    'montant': float(bourse.montant) if bourse.montant else 0.0
-                                })
-                        else:
-                            # Rejeter les autres bourses
-                            bourse.status = 'REJETEE'
-                            bourse.motif_rejet = "Doublon détecté - Une seule bourse autorisée par personne"
-                            bourse.save()
-                            response_data['bourses_traitees'].append({
-                                'id': bourse.id,
-                                'action': 'rejetée',
-                                'status': 'REJETEE',
-                                'montant': float(bourse.montant) if bourse.montant else 0.0
-                            })
-                    
-                    response_data['message'] = f"{len(bourses_actives) - 1} bourse(s) rejetée(s). Une seule bourse conservée."
-                
-                elif bourses_actives.count() == 1:
-                    print(f"DEBUG: Une seule bourse trouvée")
-                    # Vérifier que la bourse est sur l'étudiant principal
-                    bourse = bourses_actives.first()
-                    if bourse.etudiant != etudiant_principal:
-                        bourse.etudiant = etudiant_principal
-                        bourse.save()
-                        response_data['message'] = "Bourse transférée à l'étudiant principal."
+                        
+                        response_data['message'] = f"{len(bourses_actives) - 1} bourse(s) rejetée(s) avec montant 0 MGA. Une seule bourse conservée."
                     else:
-                        response_data['message'] = "Une seule bourse active trouvée."
-                    
-                    response_data['bourses_traitees'].append({
-                        'id': bourse.id,
-                        'action': 'conservée',
-                        'status': bourse.status,
-                        'montant': float(bourse.montant) if bourse.montant else 0.0
-                    })
-                
+                        print(f"DEBUG: Aucune bourse active trouvée")
+                        response_data['message'] = "Aucune bourse active trouvée pour ce groupe."
                 else:
                     print(f"DEBUG: Aucune bourse active trouvée")
-                    response_data['message'] = "Aucune bourse active trouvée pour ce groupe. Les étudiants ont été marqués comme traités."
+                    response_data['message'] = "Aucune bourse active trouvée pour ce groupe. Les doublons ont été marqués comme non boursiers."
             
             print(f"DEBUG: Réponse finale: {response_data}")
             return Response(response_data, status=status.HTTP_200_OK)
@@ -293,65 +318,62 @@ class BourseViewSet(viewsets.ModelViewSet):
                 'traceback': traceback_msg,
                 'detail': 'Erreur lors de l\'attribution de la bourse unique'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-    # bourses/views.py - Ajoutez cette action
-
-@action(detail=False, methods=['get'])
-def doublons_traites(self, request):
-    """
-    Liste les doublons déjà traités
-    """
-    try:
-        etudiants_traites = Etudiant.objects.filter(
-            doublon_traite=True
-        ).values(
-            'nom', 'prenom', 'cin', 'date_traitement_doublon',
-            'bourse_unique_attribuee', 'est_etudiant_principal'
-        ).distinct()
-        
-        return Response({
-            'count': etudiants_traites.count(),
-            'results': list(etudiants_traites)
-        }, status=status.HTTP_200_OK)
-        
-    except Exception as e:
-        return Response({
-            'error': str(e),
-            'detail': 'Erreur lors de la récupération des doublons traités'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-@action(detail=False, methods=['post'])
-def reinitialiser_doublon(self, request):
-    """
-    Réinitialiser un doublon traité (pour le cas où on se serait trompé)
-    """
-    try:
-        data = request.data
-        nom = data.get('nom')
-        prenom = data.get('prenom')
-        cin = data.get('cin')
-        
-        if not all([nom, prenom, cin]):
-            return Response({'error': 'Nom, prénom et CIN requis'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        etudiants = Etudiant.objects.filter(
-            nom=nom, prenom=prenom, cin=cin
-        )
-        
-        mis_a_jour = etudiants.update(
-            doublon_traite=False,
-            bourse_unique_attribuee=False,
-            est_etudiant_principal=False,
-            date_traitement_doublon=None
-        )
-        
-        return Response({
-            'message': f'{mis_a_jour} étudiant(s) réinitialisé(s)',
-            'count': mis_a_jour
-        }, status=status.HTTP_200_OK)
-        
-    except Exception as e:
-        return Response({
-            'error': str(e),
-            'detail': 'Erreur lors de la réinitialisation'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    @action(detail=False, methods=['get'])
+    def doublons_traites(self, request):
+        """
+        Liste les doublons déjà traités
+        """
+        try:
+            etudiants_traites = Etudiant.objects.filter(
+                doublon_traite=True
+            ).values(
+                'nom', 'prenom', 'cin', 'date_traitement_doublon',
+                'bourse_unique_attribuee', 'est_etudiant_principal'
+            ).distinct()
+            
+            return Response({
+                'count': etudiants_traites.count(),
+                'results': list(etudiants_traites)
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({
+                'error': str(e),
+                'detail': 'Erreur lors de la récupération des doublons traités'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    @action(detail=False, methods=['post'])
+    def reinitialiser_doublon(self, request):
+        """
+        Réinitialiser un doublon traité (pour le cas où on se serait trompé)
+        """
+        try:
+            data = request.data
+            nom = data.get('nom')
+            prenom = data.get('prenom')
+            cin = data.get('cin')
+            
+            if not all([nom, prenom, cin]):
+                return Response({'error': 'Nom, prénom et CIN requis'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            etudiants = Etudiant.objects.filter(
+                nom=nom, prenom=prenom, cin=cin
+            )
+            
+            mis_a_jour = etudiants.update(
+                doublon_traite=False,
+                bourse_unique_attribuee=False,
+                est_etudiant_principal=False,
+                date_traitement_doublon=None
+            )
+            
+            return Response({
+                'message': f'{mis_a_jour} étudiant(s) réinitialisé(s)',
+                'count': mis_a_jour
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({
+                'error': str(e),
+                'detail': 'Erreur lors de la réinitialisation'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
